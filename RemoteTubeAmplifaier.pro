@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+        controller/FlexRadio.cpp \
         controller/main.cpp \
         tube_pa_client/main.cpp
 
@@ -26,3 +27,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 SUBDIRS += \
     controller/controller.pro \
     tube_pa_client/tube_pa_client.pro
+
+HEADERS += \
+    controller/FlexRadio.h
