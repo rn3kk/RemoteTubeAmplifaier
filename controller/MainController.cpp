@@ -32,7 +32,6 @@ MainController::MainController(const QString &pointsFilePath, QObject *parent):
       }
     }
   }
-
 }
 
 MainController::~MainController()

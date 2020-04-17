@@ -19,6 +19,7 @@ SOURCES += \
         CapacitorsPositionController.cpp \
         FlexRadio.cpp \
         MainController.cpp \
+        MechaduinoCommunicator.cpp \
         OneFrequencyPoint.cpp \
         main.cpp
 
@@ -31,4 +32,5 @@ HEADERS += \
     CapacitorsPositionController.h \
     FlexRadio.h \
     MainController.h \
+    MechaduinoCommunicator.h \
     OneFrequencyPoint.h
