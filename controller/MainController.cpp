@@ -42,7 +42,11 @@ MainController::~MainController()
 
 void MainController::newFrequency(int freq)
 {
-
+  if(m_points.contains(freq))
+  {
+    OneFrequencyPoint p = m_points.value(freq);
+    Q_EMIT newPoint(p);
+  }
 }
 
 void MainController::savePointToMap(const OneFrequencyPoint &point)

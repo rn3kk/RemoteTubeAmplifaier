@@ -9,10 +9,11 @@ class MainController :public QObject
 {
   Q_OBJECT
 public:
-  MainController(const QString& pointsFilePath, QObject* parent = nullptr);    
+  MainController(const QString& pointsFilePath, QObject* parent = nullptr);
   ~MainController();
 
 Q_SIGNALS:
+  void newPoint(const OneFrequencyPoint& pount);
 
 public Q_SLOTS:
   void newFrequency(int freq);
