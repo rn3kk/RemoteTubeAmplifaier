@@ -21,7 +21,7 @@ bool OneFrequencyPoint::fromString(const QString &data)
   return true;
 }
 
-QString OneFrequencyPoint::toString()
+QString OneFrequencyPoint::toString() const
 {
   QString str;
   str = QString::number(freq) + " " +

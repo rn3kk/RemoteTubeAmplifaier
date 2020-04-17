@@ -1,4 +1,5 @@
 #include <QFile>
+#include <QMapIterator>
 #include <QLoggingCategory>
 #include "OneFrequencyPoint.h"
 #include "MainController.h"
@@ -30,12 +31,38 @@ MainController::MainController(const QString &pointsFilePath, QObject *parent):
         m_points.insert(point.freq, point);
       }
     }
-
   }
+
+}
+
+MainController::~MainController()
+{
 
 }
 
 void MainController::newFrequency(int freq)
 {
 
+}
+
+void MainController::savePointToMap(const OneFrequencyPoint &point)
+{
+  m_points.remove(point.freq);
+  m_points.insert(point.freq, point);
+}
+
+void MainController::savePoints()
+{
+  QFile file(m_pointsFilePath);
+  if(!file.open(QIODevice::WriteOnly | QFile::Text))
+  {
+    qCCritical(contCat) << "Can't open file with frequency points for save points";
+    return;
+  }
+
+  for(QMap<int, OneFrequencyPoint>::const_iterator i= m_points.constBegin(); i != m_points.end(); ++i)
+  {
+    file.write(i.value().toString().toStdString().c_str());
+  }
+  file.close();
 }

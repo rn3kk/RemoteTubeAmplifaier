@@ -3,28 +3,21 @@
 
 #include <QObject>
 #include <QMap>
-
-struct OneFrequencyPoint
-{
-  int freq;
-  int capPosition;
-  int loadPosition;
-  int picounturRelayBandPosition;
-
-  bool fromString(const QString& data);
-  QString toString();
-};
+#include "OneFrequencyPoint.h"
 
 class MainController :public QObject
 {
   Q_OBJECT
 public:
-  MainController(const QString& pointsFilePath, QObject* parent = nullptr);
+  MainController(const QString& pointsFilePath, QObject* parent = nullptr);    
+  ~MainController();
 
 Q_SIGNALS:
 
 public Q_SLOTS:
   void newFrequency(int freq);
+  void savePointToMap(const OneFrequencyPoint& point);
+  void savePoints();
 
 private:
    QMap<int, OneFrequencyPoint> m_points;
