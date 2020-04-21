@@ -7,6 +7,8 @@
 //710000 120   350   2
 bool OneFrequencyPoint::fromString(const QString &data)
 {
+  if(data.isNull() || data.isEmpty())
+    return false;
   QStringList list;
   list = data.split(" ");
   if(list.length() != 4)

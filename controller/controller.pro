@@ -1,5 +1,5 @@
 QT -= gui
-QT += network
+QT += network serialport
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
@@ -21,6 +21,7 @@ SOURCES += \
         MainController.cpp \
         MechaduinoCommunicator.cpp \
         OneFrequencyPoint.cpp \
+        applicaionsettings.cpp \
         main.cpp
 
 # Default rules for deployment.
@@ -33,4 +34,5 @@ HEADERS += \
     FlexRadio.h \
     MainController.h \
     MechaduinoCommunicator.h \
-    OneFrequencyPoint.h
+    OneFrequencyPoint.h \
+    applicaionsettings.h
