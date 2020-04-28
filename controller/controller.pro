@@ -1,5 +1,5 @@
-QT -= gui
-QT += network serialport
+#QT -= gui
+QT += gui network serialport widgets
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
