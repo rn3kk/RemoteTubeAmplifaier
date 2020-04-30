@@ -1,15 +1,18 @@
 #include <QSerialPort>
 #include <QThread>
 #include <QLoggingCategory>
-#include "MechaduinoCommunicator.h"
+#include "MechaduinoController.h"
 
 QLoggingCategory mechCat("MechaduinoCommunicator");
 
-MechaduinoCommunicator::MechaduinoCommunicator(const QString &comPortName, QObject *parent):
+MechaduinoController::MechaduinoController(const QString &name, const QString &comPort, float step, QMap<int, int> *points, QObject *parent):
   QObject(parent),
-  m_comPortName(comPortName)
+  m_name(name),
+  m_comPortName(comPort),
+  m_step(step),
+  m_points(points)
 {
-  m_port = new QSerialPort(comPortName);
+  m_port = new QSerialPort(comPort);
   m_port->setBaudRate(QSerialPort::Baud115200);
   m_port->setDataBits(QSerialPort::Data8);
   m_port->setParity(QSerialPort::NoParity);
@@ -25,7 +28,7 @@ MechaduinoCommunicator::MechaduinoCommunicator(const QString &comPortName, QObje
   }
 }
 
-MechaduinoCommunicator::~MechaduinoCommunicator()
+MechaduinoController::~MechaduinoController()
 {
   if(m_port)
   {
@@ -34,7 +37,12 @@ MechaduinoCommunicator::~MechaduinoCommunicator()
   }
 }
 
-float MechaduinoCommunicator::getPosition()
+void MechaduinoController::changeFreq(qint64 newFreq)
+{
+
+}
+
+float MechaduinoController::getPosition()
 {
   if(m_port->isOpen())
   {
@@ -48,7 +56,7 @@ float MechaduinoCommunicator::getPosition()
   }
 }
 
-void MechaduinoCommunicator::setPosition(int newPosition)
+void MechaduinoController::setPosition(int newPosition)
 {
   if(m_port->isOpen())
   {

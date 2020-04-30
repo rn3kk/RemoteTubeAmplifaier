@@ -3,8 +3,11 @@
 #include <QTimerEvent>
 #include "FlexRadio.h"
 
+//LIST = b'C41|slice list\r\n'
+//SUB_SCU = b'C21|sub scu all\r\n'
+//SUB_SLICE = b'C21|sub slice all\r\n'
 const QByteArray SUB_SLICE = "C21|sub slice all";
-
+//2.95.103.107
 QLoggingCategory radioLog("FlexRadio");
 
 FlexRadio::FlexRadio(const QString &host, quint16 port,  QObject* parent):
@@ -41,7 +44,7 @@ void FlexRadio::readData()
   qCDebug(radioLog) << "Read from socket " << bytes;
 
   //emit radioFrequency(array.toUInt());
-  emit radioFrequency(7100000);
+  //emit radioFrequency(7100000);
 }
 
 void FlexRadio::socketChangeState(QAbstractSocket::SocketState socketState)

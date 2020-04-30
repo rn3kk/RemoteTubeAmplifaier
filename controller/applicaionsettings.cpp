@@ -1,6 +1,7 @@
 #include <QFile>
 #include <QLoggingCategory>
 #include <QSettings>
+#include "MechaduinoController.h"
 #include "applicaionsettings.h"
 
 QLoggingCategory settCat("ApplicaionSettings");
@@ -11,6 +12,10 @@ const QString IP="ip";
 const QString PORT="port";
 const QString POINTS = "points";
 const QString COUNT = "count";
+const QString MECH = "mech";
+const QString NAME = "name";
+const QString STEP = "step";
+
 
 ApplicaionSettings::ApplicaionSettings()
 {
@@ -39,22 +44,39 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   m_flex6xxx_port = settings.value(PORT, -1).toInt();
   settings.endGroup();
 
-  settings.beginGroup(POINTS);
-  QStringList keys = settings.childKeys();
-  if(keys.isEmpty())
+  QStringList keys;
+  for(int i=1; i<=10; ++i)
   {
-    qCWarning(settCat) << "points array is empty";
-  }
-  for(QString key: keys)
-  {
-    OneFrequencyPoint point;
-    QString pointString = settings.value(key).toString();
-    if(point.fromString(pointString))
+    settings.beginGroup(MECH+QString::number(i));
+    QString name = settings.value(NAME).toString();
+    QString port = settings.value(PORT).toString();
+    float step = settings.value(STEP).toFloat();
+    keys = settings.childKeys();
+
+    keys.removeOne(NAME);
+    keys.removeOne(PORT);
+    keys.removeOne(STEP);
+
+    QMap<int, int> * map = new QMap<int, int>();
+    if(map == nullptr)
     {
-      m_points.insert(point.freq, point);
+      qCCritical(settCat) << "Can't allocate memory for points";
+      return false;
+    }
+    for(QString freq: keys)
+    {
+      int degress = settings.value(freq).toInt();
+      map->insert(freq.toInt(), degress);
+    }
+    settings.endGroup();
+
+    if(!name.isNull() && !name.isEmpty() &&
+       !port.isNull() && !port.isEmpty() &&
+       step != 0)
+    {
+      m_mechConrollerList.append(new MechaduinoController(name, port, step, map));
     }
   }
-  settings.endGroup();
 
   if(m_flex6xxx_IP.isNull() || m_flex6xxx_IP.isEmpty())
   {
@@ -80,7 +102,7 @@ int ApplicaionSettings::getFlex6xxx_port() const
   return m_flex6xxx_port;
 }
 
-QMap<int, OneFrequencyPoint> ApplicaionSettings::getPoints() const
+QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
 {
-  return m_points;
+  return m_mechConrollerList;
 }
