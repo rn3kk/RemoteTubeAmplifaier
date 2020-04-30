@@ -19,7 +19,9 @@ SOURCES += \
         FlexRadio.cpp \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
-        main.cpp
+        form.cpp \
+        main.cpp \
+        mechpanel.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -29,4 +31,10 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     FlexRadio.h \
     MechaduinoController.h \
-    applicaionsettings.h
+    applicaionsettings.h \
+    form.h \
+    mechpanel.h
+
+FORMS += \
+    form.ui \
+    mechpanel.ui

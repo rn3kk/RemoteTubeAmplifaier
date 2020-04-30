@@ -1,5 +1,10 @@
-#include <QCoreApplication>
+#include <QApplication>
 #include <QVector>
+#include <QHBoxLayout>
+#include "form.h"
+#include "mechpanel.h"
+#include <QLabel>
+
 #include "FlexRadio.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
@@ -7,42 +12,29 @@
 //ttyACM0
 int main(int argc, char *argv[])
 {
-  QCoreApplication a(argc, argv);
+  QApplication a(argc, argv);
+  Form f;
+  f.show();
 
-  QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
-  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
-  setting.loadSettings(configPath);
-
-//  MechaduinoCommunicator communicator("/dev/ttyACM0");
-//  communicator.getPosition();
-
-  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
-
-  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
-  QVector<MechaduinoController*>::const_iterator i;
-  for(i = v.begin(); i!= v.end(); ++i)
+  QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
+  if(mechaduinoContainer)
   {
-    QObject::connect(&flexRadio, &FlexRadio::radioFrequency, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    MechPanel* mp = new MechPanel();
+    mechaduinoContainer->addWidget(mp);
   }
+  //f.horizontalLayoutWidget.
+//  QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
+//  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
+//  setting.loadSettings(configPath);
 
-//  while(1)
+//  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
+
+//  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
+//  QVector<MechaduinoController*>::const_iterator i;
+//  for(i = v.begin(); i!= v.end(); ++i)
 //  {
-//    for(int i =0; i< 20; i+=1)
-//    {
-//      communicator.setPosition(i);
-//    }
-//    for(int i =80; i> 45; i-=1)
-//    {
-//      communicator.setPosition(i);
-//    }
-//    for(int i =250; i< 360; i+=2)
-//    {
-//      communicator.setPosition(i);
-//    }
+//    QObject::connect(&flexRadio, &FlexRadio::radioFrequency, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
 //  }
-  //MainController controller("/home/user/Projects/RemoteTubeAmplifaier/controller/points");
-
-  //CapacitorsPositionController capController ("tty1", "tty2");
 
   return a.exec();
 }
