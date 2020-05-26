@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>120</width>
-    <height>151</height>
+    <height>171</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <x>0</x>
      <y>0</y>
      <width>121</width>
-     <height>151</height>
+     <height>171</height>
     </rect>
    </property>
    <property name="title">
@@ -28,10 +28,10 @@
    <widget class="QLCDNumber" name="lcdNumber">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>20</x>
       <y>120</y>
-      <width>71</width>
-      <height>23</height>
+      <width>81</width>
+      <height>41</height>
      </rect>
     </property>
     <property name="font">
