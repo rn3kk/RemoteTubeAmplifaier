@@ -38,3 +38,6 @@ HEADERS += \
 FORMS += \
     form.ui \
     mechpanel.ui
+
+DISTFILES += \
+    config.conf

@@ -24,11 +24,15 @@ Q_SIGNALS:
 
 private:
   void timerEvent(QTimerEvent *event) override;
+  void parseVfomSLICE(const QByteArray& data);
 
 private:
   const QString m_radioHost;
   quint16 m_radioPort;
   QTcpSocket* m_socket;
+
+  QByteArray m_remoteVersionProtocol;
+  QByteArray m_handleSeq;
 
 };
 

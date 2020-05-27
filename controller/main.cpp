@@ -13,6 +13,7 @@
 int main(int argc, char *argv[])
 {
   QApplication a(argc, argv);
+
   Form f;
   f.show();
 
@@ -23,11 +24,13 @@ int main(int argc, char *argv[])
     mechaduinoContainer->addWidget(mp);
   }
   //f.horizontalLayoutWidget.
-//  QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
-//  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
-//  setting.loadSettings(configPath);
+  //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
+  QString configPath = "config.conf";
+  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
+  if(!setting.loadSettings(configPath))
+    exit(0);
 
-//  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
+  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
 
 //  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
 //  QVector<MechaduinoController*>::const_iterator i;
