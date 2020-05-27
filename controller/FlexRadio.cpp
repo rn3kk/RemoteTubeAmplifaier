@@ -12,6 +12,7 @@ const QByteArray SUB_TX_ALL = "sub tx all";
 const QByteArray SUB_FOUNDATION = "C21|sub foundation all";
 const QString SLICE = "slice";
 const QString RF_FREQENCY = "RF_frequency";
+const QString ACTIVE = "active";
 
 QLoggingCategory radioLog("FlexRadio");
 
@@ -127,12 +128,19 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
 {
   sliceData = data.split(' ');
   int sliceNumber = sliceData.at(1).toInt();
+  float freq;
+  int active;
   for(i=sliceData.constBegin(); i !=sliceData.constEnd(); ++i)
   {
     if( i->indexOf(RF_FREQENCY) == 0)
     {
-      float freq= i->split('=').at(1).toFloat();
-      qDebug()<< "Radio freq " << freq;
+      freq= i->split('=').at(1).toFloat();
+      qDebug()<< "Slice "<< sliceNumber << "Radio freq " << freq;
+    }
+    else if(i->indexOf(ACTIVE) == 0)
+    {
+      active = i->split('=').at(1).toInt();
     }
   }
+  qDebug()<< "Slice "<< sliceNumber << " Active "<< active <<" Radio freq " << freq;
 }
