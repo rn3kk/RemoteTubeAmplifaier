@@ -34,6 +34,11 @@ private:
   QByteArray m_remoteVersionProtocol;
   QByteArray m_handleSeq;
 
+  float m_slice1Freq;
+  float m_slice2Freq;
+  bool activeSlice1;
+  bool activeSlice2;
+
 };
 
 #endif // RADIO_H
