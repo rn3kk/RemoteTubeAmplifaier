@@ -13,6 +13,7 @@ const QByteArray SUB_FOUNDATION = "C21|sub foundation all";
 const QString SLICE = "slice";
 const QString RF_FREQENCY = "RF_frequency";
 const QString ACTIVE = "active";
+const QString TX = "tx";
 
 QLoggingCategory radioLog("FlexRadio");
 
@@ -66,7 +67,8 @@ void FlexRadio::readData()
   {
     if(it->indexOf(SLICE) == 0)
     {
-      parseVfomSLICE((*it));
+      //TODO отрезать \n  все что после него, иначе не верно парсится
+      parseVfomSLICE(*it);
     }
   }
   //qCDebug(radioLog) << "Read from socket " << bytes;
@@ -128,18 +130,35 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
 {
   sliceData = data.split(' ');
   int sliceNumber = sliceData.at(1).toInt();
-  float freq;
-  int active;
+  QString freq;
+  quint8 active;
+  quint8 tx;
   for(i=sliceData.constBegin(); i !=sliceData.constEnd(); ++i)
   {
     if( i->indexOf(RF_FREQENCY) == 0)
     {
-      freq= i->split('=').at(1).toFloat();
+      freq= i->split('=').at(1);
+      if(sliceNumber == 0)
+        Q_EMIT vfoAFreq(freq);
+      else if(sliceNumber == 1)
+        Q_EMIT vfoBFreq(freq);
       qDebug()<< "Slice "<< sliceNumber << "Radio freq " << freq;
     }
     else if(i->indexOf(ACTIVE) == 0)
     {
       active = i->split('=').at(1).toInt();
+      if(sliceNumber == 0)
+        Q_EMIT vfoAActive(active);
+      else if(sliceNumber == 1)
+        Q_EMIT vfoBActive(active);
+    }
+    else if(i->indexOf(TX) == 0)
+    {
+      tx = i->split('=').at(1).toInt();
+      if(sliceNumber == 0)
+        Q_EMIT vfoATX(tx);
+      else if(sliceNumber == 1)
+        Q_EMIT vfoBTX(tx);
     }
   }
   qDebug()<< "Slice "<< sliceNumber << " Active "<< active <<" Radio freq " << freq;

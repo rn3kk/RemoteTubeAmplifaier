@@ -20,7 +20,12 @@ public Q_SLOTS:
   void writen(qint64 bytes);
 
 Q_SIGNALS:
-  void radioFrequency(quint64 freq);
+  void vfoAFreq(const QString& freq);
+  void vfoBFreq(const QString& freq);
+  void vfoAActive(quint8);
+  void vfoBActive(quint8);
+  void vfoATX(quint8);
+  void vfoBTX(quint8);
 
 private:
   void timerEvent(QTimerEvent *event) override;

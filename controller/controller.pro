@@ -21,7 +21,8 @@ SOURCES += \
         applicaionsettings.cpp \
         form.cpp \
         main.cpp \
-        mechpanel.cpp
+        mechpanel.cpp \
+        vfo.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -33,11 +34,13 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     form.h \
-    mechpanel.h
+    mechpanel.h \
+    vfo.h
 
 FORMS += \
     form.ui \
-    mechpanel.ui
+    mechpanel.ui \
+    vfo.ui
 
 DISTFILES += \
     config.conf
