@@ -11,9 +11,10 @@ const QByteArray SUB_SLICE = "C21|sub slice all\r\n";
 const QByteArray SUB_TX_ALL = "sub tx all";
 const QByteArray SUB_FOUNDATION = "C21|sub foundation all";
 const QString SLICE = "slice";
-const QString RF_FREQENCY = "RF_frequency";
-const QString ACTIVE = "active";
-const QString TX = "tx";
+const QString RF_FREQENCY = "RF_frequency=";
+const QString ACTIVE = "active=";
+const QString TX = "tx=";
+const QByteArray N = "\\n";
 
 QLoggingCategory radioLog("FlexRadio");
 
@@ -62,6 +63,8 @@ void FlexRadio::readData()
 {
   qint64 bytes = m_socket->bytesAvailable();
   array = m_socket->read(bytes);
+  qCDebug(radioLog) << "Read from socket " << bytes;
+  qDebug() << array;
   QList<QByteArray> list = array.split('|');
   for(it=list.constBegin(); it != list.constEnd(); ++it)
   {
@@ -71,8 +74,6 @@ void FlexRadio::readData()
       parseVfomSLICE(*it);
     }
   }
-  //qCDebug(radioLog) << "Read from socket " << bytes;
-  //qDebug() << array;
 
   //emit radioFrequency(array.toUInt());
   //emit radioFrequency(7100000);
@@ -126,15 +127,22 @@ void FlexRadio::timerEvent(QTimerEvent *event)
 
 QList<QByteArray> sliceData;
 QList<QByteArray>::const_iterator i;
+QByteArray a;
 void FlexRadio::parseVfomSLICE(const QByteArray &data)
 {
-  sliceData = data.split(' ');
+  int pos = data.indexOf('\n');
+  if(pos)
+    sliceData = data.left(pos).split(' ');
+  else
+    sliceData = data.split(' ');
+
   int sliceNumber = sliceData.at(1).toInt();
   QString freq;
   quint8 active;
   quint8 tx;
   for(i=sliceData.constBegin(); i !=sliceData.constEnd(); ++i)
   {
+    //QByteArray a = i->left(i->indexOf("));
     if( i->indexOf(RF_FREQENCY) == 0)
     {
       freq= i->split('=').at(1);
