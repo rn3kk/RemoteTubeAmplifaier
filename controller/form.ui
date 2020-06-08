@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>584</width>
+    <width>641</width>
     <height>343</height>
    </rect>
   </property>
@@ -31,11 +31,24 @@
     <rect>
      <x>120</x>
      <y>0</y>
-     <width>461</width>
+     <width>511</width>
      <height>341</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="mechaduinoContainer"/>
+  </widget>
+  <widget class="QPushButton" name="startTuneButton">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>50</y>
+     <width>89</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Tune</string>
+   </property>
   </widget>
  </widget>
  <resources/>
