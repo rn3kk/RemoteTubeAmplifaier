@@ -16,8 +16,8 @@ public:
   ~Vfo();
 
 public slots:
-  void vfoAChangeFreq(const QString& newFreq);
-  void vfoBChangeFreq(const QString& newFreq);
+  void vfoAChangeFreq(int newFreq);
+  void vfoBChangeFreq(int newFreq);
   void vfoAChangeActive(quint8 active); // 0 or 1
   void vfoBChangeActive(quint8 active); // 0 or 1
   void vfoATX(quint8 tx);

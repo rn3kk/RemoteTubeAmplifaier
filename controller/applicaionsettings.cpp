@@ -45,9 +45,20 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   settings.endGroup();
 
   QStringList keys;
-  for(int i=1; i<=10; ++i)
+  for(int i=1; i<=3; ++i)
   {
     settings.beginGroup(MECH+QString::number(i));
+//    int freq = 1700; //add freq to config
+//    while(1)
+//    {
+//      settings.setValue(QString::number(freq), "0");
+//      freq+=25;
+//      if(freq > 30000)
+//        break;
+//    }
+//    settings.endGroup();
+//    continue;
+
     QString name = settings.value(NAME).toString();
     QString port = settings.value(PORT).toString();
     float step = settings.value(STEP).toFloat();

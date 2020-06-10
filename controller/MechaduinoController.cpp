@@ -1,6 +1,7 @@
 #include <QSerialPort>
 #include <QThread>
 #include <QLoggingCategory>
+#include <QMap>
 #include "MechaduinoController.h"
 
 QLoggingCategory mechCat("MechaduinoCommunicator");
@@ -12,7 +13,12 @@ MechaduinoController::MechaduinoController(const QString &name, const QString &c
   m_step(step),
   m_points(points)
 {
-  m_port = new QSerialPort(comPort);
+//  QThread* thread = new QThread();
+//  this->moveToThread(thread);
+//  QObject::connect(thread, &QThread::started, this, &MechaduinoController::init, Qt::QueuedConnection);
+//  thread->start();
+
+  m_port = new QSerialPort(m_comPortName);
   m_port->setBaudRate(QSerialPort::Baud115200);
   m_port->setDataBits(QSerialPort::Data8);
   m_port->setParity(QSerialPort::NoParity);
@@ -37,31 +43,66 @@ MechaduinoController::~MechaduinoController()
   }
 }
 
-void MechaduinoController::changeFreq(qint64 newFreq)
+void MechaduinoController::init()
 {
 
+}
+
+int pos;
+int begin;
+int end;
+void MechaduinoController::changeFreq(int newFreq)
+{
+  begin = newFreq/100; // отбрасываем последние два числа
+  begin *= 100;
+  end = newFreq % 100; //остаток от деления есть два последних числа частоты
+  if(end >= 0 && end < 25)
+    pos = m_points->key(begin); //+00
+  else if(end >= 25 && end < 50)
+    pos = m_points->key(begin+25); //+25
+  else if(end >= 50 && end < 75)
+    pos = m_points->key(begin+50); //+50
+  else if(end >= 75 && end <100)
+    pos = m_points->key(begin+75); //+75
+
+  float f = getPosition();
+  setPosition(pos);
 }
 
 float MechaduinoController::getPosition()
 {
   if(m_port->isOpen())
   {
-    m_port->readAll();
+    bool b = m_port->waitForReadyRead(100);
+    if(b)
+      m_port->readAll();
     m_port->write("p");
     m_port->waitForBytesWritten();
     m_port->waitForReadyRead();
     QString position = m_port->readAll();
-    qDebug(mechCat) << position;
+    //20.05\r\nEnter setpoint:\r\n90.00\r\nstepNumber: 0 , Angle: 59.72, raw encoder: 2722\r\n
+    //qDebug(mechCat) << position;
+    int f = position.indexOf("Angle: ");
+    QString posAngl= position.mid(f+7, 5);
+
     m_port->write("xy");
+    m_port->waitForBytesWritten();
+
+    return position.toFloat();
   }
+  return -1;
 }
 
 void MechaduinoController::setPosition(int newPosition)
 {
-  if(m_port->isOpen())
+  if(newPosition < 0 || newPosition > 360)
+    return;
+
+  if(m_port && m_port->isOpen())
   {
-    m_port->waitForReadyRead();
-    m_port->readAll();
+    bool b = m_port->waitForReadyRead(100);
+    if(b)
+      m_port->readAll();
     m_port->write("r");
     m_port->write(QString::number(newPosition).toStdString().c_str());
     m_port->waitForBytesWritten();
@@ -69,5 +110,5 @@ void MechaduinoController::setPosition(int newPosition)
     QString position = m_port->readAll();
     qDebug(mechCat) << position;
   }
-  thread()->msleep(100);
+  //thread()->msleep(100);
 }

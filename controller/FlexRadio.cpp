@@ -128,6 +128,7 @@ void FlexRadio::timerEvent(QTimerEvent *event)
 QList<QByteArray> sliceData;
 QList<QByteArray>::const_iterator i;
 QByteArray a;
+int freq;
 void FlexRadio::parseVfomSLICE(const QByteArray &data)
 {
   int pos = data.indexOf('\n');
@@ -137,15 +138,13 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
     sliceData = data.split(' ');
 
   int sliceNumber = sliceData.at(1).toInt();
-  QString freq;
   quint8 active;
   quint8 tx;
   for(i=sliceData.constBegin(); i !=sliceData.constEnd(); ++i)
   {
-    //QByteArray a = i->left(i->indexOf("));
     if( i->indexOf(RF_FREQENCY) == 0)
     {
-      freq= i->split('=').at(1);
+      freq= i->split('=').at(1).toFloat()*1000;
       if(sliceNumber == 0)
         Q_EMIT vfoAFreq(freq);
       else if(sliceNumber == 1)

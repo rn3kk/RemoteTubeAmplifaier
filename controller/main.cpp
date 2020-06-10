@@ -42,12 +42,12 @@ int main(int argc, char *argv[])
   QObject::connect(&flexRadio, &FlexRadio::vfoATX, vfoPanel, &Vfo::vfoATX, Qt::QueuedConnection);
   QObject::connect(&flexRadio, &FlexRadio::vfoBTX, vfoPanel, &Vfo::vfoBTX, Qt::QueuedConnection);
 
-//  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
-//  QVector<MechaduinoController*>::const_iterator i;
-//  for(i = v.begin(); i!= v.end(); ++i)
-//  {
-//    QObject::connect(&flexRadio, &FlexRadio::radioFrequency, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
-//  }
+  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
+  QVector<MechaduinoController*>::const_iterator i;
+  for(i = v.begin(); i!= v.end(); ++i)
+  {
+    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+  }
 
   return a.exec();
 }

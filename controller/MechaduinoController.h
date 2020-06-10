@@ -15,7 +15,8 @@ public:
   ~MechaduinoController();
 
 public Q_SLOTS:
-  static void changeFreq(qint64 newFreq);
+  void init();
+  void changeFreq(int newFreq);
 
 private:
   float getPosition();
@@ -27,6 +28,8 @@ private:
   QString m_comPortName;
   float m_step;
   QMap<int,int>* m_points;
+
+  int m_nearestFreq;
 };
 
 #endif // MECHADUINOCOMMUNICATOR_H

@@ -13,14 +13,15 @@ Vfo::~Vfo()
   delete ui;
 }
 
-void Vfo::vfoAChangeFreq(const QString &newFreq)
+
+void Vfo::vfoAChangeFreq(int newFreq)
 {
-  ui->VFO_A->setText(newFreq);
+  ui->VFO_A->setText(QString::number(newFreq));
 }
 
-void Vfo::vfoBChangeFreq(const QString &newFreq)
+void Vfo::vfoBChangeFreq(int newFreq)
 {
-  ui->VFO_B->setText(newFreq);
+  ui->VFO_B->setText(QString::number(newFreq));
 }
 
 void Vfo::vfoATX(quint8 tx)

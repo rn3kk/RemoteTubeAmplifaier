@@ -20,8 +20,8 @@ public Q_SLOTS:
   void writen(qint64 bytes);
 
 Q_SIGNALS:
-  void vfoAFreq(const QString& freq);
-  void vfoBFreq(const QString& freq);
+  void vfoAFreq(int freq);
+  void vfoBFreq(int freq);
   void vfoAActive(quint8);
   void vfoBActive(quint8);
   void vfoATX(quint8);
