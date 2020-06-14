@@ -18,6 +18,12 @@ public:
 
   void addMechpanel(Ui::MechPanel* panel);
 
+signals:
+  void setPosition(int position);
+
+private slots:
+  void on_startTuneButton_clicked();
+
 private:
   Ui::Form *ui;
 };

@@ -15,10 +15,13 @@ public:
   explicit MechPanel(QWidget *parent = nullptr);
   ~MechPanel();
 
+signals:
+  void changePosition(qint64 position);
+
 private slots:
   void on_Panel_objectNameChanged(const QString &objectName);
-
   void on_dial_sliderMoved(int position);
+  void on_dial_valueChanged(int value);
 
 private:
   Ui::MechPanel *ui;

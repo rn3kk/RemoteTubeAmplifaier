@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QMap>
+#include <QMutex>
 
 class QSerialPort;
 
@@ -17,10 +18,14 @@ public:
 public Q_SLOTS:
   void init();
   void changeFreq(int newFreq);
+  void setPosition(qint64 newPosition);
+
+private Q_SLOTS:
+  void readyRead();
+  void bytesWriten(qint64 bytes);
 
 private:
   float getPosition();
-  void setPosition(int newPosition);
 
 private:
   QSerialPort* m_port;
@@ -30,6 +35,7 @@ private:
   QMap<int,int>* m_points;
 
   int m_nearestFreq;
+
 };
 
 #endif // MECHADUINOCOMMUNICATOR_H

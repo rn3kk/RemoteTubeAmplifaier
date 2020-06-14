@@ -22,3 +22,9 @@ void MechPanel::on_dial_sliderMoved(int position)
 {
 
 }
+
+void MechPanel::on_dial_valueChanged(int value)
+{
+  ui->lcdNumber->display(value);
+  Q_EMIT changePosition(value);
+}
