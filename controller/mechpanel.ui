@@ -25,6 +25,9 @@
    <property name="title">
     <string>GroupBox</string>
    </property>
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
    <widget class="QLCDNumber" name="lcdNumber">
     <property name="geometry">
      <rect>

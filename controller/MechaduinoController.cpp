@@ -94,6 +94,11 @@ float MechaduinoController::getPosition()
   return -1;
 }
 
+QString MechaduinoController::getName() const
+{
+  return m_name;
+}
+
 void MechaduinoController::setPosition(qint64 newPosition)
 {
   if(!m_port || !m_port->isOpen())

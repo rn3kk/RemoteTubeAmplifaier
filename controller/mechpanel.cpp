@@ -1,11 +1,17 @@
 #include "mechpanel.h"
 #include "ui_mechpanel.h"
 
-MechPanel::MechPanel(QWidget *parent) :
+MechPanel::MechPanel(const QString &panelName, QWidget *parent) :
   QWidget(parent),
   ui(new Ui::MechPanel)
 {
   ui->setupUi(this);
+  ui->Panel->setTitle(panelName);
+  ui->Panel->setStyleSheet("QGroupBox {"
+                           "  border: 1px solid gray;"
+                           "  border-radius: 9px;"
+                           "  margin-top: 0.5em;"
+                           "}");
 }
 
 MechPanel::~MechPanel()

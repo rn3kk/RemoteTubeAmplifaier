@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
   QVector<MechaduinoController*>::const_iterator i;
   for(i = v.begin(); i!= v.end(); ++i)
   {
-    MechPanel* mp = new MechPanel();
+    MechPanel* mp = new MechPanel((*i)->getName());
     mechaduinoContainer->addWidget(mp);
     //    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(mp, &MechPanel::changePosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);

@@ -15,6 +15,8 @@ public:
   MechaduinoController(const QString& name, const QString& comPort, float step, QMap<int,int>* points, QObject* parent = nullptr);
   ~MechaduinoController();
 
+  QString getName() const;
+
 public Q_SLOTS:
   void init();
   void changeFreq(int newFreq);

@@ -12,7 +12,7 @@ class MechPanel : public QWidget
   Q_OBJECT
 
 public:
-  explicit MechPanel(QWidget *parent = nullptr);
+  explicit MechPanel(const QString& panelName, QWidget *parent = nullptr);
   ~MechPanel();
 
 signals:
