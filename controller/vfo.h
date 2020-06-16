@@ -22,7 +22,10 @@ public slots:
   void vfoBChangeActive(quint8 active); // 0 or 1
   void vfoATX(quint8 tx);
   void vfoBTX(quint8 tx);
+  void tuneMode(bool isTuneMode);
 
+private:
+  void disableAll();
 private:
   Ui::Vfo *ui;
 };

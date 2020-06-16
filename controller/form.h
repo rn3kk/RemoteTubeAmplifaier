@@ -20,12 +20,14 @@ public:
 
 signals:
   void setPosition(int position);
+  void tuneMode(bool isTuneMode); //true enable tune; false disable tune mode
 
 private slots:
-  void on_startTuneButton_clicked();
+  void on_tuneButton_clicked();
 
 private:
   Ui::Form *ui;
+  bool m_tuneMode = false;
 };
 
 #endif // FORM_H

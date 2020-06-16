@@ -22,10 +22,18 @@ void Form::addMechpanel(Ui::MechPanel *panel)
 
 }
 
-void Form::on_startTuneButton_clicked()
+void Form::on_tuneButton_clicked()
 {
-    QDateTime d = QDateTime::currentDateTime();
-    qDebug() << "on_startTuneButton_clicked " << d;
-    int p = ui->lineEdit->text().toInt();
-    Q_EMIT setPosition(p);
+  if(m_tuneMode)
+  {
+    ui->tuneButton->setText("Tune");
+    m_tuneMode = false;
+    Q_EMIT tuneMode(m_tuneMode);
+  }
+  else
+  {
+    ui->tuneButton->setText("End tune");
+    m_tuneMode = true;
+    Q_EMIT tuneMode(m_tuneMode);
+  }
 }

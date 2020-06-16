@@ -55,6 +55,7 @@ void FlexRadio::isConnected()
 void FlexRadio::isDisconected()
 {
   qCDebug(radioLog) << "Disconnect from host";
+  Q_EMIT vfoAFreq(-1);
 }
 
 QByteArray array;

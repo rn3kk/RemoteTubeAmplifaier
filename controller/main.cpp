@@ -20,8 +20,10 @@ int main(int argc, char *argv[])
   f.show();
 
   Vfo* vfoPanel = new Vfo();
+  QObject::connect(&f, &Form::tuneMode, vfoPanel, &Vfo::tuneMode, Qt::QueuedConnection);
   QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
   mechaduinoContainer->addWidget(vfoPanel);
+
 
   //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
   QString configPath = "config.conf";

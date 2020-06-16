@@ -37,7 +37,7 @@
    </property>
    <layout class="QHBoxLayout" name="mechaduinoContainer"/>
   </widget>
-  <widget class="QPushButton" name="startTuneButton">
+  <widget class="QPushButton" name="tuneButton">
    <property name="geometry">
     <rect>
      <x>20</x>
@@ -48,19 +48,6 @@
    </property>
    <property name="text">
     <string>Tune</string>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="lineEdit">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>110</y>
-     <width>81</width>
-     <height>25</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>150</string>
    </property>
   </widget>
  </widget>

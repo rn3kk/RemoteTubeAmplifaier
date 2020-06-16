@@ -16,7 +16,10 @@ Vfo::~Vfo()
 
 void Vfo::vfoAChangeFreq(int newFreq)
 {
-  ui->VFO_A->setText(QString::number(newFreq));
+  if(newFreq > 0)
+    ui->VFO_A->setText(QString::number(newFreq));
+  else
+    disableAll();
 }
 
 void Vfo::vfoBChangeFreq(int newFreq)
@@ -46,6 +49,22 @@ void Vfo::vfoBTX(quint8 tx)
   {
     ui->TX_B->setText("TX");
   }
+}
+
+void Vfo::tuneMode(bool isTuneMode)
+{
+    ui->upFreqButton->setEnabled(isTuneMode);
+    ui->downFreqButton->setEnabled(isTuneMode);
+}
+
+void Vfo::disableAll()
+{
+  ui->VFO_A->setText("-");
+  ui->VFO_B->setText("-");
+  ui->ActiveA->setText("");
+  ui->ActiveB->setText("");
+  ui->TX_A->setText("");
+  ui->TX_B->setText("");
 }
 
 void Vfo::vfoAChangeActive(quint8 active)
