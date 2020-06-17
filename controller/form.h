@@ -19,11 +19,14 @@ public:
   void addMechpanel(Ui::MechPanel* panel);
 
 signals:
+  void setFreq(float freq);
   void setPosition(int position);
   void tuneMode(bool isTuneMode); //true enable tune; false disable tune mode
 
 private slots:
   void on_tuneButton_clicked();
+
+  void on_pushButton_clicked();
 
 private:
   Ui::Form *ui;

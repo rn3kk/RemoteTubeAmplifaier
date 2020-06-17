@@ -24,8 +24,16 @@ public slots:
   void vfoBTX(quint8 tx);
   void tuneMode(bool isTuneMode);
 
+signals:
+  void tuneTxSliceToNewFreq(int frequency);
+
+private slots:
+  void on_upFreqButton_clicked();
+  void on_downFreqButton_clicked();
+
 private:
   void disableAll();
+  int calculate25StepFreq();
 private:
   Ui::Vfo *ui;
 };

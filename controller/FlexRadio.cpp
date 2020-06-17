@@ -33,6 +33,36 @@ FlexRadio::FlexRadio(const QString &host, quint16 port,  QObject* parent):
   m_socket->connectToHost(m_radioHost, m_radioPort);
 }
 
+void FlexRadio::setTXFreq(int freq)
+{
+  double d = freq / 1000.;
+  QString data = "C12|slice t ";
+  if(m_A_isTX)
+  {
+    data.append(" 0 ");
+  }
+  else if(m_B_isTX)
+  {
+    data.append(" 1 ");
+  }
+  else
+  {
+    data = QString();
+  }
+  if (!data.isNull() && !data.isEmpty())
+  {
+    data.append(QString::number(d));
+    data.append("\n");
+    qDebug() << data;
+    m_socket->write(data.toLatin1());
+    m_socket->waitForBytesWritten();
+    if(m_A_isTX)
+      Q_EMIT vfoAFreq(freq);
+    else if(m_B_isTX)
+      Q_EMIT vfoBFreq(freq);
+  }
+}
+
 void FlexRadio::isConnected()
 {
   qCDebug(radioLog) << "Connect to host";
@@ -164,9 +194,15 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
     {
       tx = i->split('=').at(1).toInt();
       if(sliceNumber == 0)
+      {
+        m_A_isTX = tx;
         Q_EMIT vfoATX(tx);
+      }
       else if(sliceNumber == 1)
+      {
+        m_B_isTX=tx;
         Q_EMIT vfoBTX(tx);
+      }
     }
   }
   qDebug()<< "Slice "<< sliceNumber << " Active "<< active <<" Radio freq " << freq;

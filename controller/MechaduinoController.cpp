@@ -52,14 +52,12 @@ void MechaduinoController::init()
   }
 }
 
-int pos;
-int begin;
-int end;
 void MechaduinoController::changeFreq(int newFreq)
 {
-  begin = newFreq/100; // отбрасываем последние два числа
+  int pos;
+  int begin = newFreq/100; // отбрасываем последние два числа
   begin *= 100;
-  end = newFreq % 100; //остаток от деления есть два последних числа частоты
+  int end = newFreq % 100; //остаток от деления есть два последних числа частоты
   if(end >= 0 && end < 25)
     pos = m_points->key(begin); //+00
   else if(end >= 25 && end < 50)

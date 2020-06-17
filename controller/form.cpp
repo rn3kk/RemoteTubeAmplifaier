@@ -23,7 +23,7 @@ void Form::addMechpanel(Ui::MechPanel *panel)
 }
 
 void Form::on_tuneButton_clicked()
-{
+{  
   if(m_tuneMode)
   {
     ui->tuneButton->setText("Tune");
@@ -36,4 +36,10 @@ void Form::on_tuneButton_clicked()
     m_tuneMode = true;
     Q_EMIT tuneMode(m_tuneMode);
   }
+}
+
+void Form::on_pushButton_clicked()
+{
+  QString freq = ui->lineEdit->text();
+  Q_EMIT setFreq(freq.toFloat());
 }

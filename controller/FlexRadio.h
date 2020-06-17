@@ -12,6 +12,7 @@ public:
   explicit FlexRadio(const QString& host, quint16 port, QObject* parent = nullptr);
 
 public Q_SLOTS:
+  void setTXFreq(int freq);
   void isConnected();
   void isDisconected();
   void readData();
@@ -41,9 +42,10 @@ private:
 
   float m_slice1Freq;
   float m_slice2Freq;
-  bool activeSlice1;
-  bool activeSlice2;
-
+  bool m_activeSlice1;
+  bool m_activeSlice2;
+  bool m_A_isTX=false;
+  bool m_B_isTX=false;
 };
 
 #endif // RADIO_H

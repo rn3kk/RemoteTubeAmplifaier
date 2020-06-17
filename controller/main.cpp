@@ -24,20 +24,22 @@ int main(int argc, char *argv[])
   QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
   mechaduinoContainer->addWidget(vfoPanel);
 
-
   //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
   QString configPath = "config.conf";
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
     exit(0);
   \
-  //  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoBFreq, vfoPanel, &Vfo::vfoBChangeFreq, Qt::QueuedConnection);
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoAActive, vfoPanel, &Vfo::vfoAChangeActive, Qt::QueuedConnection);
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoBActive, vfoPanel, &Vfo::vfoBChangeActive, Qt::QueuedConnection);
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoATX, vfoPanel, &Vfo::vfoATX, Qt::QueuedConnection);
-  //  QObject::connect(&flexRadio, &FlexRadio::vfoBTX, vfoPanel, &Vfo::vfoBTX, Qt::QueuedConnection);
+  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
+  QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::vfoBFreq, vfoPanel, &Vfo::vfoBChangeFreq, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::vfoAActive, vfoPanel, &Vfo::vfoAChangeActive, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::vfoBActive, vfoPanel, &Vfo::vfoBChangeActive, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::vfoATX, vfoPanel, &Vfo::vfoATX, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::vfoBTX, vfoPanel, &Vfo::vfoBTX, Qt::QueuedConnection);
+
+  QObject::connect(&f, &Form::setFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
+  QObject::connect(vfoPanel, &Vfo::tuneTxSliceToNewFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
 
   const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
   QVector<MechaduinoController*>::const_iterator i;

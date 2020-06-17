@@ -50,6 +50,19 @@
     <string>Tune</string>
    </property>
   </widget>
+  <widget class="QLineEdit" name="lineEdit">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>120</y>
+     <width>113</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>14.225</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
