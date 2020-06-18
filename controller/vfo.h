@@ -26,6 +26,7 @@ public slots:
 
 signals:
   void tuneTxSliceToNewFreq(int frequency);
+  void savePosition();
 
 private slots:
   void on_upFreqButton_clicked();
@@ -34,8 +35,11 @@ private slots:
 private:
   void disableAll();
   int calculate25StepFreq();
+  int calculate25StepFreq(int freq);
+
 private:
   Ui::Vfo *ui;
+  bool m_tuneMode = false;
 };
 
 #endif // VFO_H

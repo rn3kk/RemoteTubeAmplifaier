@@ -4,6 +4,7 @@
 #include <QThread>
 #include <QLoggingCategory>
 #include <QMap>
+#include "applicaionsettings.h"
 #include "MechaduinoController.h"
 
 QLoggingCategory mechCat("MechaduinoCommunicator");
@@ -53,21 +54,25 @@ void MechaduinoController::init()
 }
 
 void MechaduinoController::changeFreq(int newFreq)
-{
-  int pos;
+{  
+  int freq;
   int begin = newFreq/100; // отбрасываем последние два числа
   begin *= 100;
   int end = newFreq % 100; //остаток от деления есть два последних числа частоты
   if(end >= 0 && end < 25)
-    pos = m_points->key(begin); //+00
+    freq = begin;
   else if(end >= 25 && end < 50)
-    pos = m_points->key(begin+25); //+25
+    freq = begin + 25;
   else if(end >= 50 && end < 75)
-    pos = m_points->key(begin+50); //+50
+    freq = begin + 50;
   else if(end >= 75 && end <100)
-    pos = m_points->key(begin+75); //+75
+    freq = begin + 75;
 
-  setPosition(pos);
+  m_lastFreq = freq;
+  int pos = m_points->value(begin); //+00
+
+  qDebug() << "Change freq " << m_lastFreq << " " << pos;
+   setPosition(pos);
 }
 
 float MechaduinoController::getPosition()
@@ -104,11 +109,20 @@ void MechaduinoController::setPosition(qint64 newPosition)
     return;
   }
   if(newPosition >= 0 && newPosition <= 360)
-  {
+  {    
     QString  str = "r"+QString::number(newPosition) + "\n";
     m_port->write(str.toStdString().c_str());
     m_port->flush();
+    m_lastPos = newPosition;
+    Q_EMIT changedPosition(newPosition);
   }
+}
+
+void MechaduinoController::savePosition()
+{
+  qDebug() << "Save position " << m_lastFreq << " " << m_lastPos;
+  m_points->insert(m_lastFreq, m_lastPos);
+  ApplicaionSettings::getInstance().savePosition(m_name, m_lastFreq, m_lastPos);
 }
 
 void MechaduinoController::readyRead()

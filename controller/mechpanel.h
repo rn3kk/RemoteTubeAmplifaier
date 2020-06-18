@@ -18,6 +18,9 @@ public:
 signals:
   void changePosition(qint64 position);
 
+public slots:
+  void newPosition(int position);
+
 private slots:
   void on_Panel_objectNameChanged(const QString &objectName);
   void on_dial_sliderMoved(int position);

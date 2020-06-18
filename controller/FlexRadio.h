@@ -21,6 +21,7 @@ public Q_SLOTS:
   void writen(qint64 bytes);
 
 Q_SIGNALS:
+  void changeTXFreq(int freq);
   void vfoAFreq(int freq);
   void vfoBFreq(int freq);
   void vfoAActive(quint8);

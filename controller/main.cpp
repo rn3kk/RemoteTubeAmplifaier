@@ -49,8 +49,12 @@ int main(int argc, char *argv[])
     mechaduinoContainer->addWidget(mp);
     //    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(mp, &MechPanel::changePosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
+    QObject::connect(*i, &MechaduinoController::changedPosition ,mp, &MechPanel::newPosition, Qt::QueuedConnection);
     QObject::connect(&f, &Form::setPosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
+    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    QObject::connect(vfoPanel, &Vfo::savePosition, *i, &MechaduinoController::savePosition, Qt::QueuedConnection);
   }
 
   return a.exec();
 }
+

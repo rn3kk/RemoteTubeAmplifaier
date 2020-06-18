@@ -22,6 +22,12 @@ ApplicaionSettings::ApplicaionSettings()
 
 }
 
+ApplicaionSettings::~ApplicaionSettings()
+{
+  if(m_settings)
+    delete m_settings;
+}
+
 ApplicaionSettings &ApplicaionSettings::getInstance()
 {
   static ApplicaionSettings settings;
@@ -31,23 +37,22 @@ ApplicaionSettings &ApplicaionSettings::getInstance()
 bool ApplicaionSettings::loadSettings(const QString &configPath)
 {
   QFile settingsFile(configPath);
-
   if (!settingsFile.exists())
   {
     return false;
   }
-  QSettings settings(configPath, QSettings::IniFormat);
-  settings.setIniCodec("UTF-8");
+  m_settings = new QSettings(configPath, QSettings::IniFormat);
+  m_settings->setIniCodec("UTF-8");
 
-  settings.beginGroup(FLEX_6XXX_IP);
-  m_flex6xxx_IP = settings.value(IP, "").toString();
-  m_flex6xxx_port = settings.value(PORT, -1).toInt();
-  settings.endGroup();
+  m_settings->beginGroup(FLEX_6XXX_IP);
+  m_flex6xxx_IP = m_settings->value(IP, "").toString();
+  m_flex6xxx_port = m_settings->value(PORT, -1).toInt();
+  m_settings->endGroup();
 
   QStringList keys;
   for(int i=1; i<=3; ++i)
   {
-    settings.beginGroup(MECH+QString::number(i));
+    m_settings->beginGroup(MECH+QString::number(i));
 //    int freq = 1700; //add freq to config
 //    while(1)
 //    {
@@ -59,10 +64,10 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
 //    settings.endGroup();
 //    continue;
 
-    QString name = settings.value(NAME).toString();
-    QString port = settings.value(PORT).toString();
-    float step = settings.value(STEP).toFloat();
-    keys = settings.childKeys();
+    QString name = m_settings->value(NAME).toString();
+    QString port = m_settings->value(PORT).toString();
+    float step = m_settings->value(STEP).toFloat();
+    keys = m_settings->childKeys();
 
     keys.removeOne(NAME);
     keys.removeOne(PORT);
@@ -76,10 +81,10 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
     }
     for(QString freq: keys)
     {
-      int degress = settings.value(freq).toInt();
+      int degress = m_settings->value(freq).toInt();
       map->insert(freq.toInt(), degress);
     }
-    settings.endGroup();
+    m_settings->endGroup();
 
     if(!name.isNull() && !name.isEmpty() &&
        !port.isNull() && !port.isEmpty() &&
@@ -116,4 +121,21 @@ int ApplicaionSettings::getFlex6xxx_port() const
 QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
 {
   return m_mechConrollerList;
+}
+
+void ApplicaionSettings::savePosition(QString name, int freq, int position)
+{
+  if(!m_settings)
+    return;
+
+  QStringList keys;
+  for(int i=1; i<=3; ++i)
+  {
+    m_settings->beginGroup(MECH+QString::number(i));
+    QString n = m_settings->value(NAME).toString();
+    if(n.compare(name) == 0)
+      m_settings->setValue(QString::number(freq), QString::number(position));
+    m_settings->endGroup();
+    m_settings->sync();
+  }
 }

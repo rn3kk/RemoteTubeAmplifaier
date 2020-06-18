@@ -17,10 +17,14 @@ public:
 
   QString getName() const;
 
+signals:
+  void changedPosition(int position);
+
 public Q_SLOTS:
   void init();
   void changeFreq(int newFreq);
   void setPosition(qint64 newPosition);
+  void savePosition();
 
 private Q_SLOTS:
   void readyRead();
@@ -36,7 +40,8 @@ private:
   float m_step;
   QMap<int,int>* m_points;
 
-  int m_nearestFreq;
+  int m_lastFreq;
+  int m_lastPos;
 
 };
 

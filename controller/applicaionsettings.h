@@ -4,11 +4,13 @@
 #include <QVector>
 #include <QString>
 class MechaduinoController;
+class QSettings;
 
 class ApplicaionSettings
 {
 public:
   ApplicaionSettings();
+  ~ApplicaionSettings();
   static ApplicaionSettings& getInstance();
   bool loadSettings(const QString& configPath);
 
@@ -16,12 +18,13 @@ public:
   int getFlex6xxx_port() const;
 
   QVector<MechaduinoController *> getMechConrollerList() const;
+  void savePosition(QString name, int freq, int position);
 
 private:
   QString m_flex6xxx_IP;
   int m_flex6xxx_port;
-
   QVector<MechaduinoController*> m_mechConrollerList;
+  QSettings* m_settings;
 };
 
 #endif // APPLICAIONSETTINGS_H

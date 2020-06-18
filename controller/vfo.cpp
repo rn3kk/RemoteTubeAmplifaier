@@ -18,14 +18,30 @@ Vfo::~Vfo()
 void Vfo::vfoAChangeFreq(int newFreq)
 {
   if(newFreq > 0)
-    ui->VFO_A->setText(QString::number(newFreq));
+  {
+//    if(m_tuneMode)
+//    {
+//      int freq = calculate25StepFreq(newFreq);
+//      ui->VFO_A->setText(QString::number(freq));
+//      Q_EMIT tuneTxSliceToNewFreq(freq);
+//    }
+//    else
+      ui->VFO_A->setText(QString::number(newFreq));
+  }
   else
     disableAll();
 }
 
 void Vfo::vfoBChangeFreq(int newFreq)
 {
-  ui->VFO_B->setText(QString::number(newFreq));
+//  if(m_tuneMode)
+//  {
+//    int freq = calculate25StepFreq(newFreq);
+//    ui->VFO_B->setText(QString::number(freq));
+//    Q_EMIT tuneTxSliceToNewFreq(freq);
+//  }
+//  else
+    ui->VFO_B->setText(QString::number(newFreq));
 }
 
 void Vfo::vfoATX(quint8 tx)
@@ -54,6 +70,7 @@ void Vfo::vfoBTX(quint8 tx)
 
 void Vfo::tuneMode(bool isTuneMode)
 {
+  m_tuneMode = isTuneMode;
   int freq = 0;
   if(!ui->TX_A->text().isEmpty())
   {
@@ -110,7 +127,11 @@ int Vfo::calculate25StepFreq()
   }
   else
     return 0;
+  int freq = calculate25StepFreq(newFreq);
+}
 
+int Vfo::calculate25StepFreq(int newFreq)
+{
   int f(0);
   int begin = newFreq/100; // отбрасываем последние два числа
   begin *= 100;
@@ -157,9 +178,9 @@ void Vfo::on_upFreqButton_clicked()
   if(f > 0)
   {
     f += 25;
+    Q_EMIT savePosition();
     Q_EMIT tuneTxSliceToNewFreq(f);
   }
-
 }
 
 void Vfo::on_downFreqButton_clicked()
@@ -168,6 +189,7 @@ void Vfo::on_downFreqButton_clicked()
   if(f > 25)
   {
     f -= 25;
+    Q_EMIT savePosition();
     Q_EMIT tuneTxSliceToNewFreq(f);
   }
 }
