@@ -31,15 +31,10 @@ int main(int argc, char *argv[])
     exit(0);
   \
   FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
-  QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
-  QObject::connect(&flexRadio, &FlexRadio::vfoBFreq, vfoPanel, &Vfo::vfoBChangeFreq, Qt::QueuedConnection);
-  QObject::connect(&flexRadio, &FlexRadio::vfoAActive, vfoPanel, &Vfo::vfoAChangeActive, Qt::QueuedConnection);
-  QObject::connect(&flexRadio, &FlexRadio::vfoBActive, vfoPanel, &Vfo::vfoBChangeActive, Qt::QueuedConnection);
-  QObject::connect(&flexRadio, &FlexRadio::vfoATX, vfoPanel, &Vfo::vfoATX, Qt::QueuedConnection);
-  QObject::connect(&flexRadio, &FlexRadio::vfoBTX, vfoPanel, &Vfo::vfoBTX, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::changeTXFreq, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
 
   QObject::connect(&f, &Form::setFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
-  QObject::connect(vfoPanel, &Vfo::tuneTxSliceToNewFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
+  QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
 
   const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
   QVector<MechaduinoController*>::const_iterator i;
@@ -47,12 +42,12 @@ int main(int argc, char *argv[])
   {
     MechPanel* mp = new MechPanel((*i)->getName());
     mechaduinoContainer->addWidget(mp);
-    //    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(mp, &MechPanel::changePosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
     QObject::connect(*i, &MechaduinoController::changedPosition ,mp, &MechPanel::newPosition, Qt::QueuedConnection);
-    QObject::connect(&f, &Form::setPosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
-    QObject::connect(&flexRadio, &FlexRadio::vfoAFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    QObject::connect(&flexRadio, &FlexRadio::changeTXFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(vfoPanel, &Vfo::savePosition, *i, &MechaduinoController::savePosition, Qt::QueuedConnection);
+    QObject::connect(&f, &Form::tuneMode, *i, &MechaduinoController::tuneMode, Qt::QueuedConnection);
+    QObject::connect(&f, &Form::tuneMode, mp, &MechPanel::tuneMode, Qt::QueuedConnection);
   }
 
   return a.exec();

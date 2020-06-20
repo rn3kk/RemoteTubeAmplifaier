@@ -20,7 +20,6 @@ public:
 
 signals:
   void setFreq(float freq);
-  void setPosition(int position);
   void tuneMode(bool isTuneMode); //true enable tune; false disable tune mode
 
 private slots:

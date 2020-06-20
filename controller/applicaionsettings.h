@@ -18,7 +18,7 @@ public:
   int getFlex6xxx_port() const;
 
   QVector<MechaduinoController *> getMechConrollerList() const;
-  void savePosition(QString name, int freq, int position);
+  void savePosition(QString name, QMap<int, int> *positions);
 
 private:
   QString m_flex6xxx_IP;

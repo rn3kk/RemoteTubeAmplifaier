@@ -123,7 +123,7 @@ QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
   return m_mechConrollerList;
 }
 
-void ApplicaionSettings::savePosition(QString name, int freq, int position)
+void ApplicaionSettings::savePosition(QString name, QMap<int, int>* positions)
 {
   if(!m_settings)
     return;
@@ -134,7 +134,10 @@ void ApplicaionSettings::savePosition(QString name, int freq, int position)
     m_settings->beginGroup(MECH+QString::number(i));
     QString n = m_settings->value(NAME).toString();
     if(n.compare(name) == 0)
-      m_settings->setValue(QString::number(freq), QString::number(position));
+    {
+      for(QMap<int, int>::const_iterator it = positions->constBegin(); it != positions->constEnd(); ++it)
+        m_settings->setValue(QString::number(it.key()), QString::number(it.value()));
+    }
     m_settings->endGroup();
     m_settings->sync();
   }

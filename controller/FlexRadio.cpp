@@ -55,11 +55,8 @@ void FlexRadio::setTXFreq(int freq)
     data.append("\n");
     qDebug() << data;
     m_socket->write(data.toLatin1());
-    m_socket->waitForBytesWritten();
-    if(m_A_isTX)
-      Q_EMIT vfoAFreq(freq);
-    else if(m_B_isTX)
-      Q_EMIT vfoBFreq(freq);
+    m_socket->waitForBytesWritten();   
+    changeTXFreq(freq);
   }
 }
 
@@ -85,7 +82,7 @@ void FlexRadio::isConnected()
 void FlexRadio::isDisconected()
 {
   qCDebug(radioLog) << "Disconnect from host";
-  Q_EMIT vfoAFreq(-1);
+  Q_EMIT changeTXFreq(-1);
 }
 
 QByteArray array;
@@ -177,18 +174,18 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
     {
       freq= i->split('=').at(1).toFloat()*1000;
       if(sliceNumber == 0)
-        Q_EMIT vfoAFreq(freq);
+        m_slice1Freq = freq;
       else if(sliceNumber == 1)
-        Q_EMIT vfoBFreq(freq);
+        m_slice2Freq = freq;
       qDebug()<< "Slice "<< sliceNumber << "Radio freq " << freq;
     }
     else if(i->indexOf(ACTIVE) == 0)
     {
       active = i->split('=').at(1).toInt();
       if(sliceNumber == 0)
-        Q_EMIT vfoAActive(active);
+        m_activeSlice1= active;
       else if(sliceNumber == 1)
-        Q_EMIT vfoBActive(active);
+        m_activeSlice2 = active;
     }
     else if(i->indexOf(TX) == 0)
     {
@@ -196,14 +193,18 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
       if(sliceNumber == 0)
       {
         m_A_isTX = tx;
-        Q_EMIT vfoATX(tx);
       }
       else if(sliceNumber == 1)
       {
         m_B_isTX=tx;
-        Q_EMIT vfoBTX(tx);
       }
     }
   }
+  if(!m_A_isTX && !m_B_isTX)
+    Q_EMIT changeTXFreq(-1);
+  else if(m_A_isTX)
+    Q_EMIT changeTXFreq(m_slice1Freq);
+  else if(m_B_isTX)
+    Q_EMIT changeTXFreq(m_slice2Freq);
   qDebug()<< "Slice "<< sliceNumber << " Active "<< active <<" Radio freq " << freq;
 }

@@ -32,54 +32,16 @@ void Vfo::vfoAChangeFreq(int newFreq)
     disableAll();
 }
 
-void Vfo::vfoBChangeFreq(int newFreq)
-{
-//  if(m_tuneMode)
-//  {
-//    int freq = calculate25StepFreq(newFreq);
-//    ui->VFO_B->setText(QString::number(freq));
-//    Q_EMIT tuneTxSliceToNewFreq(freq);
-//  }
-//  else
-    ui->VFO_B->setText(QString::number(newFreq));
-}
-
-void Vfo::vfoATX(quint8 tx)
-{
-  if(tx == 0)
-  {
-    ui->TX_A->setText("");
-  }
-  else
-  {
-    ui->TX_A->setText("TX");
-  }
-}
-
-void Vfo::vfoBTX(quint8 tx)
-{
-  if(tx == 0)
-  {
-    ui->TX_B->setText("");
-  }
-  else
-  {
-    ui->TX_B->setText("TX");
-  }
-}
-
 void Vfo::tuneMode(bool isTuneMode)
 {
   m_tuneMode = isTuneMode;
   int freq = 0;
-  if(!ui->TX_A->text().isEmpty())
+  if(!ui->VFO_A->text().isEmpty())
   {
     freq = ui->VFO_A->text().toInt();
-  }
-  else if(!ui->TX_B->text().isEmpty())
-  {
-    freq = ui->VFO_B->text().toInt();
-  }
+    if(freq == -1)
+      return;
+  }  
   else
     return;
 
@@ -100,31 +62,25 @@ void Vfo::tuneMode(bool isTuneMode)
     f = (begin + 75);
 
   if(f > 0)
-    Q_EMIT tuneTxSliceToNewFreq(f);
+    Q_EMIT tuneVFOTxToNewFreq(f);
 
 }
 
 void Vfo::disableAll()
 {
   ui->VFO_A->setText("-");
-  ui->VFO_B->setText("-");
   ui->ActiveA->setText("");
-  ui->ActiveB->setText("");
-  ui->TX_A->setText("");
-  ui->TX_B->setText("");
 }
 
 int Vfo::calculate25StepFreq()
 {
   int newFreq;
-  if(!ui->TX_A->text().isEmpty())
+  if(!ui->VFO_A->text().isEmpty())
   {
     newFreq = ui->VFO_A->text().toInt();
-  }
-  else if(!ui->TX_B->text().isEmpty())
-  {
-    newFreq = ui->VFO_B->text().toInt();
-  }
+    if(newFreq == -1)
+      return -1;
+  } 
   else
     return 0;
   int freq = calculate25StepFreq(newFreq);
@@ -148,30 +104,6 @@ int Vfo::calculate25StepFreq(int newFreq)
   return f;
 }
 
-void Vfo::vfoAChangeActive(quint8 active)
-{
-  if(active ==0)
-  {
-    ui->ActiveA->setText("");
-  }
-  else
-  {
-    ui->ActiveA->setText("A");
-  }
-}
-
-void Vfo::vfoBChangeActive(quint8 active)
-{
-  if(active ==0)
-  {
-    ui->ActiveB->setText("");
-  }
-  else
-  {
-    ui->ActiveB->setText("A");
-  }
-}
-
 void Vfo::on_upFreqButton_clicked()
 {
   int f = calculate25StepFreq();
@@ -179,7 +111,7 @@ void Vfo::on_upFreqButton_clicked()
   {
     f += 25;
     Q_EMIT savePosition();
-    Q_EMIT tuneTxSliceToNewFreq(f);
+    Q_EMIT tuneVFOTxToNewFreq(f);
   }
 }
 
@@ -190,6 +122,6 @@ void Vfo::on_downFreqButton_clicked()
   {
     f -= 25;
     Q_EMIT savePosition();
-    Q_EMIT tuneTxSliceToNewFreq(f);
+    Q_EMIT tuneVFOTxToNewFreq(f);
   }
 }

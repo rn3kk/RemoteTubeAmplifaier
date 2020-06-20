@@ -22,12 +22,6 @@ public Q_SLOTS:
 
 Q_SIGNALS:
   void changeTXFreq(int freq);
-  void vfoAFreq(int freq);
-  void vfoBFreq(int freq);
-  void vfoAActive(quint8);
-  void vfoBActive(quint8);
-  void vfoATX(quint8);
-  void vfoBTX(quint8);
 
 private:
   void timerEvent(QTimerEvent *event) override;

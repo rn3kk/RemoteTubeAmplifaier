@@ -20,6 +20,7 @@ signals:
 
 public slots:
   void newPosition(int position);
+  void tuneMode(bool tuneMode);
 
 private slots:
   void on_Panel_objectNameChanged(const QString &objectName);
@@ -28,6 +29,7 @@ private slots:
 
 private:
   Ui::MechPanel *ui;
+  bool m_tuneMode = false;
 };
 
 #endif // MECHPANEL_H

@@ -25,6 +25,7 @@ public Q_SLOTS:
   void changeFreq(int newFreq);
   void setPosition(qint64 newPosition);
   void savePosition();
+  void tuneMode(bool mode);
 
 private Q_SLOTS:
   void readyRead();
@@ -42,6 +43,7 @@ private:
 
   int m_lastFreq;
   int m_lastPos;
+  bool m_tuneMode = false;
 
 };
 

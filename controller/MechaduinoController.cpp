@@ -69,7 +69,7 @@ void MechaduinoController::changeFreq(int newFreq)
     freq = begin + 75;
 
   m_lastFreq = freq;
-  int pos = m_points->value(begin); //+00
+  int pos = m_points->value(m_lastFreq); //+00
 
   qDebug() << "Change freq " << m_lastFreq << " " << pos;
    setPosition(pos);
@@ -104,6 +104,8 @@ QString MechaduinoController::getName() const
 
 void MechaduinoController::setPosition(qint64 newPosition)
 {
+  if(m_lastPos == newPosition)
+    return;
   if(!m_port || !m_port->isOpen())
   {
     return;
@@ -121,8 +123,17 @@ void MechaduinoController::setPosition(qint64 newPosition)
 void MechaduinoController::savePosition()
 {
   qDebug() << "Save position " << m_lastFreq << " " << m_lastPos;
-  m_points->insert(m_lastFreq, m_lastPos);
-  ApplicaionSettings::getInstance().savePosition(m_name, m_lastFreq, m_lastPos);
+  if(m_tuneMode)
+    m_points->insert(m_lastFreq, m_lastPos);
+}
+
+void MechaduinoController::tuneMode(bool mode)
+{
+  if(m_tuneMode && mode==false) //выключается tune mode
+  {
+    ApplicaionSettings::getInstance().savePosition(m_name, m_points);
+  }
+  m_tuneMode = mode;
 }
 
 void MechaduinoController::readyRead()
