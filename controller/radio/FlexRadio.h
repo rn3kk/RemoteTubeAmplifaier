@@ -1,27 +1,24 @@
 #ifndef RADIO_H
 #define RADIO_H
 
-#include <QObject>
 #include <QTcpSocket>
 #include <QString>
+#include "iradio.h"
 
-class FlexRadio: public QObject
+class FlexRadio: public IRadio
 {
   Q_OBJECT
 public:
   explicit FlexRadio(const QString& host, quint16 port, QObject* parent = nullptr);
 
 public Q_SLOTS:
-  void setTXFreq(int freq);
+  void setTXFreq(int freq) override;
   void isConnected();
   void isDisconected();
   void readData();
   void socketChangeState(QAbstractSocket::SocketState socketState);
   void socketError(QAbstractSocket::SocketError error);
   void writen(qint64 bytes);
-
-Q_SIGNALS:
-  void changeTXFreq(int freq);
 
 private:
   void timerEvent(QTimerEvent *event) override;

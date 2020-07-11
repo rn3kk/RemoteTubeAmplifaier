@@ -19,7 +19,7 @@ const QByteArray N = "\\n";
 QLoggingCategory radioLog("FlexRadio");
 
 FlexRadio::FlexRadio(const QString &host, quint16 port,  QObject* parent):
-  QObject(parent),
+  IRadio(parent),
   m_radioHost(host),
   m_radioPort(port),
   m_socket(new QTcpSocket(this))
@@ -56,7 +56,7 @@ void FlexRadio::setTXFreq(int freq)
     qDebug() << data;
     m_socket->write(data.toLatin1());
     m_socket->waitForBytesWritten();   
-    changeTXFreq(freq);
+    emit freqChanged(freq);
   }
 }
 
@@ -73,7 +73,7 @@ void FlexRadio::isConnected()
   qCDebug(radioLog) << array;
 
   m_remoteVersionProtocol = list.at(0);
-  m_handleSeq = list.at(1);
+  //m_handleSeq = list.at(1);
 
   m_socket->write(SUB_SLICE);
   m_socket->waitForBytesWritten();
@@ -82,7 +82,7 @@ void FlexRadio::isConnected()
 void FlexRadio::isDisconected()
 {
   qCDebug(radioLog) << "Disconnect from host";
-  Q_EMIT changeTXFreq(-1);
+  emit freqChanged(-1);
 }
 
 QByteArray array;
@@ -201,10 +201,10 @@ void FlexRadio::parseVfomSLICE(const QByteArray &data)
     }
   }
   if(!m_A_isTX && !m_B_isTX)
-    Q_EMIT changeTXFreq(-1);
+    Q_EMIT freqChanged(-1);
   else if(m_A_isTX)
-    Q_EMIT changeTXFreq(m_slice1Freq);
+    Q_EMIT freqChanged(m_slice1Freq);
   else if(m_B_isTX)
-    Q_EMIT changeTXFreq(m_slice2Freq);
+    Q_EMIT freqChanged(m_slice2Freq);
   qDebug()<< "Slice "<< sliceNumber << " Active "<< active <<" Radio freq " << freq;
 }

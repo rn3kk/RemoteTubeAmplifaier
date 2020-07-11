@@ -5,9 +5,7 @@
 #include "vfo.h"
 #include "form.h"
 #include "mechpanel.h"
-
-
-#include "FlexRadio.h"
+#include "radio/FlexRadio.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
 
@@ -15,7 +13,6 @@
 int main(int argc, char *argv[])
 {
   QApplication a(argc, argv);
-
   Form f;
   f.show();
 
@@ -31,7 +28,7 @@ int main(int argc, char *argv[])
     exit(0);
   \
   FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
-  QObject::connect(&flexRadio, &FlexRadio::changeTXFreq, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
+  QObject::connect(&flexRadio, &FlexRadio::freqChanged, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
 
   QObject::connect(&f, &Form::setFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
   QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
@@ -44,7 +41,7 @@ int main(int argc, char *argv[])
     mechaduinoContainer->addWidget(mp);
     QObject::connect(mp, &MechPanel::changePosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
     QObject::connect(*i, &MechaduinoController::changedPosition ,mp, &MechPanel::newPosition, Qt::QueuedConnection);
-    QObject::connect(&flexRadio, &FlexRadio::changeTXFreq, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    QObject::connect(&flexRadio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(vfoPanel, &Vfo::savePosition, *i, &MechaduinoController::savePosition, Qt::QueuedConnection);
     QObject::connect(&f, &Form::tuneMode, *i, &MechaduinoController::tuneMode, Qt::QueuedConnection);
     QObject::connect(&f, &Form::tuneMode, mp, &MechPanel::tuneMode, Qt::QueuedConnection);
