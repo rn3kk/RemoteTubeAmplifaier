@@ -25,6 +25,8 @@ private:
   int m_flex6xxx_port;
   QVector<MechaduinoController*> m_mechConrollerList;
   QSettings* m_settings;
+
+  QString
 };
 
 #endif // APPLICAIONSETTINGS_H

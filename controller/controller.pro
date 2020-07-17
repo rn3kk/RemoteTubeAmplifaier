@@ -23,6 +23,7 @@ SOURCES += \
         mechpanel.cpp \
         radio/FlexRadio.cpp \
         radio/ft857.cpp \
+        radio/radiofactory.cpp \
         vfo.cpp
 
 # Default rules for deployment.
@@ -38,6 +39,7 @@ HEADERS += \
     radio/FlexRadio.h \
     radio/ft857.h \
     radio/iradio.h \
+    radio/radiofactory.h \
     vfo.h
 
 FORMS += \

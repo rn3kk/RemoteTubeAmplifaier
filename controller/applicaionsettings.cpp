@@ -15,7 +15,8 @@ const QString COUNT = "count";
 const QString MECH = "mech";
 const QString NAME = "name";
 const QString STEP = "step";
-
+const QString COM_PORT = "comPort";
+const QString USE = "use";
 
 ApplicaionSettings::ApplicaionSettings()
 {
