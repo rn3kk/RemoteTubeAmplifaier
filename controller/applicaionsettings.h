@@ -9,6 +9,12 @@ class QSettings;
 class ApplicaionSettings
 {
 public:
+  enum RadioType
+  {
+    FLEX_RADIO,
+    YEASU
+  };
+
   ApplicaionSettings();
   ~ApplicaionSettings();
   static ApplicaionSettings& getInstance();
@@ -20,13 +26,20 @@ public:
   QVector<MechaduinoController *> getMechConrollerList() const;
   void savePosition(QString name, QMap<int, int> *positions);
 
+  RadioType getRadioType() const;
+
+  QString getComPortName() const;
+
 private:
-  QString m_flex6xxx_IP;
-  int m_flex6xxx_port;
+  RadioType m_radioType;
+  QString m_comPortName;//if yeasu
+  QString m_flex6xxx_IP;//if flex
+  int m_flex6xxx_port;//if flex
+
   QVector<MechaduinoController*> m_mechConrollerList;
   QSettings* m_settings;
 
-  QString
+
 };
 
 #endif // APPLICAIONSETTINGS_H

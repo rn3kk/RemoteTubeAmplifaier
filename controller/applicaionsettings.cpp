@@ -143,3 +143,13 @@ void ApplicaionSettings::savePosition(QString name, QMap<int, int>* positions)
     m_settings->sync();
   }
 }
+
+RadioType ApplicaionSettings::getRadioType() const
+{
+  return m_radioType;
+}
+
+QString ApplicaionSettings::getComPortName() const
+{
+  return m_comPortName;
+}
