@@ -5,6 +5,7 @@
 #include "vfo.h"
 #include "form.h"
 #include "mechpanel.h"
+#include "radio/radiofactory.h"
 #include "radio/FlexRadio.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
@@ -26,12 +27,13 @@ int main(int argc, char *argv[])
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
     exit(0);
-  \
-  FlexRadio flexRadio(setting.getFlex6xxx_IP(), setting.getFlex6xxx_port());
-  QObject::connect(&flexRadio, &FlexRadio::freqChanged, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
 
-  QObject::connect(&f, &Form::setFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
-  QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, &flexRadio, &FlexRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
+  IRadio* radio = RadioFactory::getRadio();
+
+  QObject::connect(radio, &FlexRadio::freqChanged, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
+
+  QObject::connect(&f, &Form::setFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
+  QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
 
   const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
   QVector<MechaduinoController*>::const_iterator i;
@@ -41,7 +43,7 @@ int main(int argc, char *argv[])
     mechaduinoContainer->addWidget(mp);
     QObject::connect(mp, &MechPanel::changePosition, *i, &MechaduinoController::setPosition, Qt::QueuedConnection);
     QObject::connect(*i, &MechaduinoController::changedPosition ,mp, &MechPanel::newPosition, Qt::QueuedConnection);
-    QObject::connect(&flexRadio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
     QObject::connect(vfoPanel, &Vfo::savePosition, *i, &MechaduinoController::savePosition, Qt::QueuedConnection);
     QObject::connect(&f, &Form::tuneMode, *i, &MechaduinoController::tuneMode, Qt::QueuedConnection);
     QObject::connect(&f, &Form::tuneMode, mp, &MechPanel::tuneMode, Qt::QueuedConnection);

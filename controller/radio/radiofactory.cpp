@@ -7,6 +7,7 @@
 IRadio *RadioFactory::getRadio()
 {
   ApplicaionSettings& settings = ApplicaionSettings::getInstance();
+
   switch (settings.getRadioType()) {
   case ApplicaionSettings::RadioType::FLEX_RADIO:
     return new FlexRadio(settings.getFlex6xxx_IP(), settings.getFlex6xxx_port());
