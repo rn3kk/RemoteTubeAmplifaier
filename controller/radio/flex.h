@@ -5,11 +5,11 @@
 #include <QString>
 #include "iradio.h"
 
-class FlexRadio: public IRadio
+class Flex: public IRadio
 {
   Q_OBJECT
 public:
-  explicit FlexRadio(const QString& host, quint16 port, QObject* parent = nullptr);
+  explicit Flex(const QString& host, quint16 port, QObject* parent = nullptr);
 
 public Q_SLOTS:
   void setTXFreq(int freq) override;

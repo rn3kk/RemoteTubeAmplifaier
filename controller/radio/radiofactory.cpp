@@ -1,6 +1,6 @@
 #include "../applicaionsettings.h"
-#include "ft857.h"
-#include "FlexRadio.h"
+#include "yaesu.h"
+#include "flex.h"
 //#include "iradio.h"
 #include "radiofactory.h"
 
@@ -9,11 +9,11 @@ IRadio *RadioFactory::getRadio()
   ApplicaionSettings& settings = ApplicaionSettings::getInstance();
 
   switch (settings.getRadioType()) {
-  case ApplicaionSettings::RadioType::FLEX_RADIO:
-    return new FlexRadio(settings.getFlex6xxx_IP(), settings.getFlex6xxx_port());
+  case ApplicaionSettings::RadioType::FLEX:
+    return new Flex(settings.getFlex6xxx_IP(), settings.getFlex6xxx_port());
     break;
-  case ApplicaionSettings::RadioType::YEASU:
-    return new ft857(settings.getComPortName());
+  case ApplicaionSettings::RadioType::YAESU:
+    return new Yaesu(settings.getComPortName());
     break;
   default:
     return nullptr;

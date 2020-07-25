@@ -1,7 +1,7 @@
 #include <QThread>
 #include <QLoggingCategory>
 #include <QTimerEvent>
-#include "FlexRadio.h"
+#include "flex.h"
 
 //LIST = b'C41|slice list\r\n'
 //SUB_SCU = b'C21|sub scu all\r\n'
@@ -18,22 +18,22 @@ const QByteArray N = "\\n";
 
 QLoggingCategory radioLog("FlexRadio");
 
-FlexRadio::FlexRadio(const QString &host, quint16 port,  QObject* parent):
+Flex::Flex(const QString &host, quint16 port,  QObject* parent):
   IRadio(parent),
   m_radioHost(host),
   m_radioPort(port),
   m_socket(new QTcpSocket(this))
 {
-  connect(m_socket, &QTcpSocket::readyRead, this, &FlexRadio::readData, Qt::QueuedConnection);
-  connect(m_socket, &QTcpSocket::connected, this, &FlexRadio::isConnected, Qt::QueuedConnection);
-  connect(m_socket, &QTcpSocket::disconnected, this, &FlexRadio::isDisconected, Qt::QueuedConnection);
-  connect(m_socket, &QTcpSocket::stateChanged, this, &FlexRadio::socketChangeState, Qt::QueuedConnection);
-  connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &FlexRadio::socketError, Qt::QueuedConnection);
-  connect(m_socket, &QTcpSocket::bytesWritten, this, &FlexRadio::writen, Qt::QueuedConnection);
+  connect(m_socket, &QTcpSocket::readyRead, this, &Flex::readData, Qt::QueuedConnection);
+  connect(m_socket, &QTcpSocket::connected, this, &Flex::isConnected, Qt::QueuedConnection);
+  connect(m_socket, &QTcpSocket::disconnected, this, &Flex::isDisconected, Qt::QueuedConnection);
+  connect(m_socket, &QTcpSocket::stateChanged, this, &Flex::socketChangeState, Qt::QueuedConnection);
+  connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &Flex::socketError, Qt::QueuedConnection);
+  connect(m_socket, &QTcpSocket::bytesWritten, this, &Flex::writen, Qt::QueuedConnection);
   m_socket->connectToHost(m_radioHost, m_radioPort);
 }
 
-void FlexRadio::setTXFreq(int freq)
+void Flex::setTXFreq(int freq)
 {
   double d = freq / 1000.;
   QString data = "C12|slice t ";
@@ -60,7 +60,7 @@ void FlexRadio::setTXFreq(int freq)
   }
 }
 
-void FlexRadio::isConnected()
+void Flex::isConnected()
 {
   qCDebug(radioLog) << "Connect to host";
   //startTimer(1000);
@@ -79,7 +79,7 @@ void FlexRadio::isConnected()
   m_socket->waitForBytesWritten();
 }
 
-void FlexRadio::isDisconected()
+void Flex::isDisconected()
 {
   qCDebug(radioLog) << "Disconnect from host";
   emit freqChanged(-1);
@@ -87,7 +87,7 @@ void FlexRadio::isDisconected()
 
 QByteArray array;
 QList<QByteArray>::const_iterator it;
-void FlexRadio::readData()
+void Flex::readData()
 {
   qint64 bytes = m_socket->bytesAvailable();
   array = m_socket->read(bytes);
@@ -107,12 +107,12 @@ void FlexRadio::readData()
   //emit radioFrequency(7100000);
 }
 
-void FlexRadio::socketChangeState(QAbstractSocket::SocketState socketState)
+void Flex::socketChangeState(QAbstractSocket::SocketState socketState)
 {
   qDebug(radioLog) << "Socket change state to " << socketState;
 }
 
-void FlexRadio::socketError(QAbstractSocket::SocketError error)
+void Flex::socketError(QAbstractSocket::SocketError error)
 {
   switch (error)
   {
@@ -136,12 +136,12 @@ void FlexRadio::socketError(QAbstractSocket::SocketError error)
   m_socket->connectToHost(m_radioHost, m_radioPort);
 }
 
-void FlexRadio::writen(qint64 bytes)
+void Flex::writen(qint64 bytes)
 {
   qCDebug(radioLog) << "Write to socket " << bytes << " bytes";
 }
 
-void FlexRadio::timerEvent(QTimerEvent *event)
+void Flex::timerEvent(QTimerEvent *event)
 {
   killTimer(event->timerId());
   if(m_socket== nullptr)
@@ -157,7 +157,7 @@ QList<QByteArray> sliceData;
 QList<QByteArray>::const_iterator i;
 QByteArray a;
 int freq;
-void FlexRadio::parseVfomSLICE(const QByteArray &data)
+void Flex::parseVfomSLICE(const QByteArray &data)
 {
   int pos = data.indexOf('\n');
   if(pos)

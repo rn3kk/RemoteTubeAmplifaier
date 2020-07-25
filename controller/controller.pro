@@ -21,9 +21,9 @@ SOURCES += \
         form.cpp \
         main.cpp \
         mechpanel.cpp \
-        radio/FlexRadio.cpp \
-        radio/ft857.cpp \
+        radio/flex.cpp \
         radio/radiofactory.cpp \
+        radio/yaesu.cpp \
         vfo.cpp
 
 # Default rules for deployment.
@@ -36,10 +36,10 @@ HEADERS += \
     applicaionsettings.h \
     form.h \
     mechpanel.h \
-    radio/FlexRadio.h \
-    radio/ft857.h \
+    radio/flex.h \
     radio/iradio.h \
     radio/radiofactory.h \
+    radio/yaesu.h \
     vfo.h
 
 FORMS += \

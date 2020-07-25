@@ -6,7 +6,10 @@
 
 QLoggingCategory settCat("ApplicaionSettings");
 
-const QString FLEX_6XXX_IP="FLEX6xxx";
+const QString FLEX="flex";
+const QString YAESU="yaesu";
+const QString RADIO="radio";
+const QString TYPE="type";
 const QString SEPARATOR = "/";
 const QString IP="ip";
 const QString PORT="port";
@@ -45,9 +48,41 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   m_settings = new QSettings(configPath, QSettings::IniFormat);
   m_settings->setIniCodec("UTF-8");
 
-  m_settings->beginGroup(FLEX_6XXX_IP);
-  m_flex6xxx_IP = m_settings->value(IP, "").toString();
-  m_flex6xxx_port = m_settings->value(PORT, -1).toInt();
+  m_settings->beginGroup(RADIO);
+  QString radioType = m_settings->value(TYPE, "").toString();
+  if(radioType.compare(::FLEX) == 0)
+  {
+    m_radioType = FLEX;
+    m_flex6xxx_IP = m_settings->value(IP, "").toString();
+    m_flex6xxx_port = m_settings->value(PORT, -1).toInt();
+
+    if(m_flex6xxx_IP.isNull() || m_flex6xxx_IP.isEmpty())
+    {
+      qCCritical(settCat) << "Flex radio IP settings not found";
+      return false;
+    }
+    if(m_flex6xxx_port == -1)
+    {
+      qCCritical(settCat) << "Flex radio port settings not found";
+      return false;
+    }
+  }
+  else if(radioType.compare(::YAESU) == 0)
+  {
+    m_radioType = YAESU;
+    m_comPortName = m_settings->value(COM_PORT, "").toString();
+    if(m_comPortName.isNull() || m_comPortName.isEmpty())
+    {
+      qCCritical(settCat) << "Yaesu radio comPort settings not found";
+      return false;
+    }
+  }
+  else
+  {
+    m_radioType = UNKNOWN_RADIO;
+    qCCritical(settCat) << "Unknown radio type";
+    return false;
+  }
   m_settings->endGroup();
 
   QStringList keys;
@@ -95,17 +130,6 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
     }
   }
 
-  if(m_flex6xxx_IP.isNull() || m_flex6xxx_IP.isEmpty())
-  {
-    qCCritical(settCat)<< FLEX_6XXX_IP+SEPARATOR+IP << "bad section";
-    return false;
-  }
-  if(m_flex6xxx_port == -1)
-  {
-    qCCritical(settCat)<< FLEX_6XXX_IP+SEPARATOR+PORT << "bad section";
-    return false;
-  }
-
   return true;
 }
 
@@ -144,7 +168,7 @@ void ApplicaionSettings::savePosition(QString name, QMap<int, int>* positions)
   }
 }
 
-RadioType ApplicaionSettings::getRadioType() const
+ApplicaionSettings::RadioType ApplicaionSettings::getRadioType() const
 {
   return m_radioType;
 }

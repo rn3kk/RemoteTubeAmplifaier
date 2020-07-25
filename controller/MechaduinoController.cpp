@@ -138,6 +138,11 @@ void MechaduinoController::tuneMode(bool mode)
 
 void MechaduinoController::readyRead()
 {
+  if(!m_port || !m_port->isOpen())
+  {
+    return;
+  }
+
   qint64 b = m_port->bytesAvailable();
   QByteArray a;
   a.resize(b);

@@ -6,11 +6,10 @@
 #include "form.h"
 #include "mechpanel.h"
 #include "radio/radiofactory.h"
-#include "radio/FlexRadio.h"
+#include "radio/flex.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
 
-//ttyACM0
 int main(int argc, char *argv[])
 {
   QApplication a(argc, argv);
@@ -22,15 +21,15 @@ int main(int argc, char *argv[])
   QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
   mechaduinoContainer->addWidget(vfoPanel);
 
-  //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
-  QString configPath = "config.conf";
+  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
+  //QString configPath = "config.conf";
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
     exit(0);
 
   IRadio* radio = RadioFactory::getRadio();
 
-  QObject::connect(radio, &FlexRadio::freqChanged, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
+  QObject::connect(radio, &Flex::freqChanged, vfoPanel, &Vfo::vfoAChangeFreq, Qt::QueuedConnection);
 
   QObject::connect(&f, &Form::setFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
   QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug

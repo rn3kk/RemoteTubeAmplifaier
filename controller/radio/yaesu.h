@@ -4,11 +4,11 @@
 #include <QSerialPort>
 #include "iradio.h"
 
-class ft857 : public IRadio
+class Yaesu : public IRadio
 {
   Q_OBJECT
 public:
-  explicit ft857(const QString comPort, QObject* parent = nullptr);
+  explicit Yaesu(const QString comPort, QObject* parent = nullptr);
 
 public slots:
   void init();
@@ -16,7 +16,10 @@ public slots:
 
 private slots:
   void readyRead();
-  void bytesWriten(qint64 bytes);
+  void bytesWriten(qint64 bytes);  
+
+private:
+  void timerEvent(QTimerEvent *event) override;
 
 private:
   QSerialPort* m_port;

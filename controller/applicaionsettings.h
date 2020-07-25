@@ -11,8 +11,9 @@ class ApplicaionSettings
 public:
   enum RadioType
   {
-    FLEX_RADIO,
-    YEASU
+    FLEX,
+    YAESU,
+    UNKNOWN_RADIO
   };
 
   ApplicaionSettings();
