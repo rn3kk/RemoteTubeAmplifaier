@@ -1,6 +1,7 @@
 #include <QThread>
 #include <QLoggingCategory>
 #include <QTimerEvent>
+#include <QMutexLocker>
 #include "yaesu.h"
 
 QLoggingCategory ft857_log("FT-857");
@@ -27,66 +28,83 @@ void Yaesu::init()
   if(!m_port->open(QSerialPort::ReadWrite))
   {
     qCritical(ft857_log) << "connection open error: "
-                       << m_port->errorString();
+                         << m_port->errorString();
     delete m_port;
     m_port = nullptr;
     emit radioDisconected();
     return;
   }
+  if(m_port->waitForReadyRead(1000))
+    m_port->readAll();
   emit radioConected();
   startTimer(1000);
 }
 
 void Yaesu::setTXFreq(int freq)
 {
+  QString f = QString::number(freq);
+  while(f.length() <6)
+  {
+    f.push_front('0');
+  }
+  while(f.length() < 8)
+  {
+    f.push_back('0');
+  }
+  QByteArray f2 = QByteArray::fromHex(f.toUtf8());
+  f2.push_back(1);
+
+  QMutexLocker l(&m_writeToSerialPortMutex);
+  if(!m_port || !m_port->isOpen())
+  {
+    return;
+  }
+  m_port->write(f2, 5);
+  m_port->waitForBytesWritten();
+  if(m_port->waitForReadyRead(300))
+  {
+    QByteArray a = m_port->readAll();
+    qDebug() << "Write freq " << a.fromHex(0);
+  }
 
 }
 
-void Yaesu::readyRead()
+unsigned int Yaesu::reverse(unsigned int x)
 {
-//  QByteArray array;
-//  m_port->read(array.data(), 5);
-//  qDebug()<< array;
-//  qCDebug(ft857_log) << "new freq from yeasu";
-//  if(!m_port || !m_port->isOpen())
-//  {
-//    return;
-//  }
-//  QByteArray a = m_port->readAll();
-//  qCDebug(ft857_log) << "From YEASU " << a;
-}
-
-void Yaesu::bytesWriten(qint64 bytes)
-{
-
+  x = (x & 0xFF) << 8 | (x & 0xFF00) >>  8;
+  return x;
 }
 
 void Yaesu::timerEvent(QTimerEvent *event)
 {
   killTimer(event->timerId());
-
   if(!m_port || !m_port->isOpen())
   {
     return;
   }
 
-  int count = 0;
   QByteArray array;
-
   array.append((unsigned char) 0x00);
   array.append((unsigned char) 0x00);
   array.append((unsigned char) 0x00);
   array.append((unsigned char) 0x00);
   array.append((unsigned char) 0x03);
 
+  QMutexLocker l(&m_writeToSerialPortMutex);
   m_port->write(array);
-  //m_port->flush();
   m_port->waitForBytesWritten();
   if(m_port->waitForReadyRead());
   {
-    QByteArray data;
-    data = m_port->readAll();
-    qDebug() << "Freq " << data;
+    QByteArray data(5, '0x0');
+    int size  = m_port->read(data.data(), 5);
+    if(size == 5 )
+    {
+      data.push_front(data.at(4));
+      data.remove(3,3);
+      int freq =  data.toHex(0).toInt();
+      qDebug() << "Freq " << freq;
+      emit freqChanged(freq);
+    }
   }
-  startTimer(1000);
+  startTimer(300);
 }
