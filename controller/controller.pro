@@ -21,6 +21,7 @@ SOURCES += \
         form.cpp \
         main.cpp \
         mechpanel.cpp \
+        radio/emulatortrx.cpp \
         radio/flex.cpp \
         radio/radiofactory.cpp \
         radio/yaesu.cpp \
@@ -36,6 +37,7 @@ HEADERS += \
     applicaionsettings.h \
     form.h \
     mechpanel.h \
+    radio/emulatortrx.h \
     radio/flex.h \
     radio/iradio.h \
     radio/radiofactory.h \

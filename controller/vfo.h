@@ -16,7 +16,7 @@ public:
   ~Vfo();
 
 public slots:
-  void vfoAChangeFreq(int newFreq);  
+  void vfoChangeFreq(int newFreq);
   void tuneMode(bool isTuneMode);
 
 signals:

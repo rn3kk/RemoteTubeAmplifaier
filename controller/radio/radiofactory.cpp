@@ -1,11 +1,13 @@
 #include "../applicaionsettings.h"
 #include "yaesu.h"
 #include "flex.h"
-//#include "iradio.h"
+#include "emulatortrx.h"
 #include "radiofactory.h"
 
 IRadio *RadioFactory::getRadio()
 {
+  return new EmulatorTRX();
+
   ApplicaionSettings& settings = ApplicaionSettings::getInstance();
 
   switch (settings.getRadioType()) {

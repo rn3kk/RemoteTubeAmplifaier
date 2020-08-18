@@ -15,19 +15,10 @@ Vfo::~Vfo()
 }
 
 
-void Vfo::vfoAChangeFreq(int newFreq)
+void Vfo::vfoChangeFreq(int newFreq)
 {
   if(newFreq > 0)
-  {
-//    if(m_tuneMode)
-//    {
-//      int freq = calculate25StepFreq(newFreq);
-//      ui->VFO_A->setText(QString::number(freq));
-//      Q_EMIT tuneTxSliceToNewFreq(freq);
-//    }
-//    else
       ui->VFO_A->setText(QString::number(newFreq));
-  }
   else
     disableAll();
 }
@@ -84,6 +75,7 @@ int Vfo::calculate25StepFreq()
   else
     return 0;
   int freq = calculate25StepFreq(newFreq);
+  return freq;
 }
 
 int Vfo::calculate25StepFreq(int newFreq)

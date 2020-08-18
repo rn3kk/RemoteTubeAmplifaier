@@ -5,6 +5,8 @@
 #include <QString>
 #include <QMap>
 #include <QMutex>
+#include <QSerialPort>
+#include <QTimerEvent>
 
 class QSerialPort;
 
@@ -26,13 +28,16 @@ public Q_SLOTS:
   void setPosition(qint64 newPosition);
   void savePosition();
   void tuneMode(bool mode);
+  void manualMode(bool manualMode);
 
 private Q_SLOTS:
   void readyRead();
   void bytesWriten(qint64 bytes);
+  void errorOccurred(QSerialPort::SerialPortError error);
 
 private:
-  float getPosition();
+  void getPositionAsync();//read position in ReadyRead
+  void timerEvent(QTimerEvent *event) override;
 
 private:
   QSerialPort* m_port;
@@ -44,6 +49,8 @@ private:
   int m_lastFreq;
   int m_lastPos;
   bool m_tuneMode = false;
+  bool m_manualMode = false;
+  QByteArray m_readedPacket;
 
 };
 

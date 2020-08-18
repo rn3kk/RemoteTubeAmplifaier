@@ -1,5 +1,4 @@
 #include <QApplication>
-#include <QSerialPort>
 #include <QDateTime>
 #include <QThread>
 #include <QLoggingCategory>
@@ -19,7 +18,7 @@ MechaduinoController::MechaduinoController(const QString &name, const QString &c
   QThread* thread = new QThread();
   this->moveToThread(thread);
   QObject::connect(thread, &QThread::started, this, &MechaduinoController::init, Qt::QueuedConnection);
-  thread->start();
+  thread->start();    
 }
 
 MechaduinoController::~MechaduinoController()
@@ -40,6 +39,7 @@ void MechaduinoController::init()
   m_port->setStopBits(QSerialPort::OneStop);
   m_port->setBaudRate(QSerialPort::Baud9600);
   QObject::connect(m_port, &QSerialPort::readyRead, this, &MechaduinoController::readyRead, Qt::QueuedConnection);
+  QObject::connect(m_port, &QSerialPort::errorOccurred, this, &MechaduinoController::errorOccurred, Qt::QueuedConnection);
   if(!m_port->open(QSerialPort::ReadWrite))
   {
     qCritical(mechCat) << "connection open error: "
@@ -49,7 +49,7 @@ void MechaduinoController::init()
   }
   else
   {
-    m_port->write("xy");
+    m_port->write("xy");        
   }
 }
 
@@ -75,26 +75,57 @@ void MechaduinoController::changeFreq(int newFreq)
    setPosition(pos);
 }
 
-float MechaduinoController::getPosition()
+void MechaduinoController::getPositionAsync() //read position in ReadyRead
 {
+  qDebug() << "getPositionAsync()";
   if(m_port->isOpen())
   {
     m_port->write("p\n");
-    m_port->waitForBytesWritten();
-
-    QByteArray requestData = m_port->readAll();
-    while (m_port->waitForReadyRead(10))
-      requestData += m_port->readAll();
-
-    m_port->write("xy");
-
-    //20.05\r\nEnter setpoint:\r\n90.00\r\nstepNumber: 0 , Angle: 59.72, raw encoder: 2722\r\n
-    //qDebug(mechCat) << position;
-    int f = requestData.indexOf("Angle: ");
-    QString posAngl= requestData.mid(f+7, 5);
-    return requestData.toFloat();
+    //m_port->flush();
+    if(!m_port->waitForBytesWritten(500))
+      return;
+    bool packetIsReaded(false);
+    while (!packetIsReaded)
+    {
+      if(m_port->waitForReadyRead(250))
+      {
+        m_readedPacket.append(m_port->readAll());
+        if(m_readedPacket.contains("\r\n"))
+          packetIsReaded = true;
+      }
+      else
+        break;
+    }
+    if(packetIsReaded)
+    {
+      int pos = m_readedPacket.indexOf("Angle: ");
+      pos+= strlen("Angle: ");
+      QString angleStr;
+      for(int i=0; i< 5; ++i)
+      {
+        char c = m_readedPacket.at(pos+i);
+        if(c !='.')
+        {
+          angleStr.append(c);
+        }
+        else
+          break;
+      }
+      qDebug() << "Read packet:" << m_readedPacket;
+      qDebug() << "Angle is:" << angleStr;
+      m_lastPos=angleStr.toInt();
+      Q_EMIT changedPosition(m_lastPos);
+    }
+    m_readedPacket.clear();
   }
-  return -1;
+}
+
+void MechaduinoController::timerEvent(QTimerEvent *event)
+{
+  killTimer(event->timerId());
+  if(m_manualMode)
+     getPositionAsync(); //read position in ReadyRead
+  startTimer(250);
 }
 
 QString MechaduinoController::getName() const
@@ -104,6 +135,7 @@ QString MechaduinoController::getName() const
 
 void MechaduinoController::setPosition(qint64 newPosition)
 {
+  qDebug() << "setPosition(" << newPosition<<")";
   if(m_lastPos == newPosition)
     return;
   if(!m_port || !m_port->isOpen())
@@ -131,9 +163,30 @@ void MechaduinoController::tuneMode(bool mode)
 {
   if(m_tuneMode && mode==false) //выключается tune mode
   {
+    savePosition();
     ApplicaionSettings::getInstance().savePosition(m_name, m_points);
+    m_manualMode = false;
   }
   m_tuneMode = mode;
+}
+
+void MechaduinoController::manualMode(bool manualMode)
+{
+  if(!m_tuneMode)
+    return;
+  if(m_manualMode && manualMode == false) // выключается ручной режим настройки
+  {
+    if(m_port && m_port->isOpen())
+    {
+      m_port->write("xy");
+      m_port->flush();
+      setPosition(m_lastPos);
+    }
+  }
+  if(manualMode)
+    startTimer(500);
+  m_manualMode = manualMode;
+
 }
 
 void MechaduinoController::readyRead()
@@ -147,10 +200,20 @@ void MechaduinoController::readyRead()
   QByteArray a;
   a.resize(b);
   b = m_port->read(a.data(), b);
+  if(a.length()>0)
+    qDebug() << "ReadFrom Mechaduino COM port" << a;
 }
 
 void MechaduinoController::bytesWriten(qint64 bytes)
 {
   QDateTime d = QDateTime::currentDateTime();
   qDebug() << "Writen " << bytes << " " << d;
+}
+
+void MechaduinoController::errorOccurred(QSerialPort::SerialPortError error)
+{
+  qDebug()<< "Serial port error " << error;
+  if(error == 0)
+    return;
+
 }
