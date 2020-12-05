@@ -25,6 +25,9 @@ SOURCES += \
         radio/flex.cpp \
         radio/radiofactory.cpp \
         radio/yaesu.cpp \
+        server.cpp \
+        socketwrapper.cpp \
+        statemodel.cpp \
         vfo.cpp
 
 # Default rules for deployment.
@@ -33,6 +36,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
+    ../common/icommunication.h \
     MechaduinoController.h \
     applicaionsettings.h \
     form.h \
@@ -42,6 +46,9 @@ HEADERS += \
     radio/iradio.h \
     radio/radiofactory.h \
     radio/yaesu.h \
+    server.h \
+    socketwrapper.h \
+    statemodel.h \
     vfo.h
 
 FORMS += \
