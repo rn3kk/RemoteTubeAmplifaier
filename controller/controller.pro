@@ -19,6 +19,7 @@ SOURCES += \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
         form.cpp \
+        jsonprotokol.cpp \
         main.cpp \
         mechpanel.cpp \
         radio/emulatortrx.cpp \
@@ -40,6 +41,7 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     form.h \
+    jsonprotokol.h \
     mechpanel.h \
     radio/emulatortrx.h \
     radio/flex.h \

@@ -36,9 +36,19 @@ void Server::newConnection()
   }
   m_socket = new SocketWrapper(socket);
   QObject::connect(m_socket, &SocketWrapper::avaliableData, this, &Server::socketData, Qt::QueuedConnection);
-  QObject::connect(m_socket, &SocketWrapper::socketConnectionStatus, this, &Server::serverConnectionStatus, Qt::QueuedConnection);
-  emit serverConnectionStatus(true);//сокет уже в подключенном сосотоянии
+  //QObject::connect(m_socket, &SocketWrapper::socketConnectionStatus, this, &Server::serverConnectionStatus, Qt::QueuedConnection);
+  //emit serverConnectionStatus(true);//сокет уже в подключенном сосотоянии
   qCDebug(psmServerCat)<< "Incoming connection ";
+}
+
+void Server::timerEvent(QTimerEvent *event)
+{
+  if(m_socket)
+  {
+    m_socket->disconnect();
+    delete m_socket;
+    m_socket = nullptr;
+  }
 }
 
 void Server::doWork()
@@ -56,6 +66,9 @@ void Server::doWork()
 void Server::socketData(const QByteArray &data)
 {
   qCDebug(psmServerCat) << "PSM Socket data " << data;
+
+
+
   //Packet p(m_ci.name(), Packet::Source::SERVER, data);
   //emit outcomingPacket(p);
 }

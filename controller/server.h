@@ -16,7 +16,6 @@ public:
   ~Server();
 
 signals:
-  void serverConnectionStatus(bool connectionStatus);
 
 public slots:
   void doWork();
@@ -24,6 +23,9 @@ public slots:
 protected slots:
   void socketData(const QByteArray& data);
   void newConnection();    
+
+private slots:
+  void timerEvent(QTimerEvent *event) override;
 
 private:
   quint16 m_listeningPort;
