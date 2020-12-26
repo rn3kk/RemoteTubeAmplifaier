@@ -4,10 +4,19 @@
 #include "jsonprotokol.h"
 
 static QString TOKEN = "token";
+static QString REQUEST = "request";
+static QString REQUEST_GET_INFO = "get-info";
 
 bool JsonProtokol::isRequest(const QByteArray &data)
 {
+  QJsonDocument d = QJsonDocument::fromJson(data);
+  QJsonObject o = d.object();
+  QJsonValue v = o.value(REQUEST);
+  QString get = v.toString();
+  if(get.compare(REQUEST_GET_INFO) == 0)
+    return true;
 
+  return false;
 }
 
 bool JsonProtokol::checkToken(const QByteArray &data)

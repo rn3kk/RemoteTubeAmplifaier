@@ -1,5 +1,6 @@
 #include <QLoggingCategory>
 #include <QTcpSocket>
+#include "statemodel.h"
 #include "jsonprotokol.h"
 #include "socketwrapper.h"
 #include "server.h"
@@ -54,10 +55,12 @@ void Server::doWork()
 void Server::socketData(const QByteArray &data)
 {
   SocketWrapper* sw = (SocketWrapper*) sender();
-  if(!JsonProtokol::checkToken(data))
-  {
-    m_socketList.removeOne(sw);
-    delete sw;
-  }
+//  if(!JsonProtokol::checkToken(data))
+//  {
+//    m_socketList.removeOne(sw);
+//    delete sw;
+//  }
+  if(JsonProtokol::isRequest(data))
+    sw->writeToSocket(StateModel::getInstance().toJson());
   qCDebug(srvCat) << "Socket data " << data;
 }

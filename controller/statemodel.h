@@ -9,19 +9,19 @@ class StateModel: public QObject
 {
   Q_OBJECT
 public:
-  StateModel& getInstance();
+  static StateModel& getInstance();
   ~StateModel();
 
   void setRadioFreq(const QString &radioFreq);
   void setPower(bool power);
   void setMechaduinoPosition(const QString& name, int pos);
   void setRelayPinNumber(int relayPinNumber);
+  QByteArray toJson();
 
 private:
   StateModel(QObject* parent = nullptr);
   void markChanged();
   void unmarkChanged();
-  QByteArray toJson();
 
 private slots:
   void timerEvent(QTimerEvent *event) override;

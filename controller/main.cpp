@@ -7,6 +7,7 @@
 #include "vfo.h"
 #include "form.h"
 #include "mechpanel.h"
+#include "statemodel.h"
 #include "radio/radiofactory.h"
 #include "radio/iradio.h"
 #include "MechaduinoController.h"
@@ -30,6 +31,7 @@ int main(int argc, char *argv[])
   if(!setting.loadSettings(configPath))
     exit(0);
 
+  StateModel::getInstance();
   Server server(setting.getServerPort());
   QThread serverThread;
   server.moveToThread(&serverThread);

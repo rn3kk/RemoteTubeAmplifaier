@@ -44,6 +44,7 @@ void StateModel::unmarkChanged()
 
 QByteArray StateModel::toJson()
 {
+  QMutexLocker ml(&m_mutex);
   QJsonObject recordObject;
   recordObject.insert(POWER, m_power);
   recordObject.insert(FREQ, m_radioFreq);
