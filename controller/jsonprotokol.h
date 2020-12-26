@@ -1,6 +1,7 @@
 #ifndef PROTOKOL_H
 #define PROTOKOL_H
 
+#include <QString>
 #include <QByteArray>
 
 class JsonProtokol

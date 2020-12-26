@@ -19,7 +19,6 @@ signals:
 
 public slots:
   void doWork();
-  void autorisationFailed();
 
 protected slots:
   void socketData(const QByteArray& data);

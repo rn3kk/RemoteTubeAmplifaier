@@ -29,6 +29,7 @@ public:
 
   RadioType getRadioType() const;
   QString getComPortName() const;
+  QString getToken() const;
   QByteArray getTokenHash() const;
 
   quint16 getServerPort() const;

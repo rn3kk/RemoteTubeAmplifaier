@@ -194,6 +194,11 @@ QString ApplicaionSettings::getComPortName() const
   return m_comPortName;
 }
 
+QString ApplicaionSettings::getToken() const
+{
+  return m_initToken;
+}
+
 QByteArray ApplicaionSettings::getTokenHash() const
 {
   return QCryptographicHash::hash(m_initToken,QCryptographicHash::Md5);

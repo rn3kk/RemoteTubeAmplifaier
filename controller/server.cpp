@@ -1,5 +1,6 @@
 #include <QLoggingCategory>
 #include <QTcpSocket>
+#include "jsonprotokol.h"
 #include "socketwrapper.h"
 #include "server.h"
 
@@ -50,12 +51,13 @@ void Server::doWork()
     qCInfo(srvCat()) << "Listennigg port " << m_listeningPort;
 }
 
-void Server::autorisationFailed()
-{
-
-}
-
 void Server::socketData(const QByteArray &data)
 {
+  SocketWrapper* sw = (SocketWrapper*) sender();
+  if(!JsonProtokol::checkToken(data))
+  {
+    m_socketList.removeOne(sw);
+    delete sw;
+  }
   qCDebug(srvCat) << "Socket data " << data;
 }
