@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QThread>
 #include <QVector>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -30,6 +31,11 @@ int main(int argc, char *argv[])
     exit(0);
 
   Server server(setting.getServerPort());
+  QThread serverThread;
+  server.moveToThread(&serverThread);
+  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
+  serverThread.start();
+
 
 //  IRadio* radio = RadioFactory::getRadio();
 
@@ -55,4 +61,3 @@ int main(int argc, char *argv[])
 
   return a.exec();
 }
-

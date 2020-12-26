@@ -8,9 +8,9 @@
 #include "statemodel.h"
 
 const QString FREQ = "f";
-const QString POWER = "power";
-const QString RELAY = "relay";
-const QString MECH = "mech";
+const QString POWER = "p";
+const QString RELAY = "r";
+const QString MECH = "m";
 
 StateModel::StateModel(QObject *parent):
   QObject(parent),

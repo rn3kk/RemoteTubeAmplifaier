@@ -5,15 +5,17 @@
 
 static QLoggingCategory sockWrapper("SocketWrapper");
 
-SocketWrapper::SocketWrapper(QObject *parent): //connected to host!
+SocketWrapper::SocketWrapper(QTcpSocket *socket, QObject *parent): //connected to host!
   QObject(parent)
 {
-  qCDebug(sockWrapper) << "SocketWrapper() " << m_name;
+  m_socket = socket;
+  connectSocketSignalsToSlots();
+  qCDebug(sockWrapper) << "SocketWrapper()";
 }
 
 SocketWrapper::~SocketWrapper()
 {
-  qCDebug(sockWrapper) << "~SocketWrapper() " << m_name;
+  qCDebug(sockWrapper) << "~SocketWrapper()";
   if(m_socket)
   {
     m_socket->disconnect();
@@ -41,14 +43,13 @@ void SocketWrapper::readyRead()
 
 void SocketWrapper::connected()
 {
-  qCDebug(sockWrapper)<< "Socket " << m_name <<   " connected.";
-  emit socketConnectionStatus(true);
+  qCDebug(sockWrapper)<< "Socket connected.";
 }
 
 void SocketWrapper::disconnected()
 {
-  qCDebug(sockWrapper)<< "Socket " << m_name <<   " diconnected.";
-  emit socketConnectionStatus(false);
+  qCDebug(sockWrapper)<< "Socket  diconnected.";
+  emit socketDiskonnected();
 }
 
 void SocketWrapper::connectSocketSignalsToSlots()

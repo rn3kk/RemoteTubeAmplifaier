@@ -13,5 +13,3 @@ bool JsonProtokol::checkToken(const QByteArray &data)
 
   return false;
 }
-
-

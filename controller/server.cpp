@@ -3,7 +3,7 @@
 #include "socketwrapper.h"
 #include "server.h"
 
-static QLoggingCategory psmServerCat("PsmServer");
+static QLoggingCategory srvCat("Server");
 
 Server::Server(quint16 port):
   m_listeningPort(port)
@@ -13,62 +13,49 @@ Server::Server(quint16 port):
 
 Server::~Server()
 {
-  if(m_socket)
-  {
-    m_socket->disconnect();
-    delete m_socket;
-  }
+  qDeleteAll(m_socketList);
+  m_socketList.clear();
 }
 
 void Server::newConnection()
 {
-  if(m_socket)
-  {        
-    delete m_socket;
-    m_socket = nullptr;
-  }
-
   QTcpSocket* socket = m_server->nextPendingConnection();
   if(!socket)
   {
-    qCCritical(psmServerCat) << "Incomming connection. m_psm_client is null";
+    qCCritical(srvCat) << "Incomming connection. m_psm_client is null";
     return;
   }
-  m_socket = new SocketWrapper(socket);
-  QObject::connect(m_socket, &SocketWrapper::avaliableData, this, &Server::socketData, Qt::QueuedConnection);
-  //QObject::connect(m_socket, &SocketWrapper::socketConnectionStatus, this, &Server::serverConnectionStatus, Qt::QueuedConnection);
-  //emit serverConnectionStatus(true);//сокет уже в подключенном сосотоянии
-  qCDebug(psmServerCat)<< "Incoming connection ";
+  SocketWrapper* sw = new SocketWrapper(socket);
+  QObject::connect(sw, &SocketWrapper::avaliableData, this, &Server::socketData, Qt::QueuedConnection);
+  QObject::connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected, Qt::QueuedConnection);
+  m_socketList.append(sw);
+  qCDebug(srvCat)<< "Incoming connection ";
 }
 
-void Server::timerEvent(QTimerEvent *event)
+void Server::socketDisconnected()
 {
-  if(m_socket)
-  {
-    m_socket->disconnect();
-    delete m_socket;
-    m_socket = nullptr;
-  }
+  SocketWrapper *socket = (SocketWrapper*) sender();
+  m_socketList.removeOne(socket);
+  delete socket;
 }
 
 void Server::doWork()
 {
-  m_socket = nullptr;
   m_server = new QTcpServer();
   QObject::connect(m_server, &QTcpServer::newConnection, this, &Server::newConnection, Qt::QueuedConnection);
   bool isListenning = m_server->listen(QHostAddress::Any, m_listeningPort);
   if(!isListenning)
-    qCCritical(psmServerCat) << "Can't run PsmServer to listen port " << m_listeningPort;
+    qCCritical(srvCat) << "Can't run Server to listen port " << m_listeningPort;
   else
-    qCInfo(psmServerCat()) << "Listennigg port " << m_listeningPort;
+    qCInfo(srvCat()) << "Listennigg port " << m_listeningPort;
+}
+
+void Server::autorisationFailed()
+{
+
 }
 
 void Server::socketData(const QByteArray &data)
 {
-  qCDebug(psmServerCat) << "PSM Socket data " << data;
-
-
-
-  //Packet p(m_ci.name(), Packet::Source::SERVER, data);
-  //emit outcomingPacket(p);
+  qCDebug(srvCat) << "Socket data " << data;
 }

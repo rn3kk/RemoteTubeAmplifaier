@@ -8,12 +8,12 @@ class SocketWrapper: public QObject
 {
   Q_OBJECT
 public:
-  SocketWrapper(QObject* parent = nullptr);
+  SocketWrapper(QTcpSocket* socket, QObject* parent = nullptr);
   virtual ~SocketWrapper();
 
 signals:
   void avaliableData(const QByteArray& data);
-  void socketConnectionStatus(bool connectionStatus);
+  void socketDiskonnected();
 
 public slots:
   void writeToSocket(const QByteArray& data);
@@ -29,7 +29,6 @@ protected:
 
 protected:
   QTcpSocket* m_socket;
-  QString m_name;
 
 };
 

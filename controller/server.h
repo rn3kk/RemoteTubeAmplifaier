@@ -19,18 +19,17 @@ signals:
 
 public slots:
   void doWork();
+  void autorisationFailed();
 
 protected slots:
   void socketData(const QByteArray& data);
-  void newConnection();    
-
-private slots:
-  void timerEvent(QTimerEvent *event) override;
+  void newConnection();
+  void socketDisconnected();
 
 private:
   quint16 m_listeningPort;
   QTcpServer* m_server;
-  SocketWrapper* m_socket;
+  QList<SocketWrapper*> m_socketList;
 
 };
 
