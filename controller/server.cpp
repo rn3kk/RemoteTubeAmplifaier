@@ -2,7 +2,7 @@
 #include <QTcpSocket>
 #include "statemodel.h"
 #include "jsonprotokol.h"
-#include "socketwrapper.h"
+#include "../common/socketwrapper.h"
 #include "server.h"
 
 static QLoggingCategory srvCat("Server");
