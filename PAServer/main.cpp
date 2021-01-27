@@ -24,6 +24,7 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
     out << context.category << ": "
         << msg << endl;
     out.flush();
+    std::cout << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz ") .toStdString()<< context.category << " "<< msg.toStdString() << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -35,7 +36,8 @@ int main(int argc, char *argv[])
   qInstallMessageHandler(messageHandler);
 
   Server server;
-  SocketHandlerManager::getInstance();
+//  SocketHandlerManager& manager = SocketHandlerManager::getInstance();
+//  QObject::connect(&server, &Server::newSocketHandler, &manager, &SocketHandlerManager::addSocketHandler, Qt::QueuedConnection);
 
   return a.exec();
 }

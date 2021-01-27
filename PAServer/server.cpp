@@ -1,20 +1,12 @@
 #include <QThread>
 #include <QLoggingCategory>
-
+#include "sockethandlermanager.h"
 #include "server.h"
 
 QLoggingCategory serverCat("Server");
 
 Server::Server(QObject *parent):
   QObject(parent)
-{
-  QThread* th = new QThread();
-  this->moveToThread(th);
-  QObject::connect(th, &QThread::started, this, &Server::doInit, Qt::QueuedConnection);
-  th->start();
-}
-
-void Server::doInit()
 {
   m_server = new QTcpServer;
   connect(m_server, &QTcpServer::newConnection, this, &Server::newConnection, Qt::QueuedConnection);
@@ -28,7 +20,7 @@ void Server::newConnection()
 {
   qCDebug(serverCat) << "Incoming connection";
 
- QTcpSocket* socket = m_server->nextPendingConnection();
- SocketHandler* handler = new SocketHandler(socket);
- //SocketHandlerManager::getInstance().addSocketHandler(handler);
+  QTcpSocket* socket = m_server->nextPendingConnection();
+  SocketHandler * sh = new SocketHandler(socket);
+
 }

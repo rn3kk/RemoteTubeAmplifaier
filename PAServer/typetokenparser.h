@@ -16,8 +16,8 @@ public:
   };
 
   TypeToken();
-  TypeToken(TypeToken& token);
-  virtual ~TypeToken();
+  TypeToken(const TypeToken& token);
+  ~TypeToken();
   bool parseTokenAndClientType(QByteArray data);
   QByteArray token() const;
   Type type() const;

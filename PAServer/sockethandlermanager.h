@@ -13,14 +13,17 @@ class SocketHandlerManager final : public QObject
   Q_OBJECT
 public:
   static SocketHandlerManager& getInstance();
+
+public slots:
   void addSocketHandler(SocketHandler* handler);
+
+
+private slots:
+  void bundleIsEmpty();
 
 private:
   SocketHandlerManager();
   ~SocketHandlerManager();
-
-private slots:
-  void bundleIsEmpty();
 
 private:
   QVector<Bundle*> m_bundles;

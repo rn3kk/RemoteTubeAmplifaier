@@ -15,9 +15,9 @@ SocketHandlerManager &SocketHandlerManager::getInstance()
 SocketHandlerManager::SocketHandlerManager()
 {
   qCDebug(shmCat) << "SocketHandlerManager()";
-  QThread* th = new QThread();
-  this->moveToThread(th);
-  th->start();
+//  QThread* th = new QThread();
+//  this->moveToThread(th);
+//  th->start();
 }
 
 SocketHandlerManager::~SocketHandlerManager()
@@ -43,6 +43,7 @@ void SocketHandlerManager::addSocketHandler(SocketHandler *handler)
     }
   }
   Bundle* b = new Bundle(handler);
+  b->addSocketHandler(handler);
   connect(b, &Bundle::bundleIsEmpty, this, &SocketHandlerManager::bundleIsEmpty, Qt::QueuedConnection);
   m_bundles.append(b);
 }

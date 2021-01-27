@@ -2,7 +2,7 @@
 #include <QLoggingCategory>
 #include "typetokenparser.h"
 
-QLoggingCategory tokenCat("Token");
+QLoggingCategory tokenCat("TypeToken");
 
 const QString TYPE = "type";
 const QString TOKEN = "token";
@@ -15,7 +15,7 @@ TypeToken::TypeToken()
 
 }
 
-TypeToken::TypeToken(TypeToken &token)
+TypeToken::TypeToken(const TypeToken &token)
 {
   m_token = token.m_token;
   m_type = token.m_type;
@@ -45,7 +45,7 @@ bool TypeToken::parseTokenAndClientType(QByteArray data)
   m_token = token.toUtf8();
   if(!m_token.isEmpty() && type != UNKN)
   {
-    qCInfo(tokenCat) << "New connection with Type" << type << "Token" << token;
+    qCInfo(tokenCat) << " New connection with Type" << type << "Token" << token;
     return true;
   }
   return false;

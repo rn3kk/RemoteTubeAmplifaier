@@ -21,7 +21,6 @@ private:
   void timerEvent(QTimerEvent *event) override;
 
 public slots:
-  void doInit();
   void readyRead();
   void disconnected();
   void writeData(const QByteArray& data);

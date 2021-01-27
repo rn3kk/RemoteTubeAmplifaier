@@ -11,11 +11,11 @@ class Server final: public QObject
 public:
   Server(QObject* parent = nullptr);
 
-public slots:
-  void doInit();
-
 protected slots:
   void newConnection();
+
+signals:
+  void newSocketHandler(SocketHandler * handler);
 
 private:
   QTcpServer* m_server;

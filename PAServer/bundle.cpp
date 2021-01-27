@@ -4,10 +4,9 @@
 QLoggingCategory bundlecat("Bundle");
 
 Bundle::Bundle(SocketHandler *handler):
+  m_token(handler->token()),
   m_paHandler(nullptr)
 {
-  m_token = handler->token();
-  addSocketHandler(handler);
   qCDebug(bundlecat) << "Bundle() for token" << m_token;
 }
 
@@ -26,6 +25,11 @@ void Bundle::addSocketHandler(SocketHandler *handler)
       m_paHandler->destroy();
     }
     m_paHandler = handler;
+    for(SocketHandler* sh:m_clients)
+    {
+      connect(m_paHandler, &SocketHandler::avaliableData, sh, &SocketHandler::writeData, Qt::QueuedConnection);
+      connect(sh, &SocketHandler::avaliableData, m_paHandler, &SocketHandler::writeData, Qt::QueuedConnection);
+    }
   }
   else if(handler->type() == TypeToken::SOFT_CLIENT)
   {
@@ -38,6 +42,11 @@ void Bundle::addSocketHandler(SocketHandler *handler)
       m_clients.clear();
     }
     m_clients.append(handler);
+    if(m_paHandler)
+    {
+      connect(m_paHandler, &SocketHandler::avaliableData, handler, &SocketHandler::writeData, Qt::QueuedConnection);
+      connect(handler, &SocketHandler::avaliableData, m_paHandler, &SocketHandler::writeData, Qt::QueuedConnection);
+    }
   }
   connect(handler, &SocketHandler::finished, this, &Bundle::socketHandlerDestroyed, Qt::QueuedConnection);
 }
@@ -65,4 +74,3 @@ void Bundle::socketHandlerDestroyed()
   if(handlersIsEmpty())
     emit bundleIsEmpty();
 }
-
