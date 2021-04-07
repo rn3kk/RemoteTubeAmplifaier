@@ -28,14 +28,23 @@ public:
   void savePosition(QString name, QMap<int, int> *positions);
 
   RadioType getRadioType() const;
-
   QString getComPortName() const;
+  QString getToken() const;
+  QByteArray getTokenHash() const;
+
+  quint16 getServerPort() const;
+
+private:
+  QString getRandomString() const;
 
 private:
   RadioType m_radioType;
   QString m_comPortName;//if yeasu
   QString m_flex6xxx_IP;//if flex
   int m_flex6xxx_port;//if flex
+
+  quint16 m_serverPort;
+  QByteArray m_initToken;
 
   QVector<MechaduinoController*> m_mechConrollerList;
   QSettings* m_settings;

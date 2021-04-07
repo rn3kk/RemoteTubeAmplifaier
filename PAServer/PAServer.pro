@@ -1,5 +1,5 @@
-#QT -= gui widgets
-QT += network serialport gui widgets
+QT -= gui
+QT += network
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
@@ -16,21 +16,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-        ../common/socketwrapper.cpp \
-        MechaduinoController.cpp \
-        applicaionsettings.cpp \
-        broadcastinformer.cpp \
-        form.cpp \
-        jsonprotokol.cpp \
+        bundle.cpp \
         main.cpp \
-        mechpanel.cpp \
-        radio/emulatortrx.cpp \
-        radio/flex.cpp \
-        radio/radiofactory.cpp \
-        radio/yaesu.cpp \
         server.cpp \
-        statemodel.cpp \
-        vfo.cpp
+        sockethandler.cpp \
+        sockethandlermanager.cpp \
+        typetokenparser.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -38,26 +29,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    ../common/socketwrapper.h \
-    MechaduinoController.h \
-    applicaionsettings.h \
-    broadcastinformer.h \
-    form.h \
-    jsonprotokol.h \
-    mechpanel.h \
-    radio/emulatortrx.h \
-    radio/flex.h \
-    radio/iradio.h \
-    radio/radiofactory.h \
-    radio/yaesu.h \
+    bundle.h \
+    remoteclientsocketwrapper.h \
     server.h \
-    statemodel.h \
-    vfo.h
-
-FORMS += \
-    form.ui \
-    mechpanel.ui \
-    vfo.ui
-
-DISTFILES += \
-    config.conf
+    sockethandler.h \
+    sockethandlermanager.h \
+    typetokenparser.h

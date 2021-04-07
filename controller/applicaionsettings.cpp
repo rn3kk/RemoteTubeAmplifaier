@@ -1,6 +1,7 @@
 #include <QFile>
 #include <QLoggingCategory>
 #include <QSettings>
+#include <QCryptographicHash>
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
 
@@ -20,6 +21,8 @@ const QString NAME = "name";
 const QString STEP = "step";
 const QString COM_PORT = "comPort";
 const QString USE = "use";
+const QString SERVER = "server";
+const QString INIT_TOKEN = "token";
 
 ApplicaionSettings::ApplicaionSettings()
 {
@@ -85,20 +88,33 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   }
   m_settings->endGroup();
 
+  m_settings->beginGroup(SERVER);
+  m_serverPort = m_settings->value(PORT).toInt();
+  if(m_serverPort == 0)
+    qCCritical(settCat) << "Server port not found";
+  m_initToken = m_settings->value(INIT_TOKEN).toByteArray();
+  if(m_initToken.isNull() || m_initToken.isEmpty())
+  {
+    QString rndStr = getRandomString();
+    m_settings->setValue(INIT_TOKEN, rndStr);
+  }
+
+  m_settings->endGroup();
+
   QStringList keys;
   for(int i=1; i<=3; ++i)
   {
     m_settings->beginGroup(MECH+QString::number(i));
-//    int freq = 1700; //add freq to config
-//    while(1)
-//    {
-//      settings.setValue(QString::number(freq), "0");
-//      freq+=25;
-//      if(freq > 30000)
-//        break;
-//    }
-//    settings.endGroup();
-//    continue;
+    //    int freq = 1700; //add freq to config
+    //    while(1)
+    //    {
+    //      settings.setValue(QString::number(freq), "0");
+    //      freq+=25;
+    //      if(freq > 30000)
+    //        break;
+    //    }
+    //    settings.endGroup();
+    //    continue;
 
     QString name = m_settings->value(NAME).toString();
     QString port = m_settings->value(PORT).toString();
@@ -176,4 +192,34 @@ ApplicaionSettings::RadioType ApplicaionSettings::getRadioType() const
 QString ApplicaionSettings::getComPortName() const
 {
   return m_comPortName;
+}
+
+QString ApplicaionSettings::getToken() const
+{
+  return m_initToken;
+}
+
+QByteArray ApplicaionSettings::getTokenHash() const
+{
+  return QCryptographicHash::hash(m_initToken,QCryptographicHash::Md5);
+}
+
+QString ApplicaionSettings::getRandomString() const
+{
+  const QString possibleCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+  const int randomStringLength = 12; // assuming you want random strings of 12 characters
+
+  QString randomString;
+  for(int i=0; i<randomStringLength; ++i)
+  {
+    int index = qrand() % possibleCharacters.length();
+    QChar nextChar = possibleCharacters.at(index);
+    randomString.append(nextChar);
+  }
+  return randomString;
+}
+
+quint16 ApplicaionSettings::getServerPort() const
+{
+  return m_serverPort;
 }
