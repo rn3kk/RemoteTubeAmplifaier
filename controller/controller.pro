@@ -18,6 +18,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
+        broadcastinformer.cpp \
         form.cpp \
         main.cpp \
         mechpanel.cpp \
@@ -35,6 +36,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
+    broadcastinformer.h \
     form.h \
     mechpanel.h \
     radio/emulatortrx.h \
