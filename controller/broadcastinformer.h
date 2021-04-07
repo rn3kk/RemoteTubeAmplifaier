@@ -9,6 +9,7 @@ class BroadcastInformer: public QObject
   Q_OBJECT
 public:
   BroadcastInformer(QObject* parent = nullptr);
+  ~BroadcastInformer();
 
 public slots:
   void start();

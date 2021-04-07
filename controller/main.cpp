@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QThread>
+#include <server.h>
 #include "vfo.h"
 #include "form.h"
 #include "mechpanel.h"
@@ -37,12 +38,12 @@ int main(int argc, char *argv[])
   QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start, Qt::QueuedConnection);
   th.start();
 
-StateModel::getInstance();
-  Server server(setting.getServerPort());
-  QThread serverThread;
-  server.moveToThread(&serverThread);
-  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
-  serverThread.start();
+//  StateModel::getInstance();
+//  Server server(setting.getServerPort());
+//  QThread serverThread;
+//  server.moveToThread(&serverThread);
+//  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
+//  serverThread.start();
 
   
 //  IRadio* radio = RadioFactory::getRadio();

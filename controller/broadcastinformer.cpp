@@ -1,10 +1,16 @@
 #include <QTimerEvent>
 #include <QHostAddress>
 #include <QNetworkInterface>
+#include <QDateTime>
 #include "broadcastinformer.h"
 
 BroadcastInformer::BroadcastInformer(QObject *parent):
   QObject(parent)
+{
+
+}
+
+BroadcastInformer::~BroadcastInformer()
 {
 
 }
@@ -21,8 +27,10 @@ void BroadcastInformer::timerEvent(QTimerEvent *event)
   QString ip = getIp();
   if(!ip.isEmpty() && !ip.isEmpty())
   {
+    QDateTime dt = QDateTime::currentDateTime();
     QByteArray datagram;
     datagram.append("ip="+ip);
+    datagram.append("time=" + dt.toString("dd.MM.yyyy hh:mm:ss.zzz"));
     if(m_socket)
       m_socket->writeDatagram(datagram, QHostAddress::Broadcast, 5992);
   }
