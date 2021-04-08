@@ -26,11 +26,11 @@ int main(int argc, char *argv[])
 //  QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
 //  mechaduinoContainer->addWidget(vfoPanel);
 
-  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
+//  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
   //QString configPath = "config.conf";
-  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
-  if(!setting.loadSettings(configPath))
-    exit(0);
+//  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
+//  if(!setting.loadSettings(configPath))
+//    exit(0);
 
   BroadcastInformer bi;
   QThread th;
