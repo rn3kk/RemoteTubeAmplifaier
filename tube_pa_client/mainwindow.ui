@@ -6,65 +6,23 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>576</width>
-    <height>309</height>
+    <width>511</width>
+    <height>236</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QGroupBox" name="groupBox">
+   <widget class="QListWidget" name="ampsListItems">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>10</y>
-      <width>271</width>
-      <height>61</height>
+      <x>0</x>
+      <y>0</y>
+      <width>511</width>
+      <height>191</height>
      </rect>
     </property>
-    <property name="title">
-     <string>GroupBox</string>
-    </property>
-    <widget class="QLineEdit" name="lineEditIP">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>30</y>
-       <width>121</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>127.000.000.001</string>
-     </property>
-    </widget>
-    <widget class="QLineEdit" name="lineEditPort">
-     <property name="geometry">
-      <rect>
-       <x>130</x>
-       <y>30</y>
-       <width>61</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>5225</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="connectButton">
-     <property name="geometry">
-      <rect>
-       <x>190</x>
-       <y>30</y>
-       <width>71</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Connect</string>
-     </property>
-    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -72,7 +30,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>576</width>
+     <width>511</width>
      <height>22</height>
     </rect>
    </property>

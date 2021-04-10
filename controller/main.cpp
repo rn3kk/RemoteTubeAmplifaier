@@ -26,11 +26,11 @@ int main(int argc, char *argv[])
 //  QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
 //  mechaduinoContainer->addWidget(vfoPanel);
 
-//  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
+  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
   //QString configPath = "config.conf";
-//  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
-//  if(!setting.loadSettings(configPath))
-//    exit(0);
+  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
+  if(!setting.loadSettings(configPath))
+    exit(0);
 
   BroadcastInformer bi;
   QThread th;
@@ -38,12 +38,12 @@ int main(int argc, char *argv[])
   QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start, Qt::QueuedConnection);
   th.start();
 
-//  StateModel::getInstance();
-//  Server server(setting.getServerPort());
-//  QThread serverThread;
-//  server.moveToThread(&serverThread);
-//  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
-//  serverThread.start();
+  StateModel::getInstance();
+  Server server;
+  QThread serverThread;
+  server.moveToThread(&serverThread);
+  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
+  serverThread.start();
 
   
 //  IRadio* radio = RadioFactory::getRadio();

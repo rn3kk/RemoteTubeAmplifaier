@@ -34,6 +34,8 @@ public:
 
   quint16 getServerPort() const;
 
+  QString getPaName() const;
+
 private:
   QString getRandomString() const;
 
@@ -48,6 +50,8 @@ private:
 
   QVector<MechaduinoController*> m_mechConrollerList;
   QSettings* m_settings;
+
+  QString m_paName = "P-140auto";
 
 
 };

@@ -3,12 +3,12 @@
 #include "statemodel.h"
 #include "jsonprotokol.h"
 #include "../common/socketwrapper.h"
+#include "../common/common.h"
 #include "server.h"
 
 static QLoggingCategory srvCat("Server");
 
-Server::Server(quint16 port):
-  m_listeningPort(port)
+Server::Server()
 {
 
 }
@@ -45,11 +45,11 @@ void Server::doWork()
 {
   m_server = new QTcpServer();
   QObject::connect(m_server, &QTcpServer::newConnection, this, &Server::newConnection, Qt::QueuedConnection);
-  bool isListenning = m_server->listen(QHostAddress::Any, m_listeningPort);
+  bool isListenning = m_server->listen(QHostAddress::Any, PA_TCP_PORT);
   if(!isListenning)
-    qCCritical(srvCat) << "Can't run Server to listen port " << m_listeningPort;
+    qCCritical(srvCat) << "Can't run Server to listen TCP port " << PA_TCP_PORT;
   else
-    qCInfo(srvCat()) << "Listennigg port " << m_listeningPort;
+    qCInfo(srvCat()) << "Listennig TCP port" << PA_TCP_PORT;
 }
 
 void Server::socketData(const QByteArray &data)

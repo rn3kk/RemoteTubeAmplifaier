@@ -12,7 +12,7 @@ class Server final: public QObject
 {
   Q_OBJECT
 public:
-  explicit Server(quint16 port);
+  explicit Server();
   ~Server();
 
 signals:
@@ -26,7 +26,6 @@ protected slots:
   void socketDisconnected();
 
 private:
-  quint16 m_listeningPort;
   QTcpServer* m_server;
   QList<SocketWrapper*> m_socketList;
 

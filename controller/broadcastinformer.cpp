@@ -2,10 +2,12 @@
 #include <QHostAddress>
 #include <QNetworkInterface>
 #include <QDateTime>
+#include "applicaionsettings.h"
+#include "../common/ampinfo.h"
+#include "../common/common.h"
 #include "broadcastinformer.h"
 
-BroadcastInformer::BroadcastInformer(QObject *parent):
-  QObject(parent)
+BroadcastInformer::BroadcastInformer(QObject *parent)
 {
 
 }
@@ -27,12 +29,10 @@ void BroadcastInformer::timerEvent(QTimerEvent *event)
   QString ip = getIp();
   if(!ip.isEmpty() && !ip.isEmpty())
   {
-    QDateTime dt = QDateTime::currentDateTime();
-    QByteArray datagram;
-    datagram.append("ip="+ip);
-    datagram.append("time=" + dt.toString("dd.MM.yyyy hh:mm:ss.zzz"));
+    QString ampName = ApplicaionSettings::getInstance().getPaName();
+    AmpInfo ai(ampName, ip);
     if(m_socket)
-      m_socket->writeDatagram(datagram, QHostAddress::Broadcast, 5992);
+      m_socket->writeDatagram(ai.toXml(), QHostAddress::Broadcast, PA_UDP_BROADCAST_PORT);
   }
   startTimer(3000);
 }

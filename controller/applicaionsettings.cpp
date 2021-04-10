@@ -219,6 +219,11 @@ QString ApplicaionSettings::getRandomString() const
   return randomString;
 }
 
+QString ApplicaionSettings::getPaName() const
+{
+  return m_paName;
+}
+
 quint16 ApplicaionSettings::getServerPort() const
 {
   return m_serverPort;

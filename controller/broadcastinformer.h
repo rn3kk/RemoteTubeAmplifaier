@@ -3,6 +3,7 @@
 
 #include <QUdpSocket>
 #include <QObject>
+#include "../common/ampinfo.h"
 
 class BroadcastInformer: public QObject
 {
@@ -18,6 +19,7 @@ private:
   void timerEvent(QTimerEvent *event) override;
   QString getIp() const;
   QUdpSocket* m_socket = nullptr;
+  QByteArray m_xml;
 
 };
 

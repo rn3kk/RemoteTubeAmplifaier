@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QListWidget>
+#include "../common/ampinfo.h"
 
 namespace Ui {
 class MainWindow;
@@ -15,11 +17,14 @@ public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
-private slots:
-  void on_connectButton_clicked();
+
+public slots:
+  void updateLockalAmp(const AmpInfo& ai);
+
 
 private:
   Ui::MainWindow *ui;
+  QListWidget *m_list;
 };
 
 #endif // MAINWINDOW_H

@@ -3,6 +3,9 @@
 
 #include <QObject>
 #include <QUdpSocket>
+#include "../common/ampinfo.h"
+
+
 
 class BroadcastReceiver : public QObject
 {
@@ -15,6 +18,7 @@ public slots:
   void readyRead();
 
 signals:
+  void findAmplifaier(AmpInfo ai);
 
 private:
   QUdpSocket* m_socket = nullptr;
