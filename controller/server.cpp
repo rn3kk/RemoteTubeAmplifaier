@@ -28,15 +28,18 @@ void Server::newConnection()
     return;
   }
   SocketWrapper* sw = new SocketWrapper(socket);
-  QObject::connect(sw, &SocketWrapper::avaliableData, this, &Server::socketData, Qt::QueuedConnection);
-  QObject::connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected, Qt::QueuedConnection);
+  connect(sw, &SocketWrapper::avaliableData, this, &Server::socketData);
+  connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected);
+  connect(this, &Server::sendToAllClients, sw, &SocketWrapper::writeToSocket);
   m_socketList.append(sw);
+  sw->writeToSocket(StateModel::getInstance().toJson());
   qCDebug(srvCat)<< "Incoming connection ";
 }
 
 void Server::socketDisconnected()
 {
   SocketWrapper *socket = (SocketWrapper*) sender();
+  socket->disconnect();
   m_socketList.removeOne(socket);
   delete socket;
 }
@@ -44,7 +47,7 @@ void Server::socketDisconnected()
 void Server::doWork()
 {
   m_server = new QTcpServer();
-  QObject::connect(m_server, &QTcpServer::newConnection, this, &Server::newConnection, Qt::QueuedConnection);
+  QObject::connect(m_server, &QTcpServer::newConnection, this, &Server::newConnection);
   bool isListenning = m_server->listen(QHostAddress::Any, PA_TCP_PORT);
   if(!isListenning)
     qCCritical(srvCat) << "Can't run Server to listen TCP port " << PA_TCP_PORT;
@@ -60,7 +63,7 @@ void Server::socketData(const QByteArray &data)
 //    m_socketList.removeOne(sw);
 //    delete sw;
 //  }
-  if(JsonProtokol::isRequest(data))
-    sw->writeToSocket(StateModel::getInstance().toJson());
+//  if(JsonProtokol::isRequest(data))
+//    sw->writeToSocket(StateModel::getInstance().toJson());
   qCDebug(srvCat) << "Socket data " << data;
 }

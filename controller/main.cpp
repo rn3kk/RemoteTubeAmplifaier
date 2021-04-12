@@ -38,12 +38,15 @@ int main(int argc, char *argv[])
   QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start, Qt::QueuedConnection);
   th.start();
 
-  StateModel::getInstance();
+  StateModel& model = StateModel::getInstance();
+
   Server server;
   QThread serverThread;
   server.moveToThread(&serverThread);
   QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
   serverThread.start();
+
+  QObject::connect(&model, &StateModel::modelChanged, &server, &Server::sendToAllClients);
 
   
 //  IRadio* radio = RadioFactory::getRadio();

@@ -16,6 +16,7 @@ public:
   ~Server();
 
 signals:
+  void sendToAllClients(const QByteArray& data);
 
 public slots:
   void doWork();

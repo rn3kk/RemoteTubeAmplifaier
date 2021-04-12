@@ -14,7 +14,8 @@ const QString MECH = "m";
 
 StateModel::StateModel(QObject *parent):
   QObject(parent),
-  m_isChanged(false)
+  m_isChanged(false),
+  m_needSendModel(false)
 {
   startTimer(1000);
 }
@@ -34,12 +35,6 @@ void StateModel::markChanged()
 {
   QMutexLocker ml(&m_mutex);
   m_isChanged = true;
-}
-
-void StateModel::unmarkChanged()
-{
-  QMutexLocker ml(&m_mutex);
-  m_isChanged = false;
 }
 
 QByteArray StateModel::toJson()
@@ -62,6 +57,12 @@ QByteArray StateModel::toJson()
   return doc.toJson();
 }
 
+void StateModel::sendModel()
+{
+  QMutexLocker ml(&m_mutex);
+  m_needSendModel = true;
+}
+
 void StateModel::setPower(bool power)
 {
   QMutexLocker ml(&m_mutex);
@@ -80,14 +81,15 @@ void StateModel::timerEvent(QTimerEvent *event)
 {
   killTimer(event->timerId());
 
-  if(m_isChanged)
+  if(m_isChanged || m_needSendModel)
   {
     {
       QMutexLocker ml(&m_mutex);
       QByteArray a = toJson();
       emit modelChanged(a);
+      m_isChanged = false;
+      m_needSendModel = false;
     }
-    unmarkChanged();
   }
 
   startTimer(100);

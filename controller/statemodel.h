@@ -20,8 +20,8 @@ public:
 
 private:
   StateModel(QObject* parent = nullptr);
-  void markChanged();
-  void unmarkChanged();
+  void markChanged();  
+  void sendModel(); // пока ХЗ нужен или нет. запрятал в приватные
 
 private slots:
   void timerEvent(QTimerEvent *event) override;
@@ -35,6 +35,7 @@ private:
   QString m_radioFreq; //if empty or degreese - radio not connected
   int m_relayNumber; // 0 - empty
   bool m_isChanged;
+  bool m_needSendModel;
   QMutex m_mutex;
 
 };
