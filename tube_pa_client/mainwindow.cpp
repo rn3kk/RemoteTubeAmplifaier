@@ -1,3 +1,5 @@
+#include <QTimerEvent>
+#include <QDebug>
 #include "mainwindow.h"
 #include "ampitemwidget.h"
 #include "ui_mainwindow.h"
@@ -8,11 +10,34 @@ MainWindow::MainWindow(QWidget *parent) :
 {
   ui->setupUi(this);
   m_list = ui->ampsListItems;
+  startTimer(10000);
 }
 
 MainWindow::~MainWindow()
 {
   delete ui;
+}
+
+void MainWindow::timerEvent(QTimerEvent *event)
+{
+  killTimer(event->timerId());
+  for(int i = 0; i < m_list->count(); ++i)
+  {
+    QListWidgetItem* item = m_list->item(i);
+    if(item)
+    {
+      AmpItemWidget *w = dynamic_cast<AmpItemWidget*>(m_list->itemWidget(item));
+      QDateTime currentTime = QDateTime::currentDateTime();
+      if( (currentTime.toMSecsSinceEpoch() - w->updateTime().toMSecsSinceEpoch()) > 10000)
+      {
+        m_list->removeItemWidget(item);
+        delete  item;
+        delete w;
+      }
+    }
+  }
+
+  startTimer(10000);
 }
 
 void MainWindow::updateLockalAmp(const AmpInfo &ai)

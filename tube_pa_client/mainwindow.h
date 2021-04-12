@@ -17,9 +17,13 @@ public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+  void timerEvent(QTimerEvent* event) override;
+
 
 public slots:
   void updateLockalAmp(const AmpInfo& ai);
+
+
 
 
 private:
