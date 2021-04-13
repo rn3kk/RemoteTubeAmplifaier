@@ -13,6 +13,12 @@ SocketWrapper::SocketWrapper(QTcpSocket *socket, QObject *parent): //connected t
   qCDebug(sockWrapper) << "SocketWrapper()";
 }
 
+SocketWrapper::SocketWrapper(QString host, quint16 port, QObject *parent)
+{
+  m_socket = new QTcpSocket();
+
+}
+
 SocketWrapper::~SocketWrapper()
 {
   qCDebug(sockWrapper) << "~SocketWrapper()";

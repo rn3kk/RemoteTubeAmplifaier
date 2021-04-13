@@ -9,6 +9,7 @@ class SocketWrapper: public QObject
   Q_OBJECT
 public:
   SocketWrapper(QTcpSocket* socket, QObject* parent = nullptr);
+  SocketWrapper(QString host, quint16 port, QObject* parent = nullptr);
   virtual ~SocketWrapper();
 
 signals:
