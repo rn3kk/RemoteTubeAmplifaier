@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
   serverThread.start();
 
   QObject::connect(&model, &StateModel::modelChanged, &server, &Server::sendToAllClients);
+  QObject::connect(&server, &Server::changeModel, &model, )
 
   
 //  IRadio* radio = RadioFactory::getRadio();

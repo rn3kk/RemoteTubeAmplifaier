@@ -17,6 +17,7 @@ public:
 
 signals:
   void sendToAllClients(const QByteArray& data);
+  void changeModel(const QPair<QString, QString>& pair);
 
 public slots:
   void doWork();

@@ -23,6 +23,9 @@ public:
   bool getConnected() const;
   void setConnected(bool connected);
 
+public slots:
+  void needChange(const QPair<QString, QString>& pair);
+
 private:
   StateModel(QObject* parent = nullptr);
   void markChanged();
