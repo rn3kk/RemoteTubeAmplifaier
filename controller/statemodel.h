@@ -16,11 +16,16 @@ public:
   void setPower(bool power);
   void setMechaduinoPosition(const QString& name, int pos);
   void setRelayPinNumber(int relayPinNumber);
-  QByteArray toJson();
+
+  QByteArray toJson();//for controller
+  void fromJson(QByteArray json); //for client
+
+  bool getConnected() const;
+  void setConnected(bool connected);
 
 private:
   StateModel(QObject* parent = nullptr);
-  void markChanged();  
+  void markChanged();
   void sendModel(); // пока ХЗ нужен или нет. запрятал в приватные
 
 private slots:
@@ -36,6 +41,7 @@ private:
   int m_relayNumber; // 0 - empty
   bool m_isChanged;
   bool m_needSendModel;
+  bool m_connected;
   QMutex m_mutex;
 
 };

@@ -5,12 +5,10 @@
 #include <QJsonValue>
 #include <QVariant>
 #include <QPair>
+#include "../common/common.h"
 #include "statemodel.h"
 
-const QString FREQ = "f";
-const QString POWER = "p";
-const QString RELAY = "r";
-const QString MECH = "m";
+
 
 StateModel::StateModel(QObject *parent):
   QObject(parent),
@@ -57,6 +55,15 @@ QByteArray StateModel::toJson()
   return doc.toJson();
 }
 
+void StateModel::fromJson(QByteArray json)
+{
+  QJsonDocument jsonResponse = QJsonDocument::fromJson(json);
+  QJsonObject jsonObject = jsonResponse.object();
+  QString freq = jsonObject[FREQ].toString();
+  bool power = jsonObject[POWER].toBool();
+  int relay = jsonObject[RELAY].toInt();
+}
+
 void StateModel::sendModel()
 {
   QMutexLocker ml(&m_mutex);
@@ -93,6 +100,16 @@ void StateModel::timerEvent(QTimerEvent *event)
   }
 
   startTimer(100);
+}
+
+bool StateModel::getConnected() const
+{
+  return m_connected;
+}
+
+void StateModel::setConnected(bool connected)
+{
+  m_connected = connected;
 }
 
 void StateModel::setRelayPinNumber(int relayPinNumber)

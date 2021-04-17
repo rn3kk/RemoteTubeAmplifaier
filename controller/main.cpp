@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
   th.start();
 
   StateModel& model = StateModel::getInstance();
+  model.fromJson(model.toJson());
 
   Server server;
   QThread serverThread;

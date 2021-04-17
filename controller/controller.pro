@@ -40,6 +40,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     ../common/ampinfo.h \
+    ../common/common.h \
     ../common/socketwrapper.h \
     MechaduinoController.h \
     applicaionsettings.h \

@@ -16,7 +16,8 @@ SocketWrapper::SocketWrapper(QTcpSocket *socket, QObject *parent): //connected t
 SocketWrapper::SocketWrapper(QString host, quint16 port, QObject *parent)
 {
   m_socket = new QTcpSocket();
-
+  connectSocketSignalsToSlots();
+  m_socket->connectToHost(host, port);
 }
 
 SocketWrapper::~SocketWrapper()

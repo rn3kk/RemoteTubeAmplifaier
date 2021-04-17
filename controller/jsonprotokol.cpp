@@ -1,11 +1,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "applicaionsettings.h"
+#include "../common/common.h"
 #include "jsonprotokol.h"
-
-static QString TOKEN = "token";
-static QString REQUEST = "request";
-static QString REQUEST_GET_INFO = "get-info";
 
 bool JsonProtokol::isRequest(const QByteArray &data)
 {
@@ -32,4 +29,29 @@ bool JsonProtokol::checkToken(const QByteArray &data)
     return true;
 
   return false;
+}
+
+QByteArray JsonProtokol::createChangeRequest(QString key, QString newValue)
+{
+  QJsonObject recordObject;
+  recordObject.insert(REQUEST, CHANGE_REUQEST);
+  recordObject.insert(KEY, key);
+  recordObject.insert(VALUE, newValue);
+  QJsonDocument doc(recordObject);
+  return doc.toJson();
+}
+
+QPair<QString, QString> JsonProtokol::parceChangeRequest(QByteArray data)
+{
+  QJsonDocument d = QJsonDocument::fromJson(data);
+  QJsonObject o = d.object();
+  QString request = o[REQUEST].toString();
+  QString key = o[KEY].toString();
+  QString value = o[VALUE].toString();
+  if(request.compare(CHANGE_REUQEST) == 0)
+  {
+       QPair<QString, QString> pair(key, value);
+       return pair;
+  }
+  return QPair<QString, QString>();
 }

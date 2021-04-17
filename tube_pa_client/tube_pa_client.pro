@@ -16,6 +16,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
  ../common/ampinfo.cpp \
+ ../common/socketwrapper.cpp \
  ampitemwidget.cpp \
  main.cpp \
  mainwindow.cpp \
@@ -32,6 +33,7 @@ FORMS += \
 
 HEADERS += \
  ../common/ampinfo.h \
+ ../common/socketwrapper.h \
  ampitemwidget.h \
  mainwindow.h \
  broadcastreceiver.h
