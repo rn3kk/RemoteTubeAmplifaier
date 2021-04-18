@@ -6,8 +6,6 @@
 
 IRadio *RadioFactory::getRadio()
 {
-  return new EmulatorTRX();
-
   ApplicaionSettings& settings = ApplicaionSettings::getInstance();
 
   switch (settings.getRadioType()) {
@@ -18,7 +16,7 @@ IRadio *RadioFactory::getRadio()
     return new Yaesu(settings.getComPortName());
     break;
   default:
-    return nullptr;
+    return new EmulatorTRX;
     break;
   }
 }

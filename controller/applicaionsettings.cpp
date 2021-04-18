@@ -84,7 +84,6 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   {
     m_radioType = UNKNOWN_RADIO;
     qCCritical(settCat) << "Unknown radio type";
-    return false;
   }
   m_settings->endGroup();
 

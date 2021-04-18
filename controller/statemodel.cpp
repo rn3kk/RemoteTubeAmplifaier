@@ -8,8 +8,6 @@
 #include "../common/common.h"
 #include "statemodel.h"
 
-
-
 StateModel::StateModel(QObject *parent):
   QObject(parent),
   m_isChanged(false),
@@ -31,13 +29,11 @@ StateModel::~StateModel()
 
 void StateModel::markChanged()
 {
-  QMutexLocker ml(&m_mutex);
   m_isChanged = true;
 }
 
 QByteArray StateModel::toJson()
 {
-  QMutexLocker ml(&m_mutex);
   QJsonObject recordObject;
   recordObject.insert(POWER, m_power);
   recordObject.insert(FREQ, m_radioFreq);
@@ -122,6 +118,7 @@ void StateModel::needChange(const QPair<QString, QString> &pair)
     setPower(pair.second.toInt());
   else if(pair.first.compare(RELAY) == 0)
     setRelayPinNumber(pair.second.toInt());
+  markChanged();
   //TODO  думать как менять мехадуино позицию
  // else if(pair.first)
 }
@@ -132,12 +129,14 @@ void StateModel::setRelayPinNumber(int relayPinNumber)
     return;
   QMutexLocker ml(&m_mutex);
   m_relayNumber = relayPinNumber;
+  markChanged();
 }
 
-void StateModel::setRadioFreq(const QString &radioFreq)
+void StateModel::setRadioFreq(int radioFreq)
 {
   if(radioFreq == m_radioFreq)
     return;
   QMutexLocker ml(&m_mutex);
   m_radioFreq = radioFreq;
+  markChanged();
 }

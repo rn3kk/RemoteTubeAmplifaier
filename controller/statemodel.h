@@ -12,7 +12,6 @@ public:
   static StateModel& getInstance();
   ~StateModel();
 
-  void setRadioFreq(const QString &radioFreq);
   void setPower(bool power);
   void setMechaduinoPosition(const QString& name, int pos);
   void setRelayPinNumber(int relayPinNumber);
@@ -24,6 +23,7 @@ public:
   void setConnected(bool connected);
 
 public slots:
+  void setRadioFreq(int radioFreq);
   void needChange(const QPair<QString, QString>& pair);
 
 private:
@@ -40,7 +40,7 @@ signals:
 private:
   bool m_power;  //on off
   QMap<QString, int> m_mechaduinoStates; //negative degrees - mech not connected
-  QString m_radioFreq; //if empty or degreese - radio not connected
+  int m_radioFreq; //if empty or degreese - radio not connected
   int m_relayNumber; // 0 - empty
   bool m_isChanged;
   bool m_needSendModel;

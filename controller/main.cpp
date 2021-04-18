@@ -26,11 +26,11 @@ int main(int argc, char *argv[])
 //  QHBoxLayout* mechaduinoContainer = f.findChild<QHBoxLayout*>("mechaduinoContainer");
 //  mechaduinoContainer->addWidget(vfoPanel);
 
-//  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
-//  //QString configPath = "config.conf";
-//  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
-//  if(!setting.loadSettings(configPath))
-//    exit(0);
+  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
+  //QString configPath = "config.conf";
+  ApplicaionSettings& setting = ApplicaionSettings::getInstance();
+  if(!setting.loadSettings(configPath))
+    exit(0);
 
   BroadcastInformer bi;
   QThread th;
@@ -48,12 +48,11 @@ int main(int argc, char *argv[])
   serverThread.start();
 
   QObject::connect(&model, &StateModel::modelChanged, &server, &Server::sendToAllClients);
-  QObject::connect(&server, &Server::changeModel, &model, )
+  //QObject::connect(&server, &Server::changeModel, &model, )
 
   
-//  IRadio* radio = RadioFactory::getRadio();
-
-//  QObject::connect(radio, &IRadio::freqChanged, vfoPanel, &Vfo::vfoChangeFreq, Qt::QueuedConnection);
+  IRadio* radio = RadioFactory::getRadio();
+  QObject::connect(radio, &IRadio::freqChanged, &model, &StateModel::setRadioFreq);
 
 //  QObject::connect(&f, &Form::setFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug
 //  QObject::connect(vfoPanel, &Vfo::tuneVFOTxToNewFreq, radio, &IRadio::setTXFreq, Qt::QueuedConnection);//TODO debug

@@ -11,8 +11,10 @@ void EmulatorTRX::setTXFreq(int freq)
   emit freqChanged(freq);
 }
 
+long int lastFreq=7001;
 void EmulatorTRX::timerEvent(QTimerEvent *event)
 {
   killTimer(event->timerId());
-  emit freqChanged(7049);
+  emit freqChanged(lastFreq++);
+  startTimer(1000);
 }
