@@ -32,6 +32,8 @@ private:
   quint16 m_port;
   QString m_name;
   QDateTime m_updateTime;
+
+  class Form* m_form = nullptr;
 };
 
 #endif // AMPITEMWIDGET_H

@@ -1,19 +1,28 @@
 #include <QDateTime>
 #include <QDebug>
+#include <QShowEvent>
+#include <QCloseEvent>
+#include "../common/socketwrapper.h"
 #include "form.h"
 #include "ui_form.h"
 #include "mechpanel.h"
 
-Form::Form(QWidget *parent) :
+Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   QWidget(parent),
-  ui(new Ui::Form)
+  ui(new Ui::Form),
+  m_name(name),
+  m_ip(ip),
+  m_port(port)
 {
   ui->setupUi(this);
+
 
 }
 
 Form::~Form()
 {
+  if(m_client)
+    delete m_client;
   delete ui;
 }
 
@@ -42,4 +51,22 @@ void Form::on_pushButton_clicked()
 {
   QString freq = ui->lineEdit->text();
   Q_EMIT setFreq(freq.toFloat());
+}
+
+void Form::showEvent(QShowEvent *event)
+{
+  switch (event->type()) {
+  case QShowEvent::Show:
+    m_client = new SocketWrapper(m_ip, m_port);
+    break;
+  }
+}
+
+void Form::closeEvent(QCloseEvent* event)
+{
+  if(m_client)
+  {
+    delete m_client;
+    m_client = nullptr;
+  }
 }
