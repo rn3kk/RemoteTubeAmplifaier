@@ -19,12 +19,8 @@ public:
 
   void timerEvent(QTimerEvent* event) override;
 
-
 public slots:
   void updateLockalAmp(const AmpInfo& ai);
-
-
-
 
 private:
   Ui::MainWindow *ui;
