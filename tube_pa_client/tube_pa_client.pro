@@ -18,9 +18,12 @@ SOURCES += \
  ../common/ampinfo.cpp \
  ../common/socketwrapper.cpp \
  ampitemwidget.cpp \
+ form.cpp \
  main.cpp \
  mainwindow.cpp \
- broadcastreceiver.cpp
+ broadcastreceiver.cpp \
+ mechpanel.cpp \
+ vfo.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -29,11 +32,17 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 FORMS += \
  ampitemwidget.ui \
- mainwindow.ui
+ form.ui \
+ mainwindow.ui \
+ mechpanel.ui \
+ vfo.ui
 
 HEADERS += \
  ../common/ampinfo.h \
  ../common/socketwrapper.h \
  ampitemwidget.h \
+ form.h \
  mainwindow.h \
- broadcastreceiver.h
+ broadcastreceiver.h \
+ mechpanel.h \
+ vfo.h

@@ -1,12 +1,7 @@
-#include <QApplication>
+#include <QCoreApplication>
 #include <QVector>
-#include <QHBoxLayout>
-#include <QLabel>
 #include <QThread>
 #include <server.h>
-#include "vfo.h"
-#include "form.h"
-#include "mechpanel.h"
 #include "statemodel.h"
 #include "radio/radiofactory.h"
 #include "radio/iradio.h"
@@ -16,7 +11,7 @@
 
 int main(int argc, char *argv[])
 {
-  QApplication a(argc, argv);
+  QCoreApplication a(argc, argv);
 
 //  Form f;
 //  f.show();

@@ -1,5 +1,5 @@
 #QT -= gui widgets
-QT += network serialport gui widgets xml
+QT += network serialport xml
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
@@ -21,17 +21,14 @@ SOURCES += \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
         broadcastinformer.cpp \
-        form.cpp \
         jsonprotokol.cpp \
         main.cpp \
-        mechpanel.cpp \
         radio/emulatortrx.cpp \
         radio/flex.cpp \
         radio/radiofactory.cpp \
         radio/yaesu.cpp \
         server.cpp \
-        statemodel.cpp \
-        vfo.cpp
+        statemodel.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -45,22 +42,16 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     broadcastinformer.h \
-    form.h \
     jsonprotokol.h \
-    mechpanel.h \
     radio/emulatortrx.h \
     radio/flex.h \
     radio/iradio.h \
     radio/radiofactory.h \
     radio/yaesu.h \
     server.h \
-    statemodel.h \
-    vfo.h
+    statemodel.h
 
-FORMS += \
-    form.ui \
-    mechpanel.ui \
-    vfo.ui
+FORMS +=
 
 DISTFILES += \
     config.conf
