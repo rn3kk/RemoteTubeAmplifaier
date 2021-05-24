@@ -2,7 +2,10 @@
 #include <QDebug>
 #include <QShowEvent>
 #include <QCloseEvent>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "../common/socketwrapper.h"
+#include "../common/common.h"
 #include "form.h"
 #include "ui_form.h"
 #include "mechpanel.h"
@@ -15,7 +18,7 @@ Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   m_port(port)
 {
   ui->setupUi(this);
-
+  m_lineEdit = ui->lineEdit;
 
 }
 
@@ -53,11 +56,29 @@ void Form::on_pushButton_clicked()
   Q_EMIT setFreq(freq.toFloat());
 }
 
+void Form::remoteModelIsChanged(const QByteArray &data)
+{
+  QJsonParseError jsonError;
+  QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
+  if (jsonError.error != QJsonParseError::NoError)
+  {
+    qDebug() << jsonError.errorString();
+    return;
+  }
+  QJsonObject obj = doc.object();
+
+  QJsonValue val = obj.value(FREQ);
+  QString str = QString::number(val.toDouble());
+  m_lineEdit->setText(str);
+
+}
+
 void Form::showEvent(QShowEvent *event)
 {
   switch (event->type()) {
   case QShowEvent::Show:
     m_client = new SocketWrapper(m_ip, m_port);
+    connect(m_client, &SocketWrapper::avaliableData, this, &Form::remoteModelIsChanged);
     break;
   }
 }

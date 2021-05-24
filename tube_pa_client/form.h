@@ -1,6 +1,7 @@
 #ifndef FORM_H
 #define FORM_H
 
+#include <QLineEdit>
 #include <QWidget>
 
 namespace Ui {
@@ -25,6 +26,7 @@ signals:
 private slots:
   void on_tuneButton_clicked();
   void on_pushButton_clicked();
+  void remoteModelIsChanged(const QByteArray& data);
   void showEvent(QShowEvent *event) override;
   void closeEvent(QCloseEvent *event) override;
 
@@ -36,6 +38,8 @@ private:
   quint16 m_port;
   QString m_name;
   class SocketWrapper* m_client;
+
+  QLineEdit* m_lineEdit;
 
 };
 

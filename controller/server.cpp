@@ -28,13 +28,13 @@ void Server::newConnection()
     qCCritical(srvCat) << "Incomming connection. m_psm_client is null";
     return;
   }
+  qCDebug(srvCat)<< "Incoming connection ";
   SocketWrapper* sw = new SocketWrapper(socket);
   connect(sw, &SocketWrapper::avaliableData, this, &Server::socketData);
   connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected);
   connect(this, &Server::sendToAllClients, sw, &SocketWrapper::writeToSocket);
   m_socketList.append(sw);
   sw->writeToSocket(StateModel::getInstance().toJson());
-  qCDebug(srvCat)<< "Incoming connection ";
 }
 
 void Server::socketDisconnected()
