@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+  qRegisterMetaType<QPair<QString, QString>>("QPair<QString, QString>");
   QCoreApplication a(argc, argv);
 
 //  Form f;
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
   serverThread.start();
 
   QObject::connect(&model, &StateModel::modelChanged, &server, &Server::sendToAllClients);
-  //QObject::connect(&server, &Server::changeModel, &model, )
+  QObject::connect(&server, &Server::changeModel, &model,  &StateModel::needChange);
 
   
   IRadio* radio = RadioFactory::getRadio();

@@ -1,6 +1,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "applicaionsettings.h"
+//#include "applicaionsettings.h"
 #include "../common/common.h"
 #include "jsonprotokol.h"
 
@@ -16,20 +16,20 @@ bool JsonProtokol::isRequest(const QByteArray &data)
   return false;
 }
 
-bool JsonProtokol::checkToken(const QByteArray &data)
-{
-  ApplicaionSettings& settings = ApplicaionSettings::getInstance();
-  QString token = settings.getToken();
+//bool JsonProtokol::checkToken(const QByteArray &data)
+//{
+//  ApplicaionSettings& settings = ApplicaionSettings::getInstance();
+//  QString token = settings.getToken();
 
-  QJsonDocument d = QJsonDocument::fromJson(data);
-  QJsonObject o = d.object();
-  QJsonValue v = o.value(TOKEN);
-  QString token_str = v.toString();
-  if(token_str.compare(token) == 0)
-    return true;
+//  QJsonDocument d = QJsonDocument::fromJson(data);
+//  QJsonObject o = d.object();
+//  QJsonValue v = o.value(TOKEN);
+//  QString token_str = v.toString();
+//  if(token_str.compare(token) == 0)
+//    return true;
 
-  return false;
-}
+//  return false;
+//}
 
 QByteArray JsonProtokol::createChangeRequest(QString key, QString newValue)
 {

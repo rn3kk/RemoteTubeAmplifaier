@@ -9,7 +9,7 @@ class JsonProtokol
 {
 public:
   static bool isRequest(const QByteArray& data);
-  static bool checkToken(const QByteArray& data);
+  //static bool checkToken(const QByteArray& data);
   static QByteArray createChangeRequest(QString key, QString newValue);
   static QPair<QString, QString> parceChangeRequest(QByteArray data);
 

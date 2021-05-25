@@ -35,7 +35,7 @@ void StateModel::markChanged()
 QByteArray StateModel::toJson()
 {
   QJsonObject recordObject;
-  recordObject.insert(POWER, m_power);
+  recordObject.insert(POWER, QString::number(m_power));
   recordObject.insert(FREQ, m_radioFreq);
   recordObject.insert(RELAY, m_relayNumber);
 
@@ -115,7 +115,7 @@ void StateModel::setConnected(bool connected)
 void StateModel::needChange(const QPair<QString, QString> &pair)
 {
   if(pair.first.compare(POWER) == 0)
-    setPower(pair.second.toInt());
+    setPower(QVariant(pair.second).toBool());
   else if(pair.first.compare(RELAY) == 0)
     setRelayPinNumber(pair.second.toInt());
   markChanged();

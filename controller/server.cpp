@@ -2,7 +2,7 @@
 #include <QTcpSocket>
 #include <QPair>
 #include "statemodel.h"
-#include "jsonprotokol.h"
+#include "../common/jsonprotokol.h"
 #include "../common/socketwrapper.h"
 #include "../common/common.h"
 #include "server.h"

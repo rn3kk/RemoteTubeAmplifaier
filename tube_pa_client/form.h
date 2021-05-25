@@ -1,7 +1,7 @@
 #ifndef FORM_H
 #define FORM_H
 
-#include <QLineEdit>
+
 #include <QWidget>
 
 namespace Ui {
@@ -20,15 +20,19 @@ public:
   void addMechpanel(Ui::MechPanel* panel);
 
 signals:
+  void sendRequest(const QByteArray&);
   void setFreq(float freq);
   void tuneMode(bool isTuneMode); //true enable tune; false disable tune mode
 
 private slots:
   void on_tuneButton_clicked();
-  void on_pushButton_clicked();
+  void on_pwrButton_clicked();
   void remoteModelIsChanged(const QByteArray& data);
   void showEvent(QShowEvent *event) override;
   void closeEvent(QCloseEvent *event) override;
+
+private:
+  void setPwrState(bool state);
 
 private:
   Ui::Form *ui;
@@ -39,7 +43,9 @@ private:
   QString m_name;
   class SocketWrapper* m_client;
 
-  QLineEdit* m_lineEdit;
+  class  QLineEdit* m_lineEdit;
+  class QPushButton* m_pwrButton;
+  bool m_pwr = false;
 
 };
 

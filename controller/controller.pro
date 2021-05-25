@@ -21,7 +21,7 @@ SOURCES += \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
         broadcastinformer.cpp \
-        jsonprotokol.cpp \
+        ../common/jsonprotokol.cpp \
         main.cpp \
         radio/emulatortrx.cpp \
         radio/flex.cpp \
@@ -42,7 +42,7 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     broadcastinformer.h \
-    jsonprotokol.h \
+    ../common/jsonprotokol.h \
     radio/emulatortrx.h \
     radio/flex.h \
     radio/iradio.h \
