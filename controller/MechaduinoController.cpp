@@ -4,6 +4,7 @@
 #include <QLoggingCategory>
 #include <QMap>
 #include "applicaionsettings.h"
+#include "../common/common.h"
 #include "MechaduinoController.h"
 
 QLoggingCategory mechCat("MechaduinoCommunicator");
@@ -113,8 +114,12 @@ void MechaduinoController::getPositionAsync() //read position in ReadyRead
       }
       qDebug() << "Read packet:" << m_readedPacket;
       qDebug() << "Angle is:" << angleStr;
-      m_lastPos=angleStr.toInt();
-      Q_EMIT changedPosition(m_lastPos);
+      if(m_lastPos != angleStr.toInt())
+      {
+        m_lastPos=angleStr.toInt();
+        QPair<QString, QString> pair(MECH, m_name + SEPARATOR + angleStr);
+        Q_EMIT changedPosition(pair);
+      }
     }
     m_readedPacket.clear();
   }
@@ -147,8 +152,12 @@ void MechaduinoController::setPosition(qint64 newPosition)
     QString  str = "r"+QString::number(newPosition) + "\n";
     m_port->write(str.toStdString().c_str());
     m_port->flush();
-    m_lastPos = newPosition;
-    Q_EMIT changedPosition(newPosition);
+    if(m_lastPos != newPosition)
+    {
+      m_lastPos=newPosition;
+      QPair<QString, QString> pair(MECH, m_name + SEPARATOR + QString::number(newPosition));
+      Q_EMIT changedPosition(pair);
+    }
   }
 }
 

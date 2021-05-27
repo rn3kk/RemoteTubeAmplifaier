@@ -5,6 +5,7 @@
 #include <QJsonValue>
 #include <QVariant>
 #include <QPair>
+#include "applicaionsettings.h"
 #include "../common/common.h"
 #include "statemodel.h"
 
@@ -13,6 +14,11 @@ StateModel::StateModel(QObject *parent):
   m_isChanged(false),
   m_needSendModel(false)
 {
+  QStringList mechList = ApplicaionSettings::getInstance().getMechNameList();
+  for(QString str: mechList)
+  {
+    m_mechaduinoStates[str] = -1;
+  }
   startTimer(1000);
 }
 
@@ -118,10 +124,19 @@ void StateModel::needChange(const QPair<QString, QString> &pair)
     setPower(QVariant(pair.second).toBool());
   else if(pair.first.compare(RELAY) == 0)
     setRelayPinNumber(pair.second.toInt());
+  else if(pair.first.indexOf(MECH) == 0)
+  {
+    int pos = pair.second.indexOf(SEPARATOR);
+    QString mechName = pair.second.left(pos-1);
+    int mechPos = pair.second.right(pos+1).toInt();
+    setMechaduinoPosition(mechName, mechPos);
+  }
+  else
+    return;
+
   markChanged();
-  //TODO  думать как менять мехадуино позицию
- // else if(pair.first)
 }
+
 
 void StateModel::setRelayPinNumber(int relayPinNumber)
 {

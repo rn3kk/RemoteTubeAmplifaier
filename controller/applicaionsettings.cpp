@@ -163,6 +163,16 @@ QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
   return m_mechConrollerList;
 }
 
+QStringList ApplicaionSettings::getMechNameList()
+{
+  QStringList result;
+  for(MechaduinoController* mc: m_mechConrollerList)
+  {
+    result.append(mc->getName());
+  }
+  return result;
+}
+
 void ApplicaionSettings::savePosition(QString name, QMap<int, int>* positions)
 {
   if(!m_settings)

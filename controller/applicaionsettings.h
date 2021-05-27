@@ -25,6 +25,7 @@ public:
   int getFlex6xxx_port() const;
 
   QVector<MechaduinoController *> getMechConrollerList() const;
+  QMap<QString, QString> getMechStates();
   void savePosition(QString name, QMap<int, int> *positions);
 
   RadioType getRadioType() const;
@@ -35,6 +36,8 @@ public:
   quint16 getServerPort() const;
 
   QString getPaName() const;
+
+  QStringList getMechNameList();
 
 private:
   QString getRandomString() const;

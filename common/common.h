@@ -17,5 +17,6 @@ const QString FREQ = "f";
 const QString POWER = "p";
 const QString RELAY = "r";
 const QString MECH = "m";
+const QString SEPARATOR = ";";
 
 #endif // COMMON_H

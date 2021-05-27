@@ -20,7 +20,7 @@ public:
   QString getName() const;
 
 signals:
-  void changedPosition(int position);
+  void changedPosition(QPair<QString,QString> pair);
 
 public Q_SLOTS:
   void init();
