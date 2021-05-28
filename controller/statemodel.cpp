@@ -45,6 +45,7 @@ QByteArray StateModel::toJson()
   recordObject.insert(POWER, QString::number(m_power));
   recordObject.insert(FREQ, m_radioFreq);
   recordObject.insert(RELAY, m_relayNumber);
+  recordObject.insert(TUNE_MODE, QString::number(m_tuneMode));
 
   QJsonArray mech;
   for(QString key: m_mechaduinoStates.keys())
@@ -111,6 +112,16 @@ void StateModel::timerEvent(QTimerEvent *event)
   startTimer(100);
 }
 
+void StateModel::setTuneMode(bool state)
+{
+  if(m_tuneMode == state)
+    return;
+  QMutexLocker ml(&m_mutex);
+  m_tuneMode = state;
+  Q_EMIT tuneMode(m_tuneMode);
+  markChanged();
+}
+
 bool StateModel::getConnected() const
 {
   return m_connected;
@@ -127,6 +138,8 @@ void StateModel::needChange(const QPair<QString, QString> &pair)
     setPower(QVariant(pair.second).toBool());
   else if(pair.first.compare(RELAY) == 0)
     setRelayPinNumber(pair.second.toInt());
+  else if(pair.first.compare(TUNE_MODE) == 0)
+    setTuneMode(QVariant(pair.second).toBool());
   else if(pair.first.indexOf(MECH) == 0)
   {
     int pos = pair.second.indexOf(SEPARATOR);

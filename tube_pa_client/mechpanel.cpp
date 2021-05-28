@@ -20,6 +20,11 @@ MechPanel::~MechPanel()
   delete ui;
 }
 
+QString MechPanel::getName()
+{
+  return ui->Panel->title();
+}
+
 void MechPanel::newPosition(int position)
 {
   ui->dial->blockSignals(true);
@@ -50,7 +55,7 @@ void MechPanel::on_dial_sliderMoved(int position)
 
 void MechPanel::on_dial_valueChanged(int value)
 {
-   ui->lcdNumber->display(value);
+   //ui->lcdNumber->display(value);
    Q_EMIT changePosition(value);
 }
 

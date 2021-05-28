@@ -18,7 +18,6 @@ public:
   explicit Form(QString name, QString ip, quint16 port, QWidget *parent = nullptr);
   ~Form();
 
-
 signals:
   void sendRequest(const QByteArray&);
   void setFreq(float freq);
@@ -28,11 +27,13 @@ private slots:
   void on_tuneButton_clicked();
   void on_pwrButton_clicked();
   void remoteModelIsChanged(const QByteArray& data);
+  void needChangeMechPos(int pos);
   void showEvent(QShowEvent *event) override;
   void closeEvent(QCloseEvent *event) override;
 
 private:
   void setPwrState(bool state);
+  void setTuneMode(bool state);
   void changeMechPanel(QString name, int pos);
 
 private:

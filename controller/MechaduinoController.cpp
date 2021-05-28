@@ -140,7 +140,7 @@ QString MechaduinoController::getName() const
 
 void MechaduinoController::setPosition(qint64 newPosition)
 {
-  qDebug() << "setPosition(" << newPosition<<")";
+ // qDebug() << "setPosition(" << newPosition<<")";
   if(m_lastPos == newPosition)
     return;
   if(!m_port || !m_port->isOpen())
@@ -149,7 +149,7 @@ void MechaduinoController::setPosition(qint64 newPosition)
   }
   if(newPosition >= 0 && newPosition <= 360)
   {    
-    QString  str = "r"+QString::number(newPosition) + "\n";
+    QString  str = "xyr"+QString::number(newPosition) + "\nn";
     m_port->write(str.toStdString().c_str());
     m_port->flush();
     if(m_lastPos != newPosition)

@@ -22,6 +22,8 @@ public:
   bool getConnected() const;
   void setConnected(bool connected);
 
+  void setTuneMode(bool tuneMode);
+
 public slots:
   void setRadioFreq(int radioFreq);
   void needChange(const QPair<QString, QString>& pair);
@@ -36,12 +38,14 @@ private slots:
 
 signals:
   void modelChanged(const QByteArray& model);
+  void tuneMode(bool state);
 
 private:
   bool m_power;  //on off
   QMap<QString, int> m_mechaduinoStates; //negative degrees - mech not connected
   int m_radioFreq; //if empty or degreese - radio not connected
   int m_relayNumber; // 0 - empty
+  bool m_tuneMode = false;
   bool m_isChanged;
   bool m_needSendModel;
   bool m_connected;

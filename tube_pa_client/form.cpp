@@ -26,7 +26,7 @@ Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   m_lineEdit = ui->lineEdit;
   m_pwrButton = ui->pwrButton;
   m_pwrButton->setAutoFillBackground(true);
-
+  m_mechPanels.clear();
 }
 
 Form::~Form()
@@ -45,6 +45,8 @@ void Form::changeMechPanel(QString name, int pos)
   {
     panel = new MechPanel(name);
     panel->newPosition(pos);
+    connect(this, &Form::tuneMode, panel, &MechPanel::tuneMode);
+    connect(panel, &MechPanel::changePosition, this, &Form::needChangeMechPos);
     m_mechPanels[name] = panel;
     ui->mechaduinoContainer->addWidget(panel);
   }
@@ -52,18 +54,8 @@ void Form::changeMechPanel(QString name, int pos)
 
 void Form::on_tuneButton_clicked()
 {  
-  if(m_tuneMode)
-  {
-    ui->tuneButton->setText("Tune");
-    m_tuneMode = false;
-    Q_EMIT tuneMode(m_tuneMode);
-  }
-  else
-  {
-    ui->tuneButton->setText("End tune");
-    m_tuneMode = true;
-    Q_EMIT tuneMode(m_tuneMode);
-  }
+  QByteArray changeReq = JsonProtokol::createChangeRequest(TUNE_MODE, QString::number(!m_tuneMode));
+  Q_EMIT sendRequest(changeReq);
 }
 
 void Form::on_pwrButton_clicked()
@@ -92,6 +84,10 @@ void Form::remoteModelIsChanged(const QByteArray &data)
   if(!val.isNull())
     setPwrState(QVariant(val.toString()).toBool());
 
+  val = obj.value(TUNE_MODE);
+  if(!val.isNull())
+    setTuneMode(QVariant(val.toString()).toBool());
+
   QJsonArray mechArr = obj[MECH].toArray();
   for(const QJsonValue value: mechArr)
   {
@@ -101,6 +97,13 @@ void Form::remoteModelIsChanged(const QByteArray &data)
     changeMechPanel(name, position);
   }
 
+}
+
+void Form::needChangeMechPos(int pos)
+{
+  MechPanel* panel = qobject_cast<MechPanel*>(sender());
+  QByteArray changeReq = JsonProtokol::createChangeRequest(MECH, panel->getName() + SEPARATOR+QString::number(pos));
+  Q_EMIT sendRequest(changeReq);
 }
 
 void Form::showEvent(QShowEvent *event)
@@ -143,4 +146,22 @@ void Form::setPwrState(bool state)
 
   m_pwrButton->setPalette(pal);
   m_pwrButton->update();
+}
+
+void Form::setTuneMode(bool state)
+{
+  if(m_tuneMode== state)
+    return;
+  else if(state)
+  {
+    ui->tuneButton->setText("Tune");
+    m_tuneMode = true;
+    Q_EMIT tuneMode(m_tuneMode);
+  }
+  else
+  {
+    ui->tuneButton->setText("End tune");
+    m_tuneMode = false;
+    Q_EMIT tuneMode(m_tuneMode);
+  }
 }

@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
   th.start();
 
   StateModel& model = StateModel::getInstance();
-  model.fromJson(model.toJson());
+  //model.fromJson(model.toJson());
 
   Server server;
   QThread serverThread;
@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
   {
     QObject::connect(*i, &MechaduinoController::changedPosition ,&model, &StateModel::needChange);
     QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+    QObject::connect(&model, &StateModel::tuneMode, *i, &MechaduinoController::tuneMode);
   }
 
   return a.exec();

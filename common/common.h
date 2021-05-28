@@ -16,7 +16,8 @@ const QString VALUE = "value";
 const QString FREQ = "f";
 const QString POWER = "p";
 const QString RELAY = "r";
-const QString MECH = "m";
+const QString MECH = "mechaduino";
+const QString TUNE_MODE = "tm";
 const QString SEPARATOR = ";";
 
 #endif // COMMON_H

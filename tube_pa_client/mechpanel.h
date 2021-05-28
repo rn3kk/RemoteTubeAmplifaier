@@ -15,6 +15,8 @@ public:
   explicit MechPanel(const QString& panelName, QWidget *parent = nullptr);
   ~MechPanel();
 
+  QString getName();
+
 signals:
   void changePosition(qint64 position);
   void manualMode(bool manualMode);
