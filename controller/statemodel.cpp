@@ -5,6 +5,7 @@
 #include <QJsonValue>
 #include <QVariant>
 #include <QPair>
+#include <QJsonArray>
 #include "applicaionsettings.h"
 #include "../common/common.h"
 #include "statemodel.h"
@@ -45,11 +46,13 @@ QByteArray StateModel::toJson()
   recordObject.insert(FREQ, m_radioFreq);
   recordObject.insert(RELAY, m_relayNumber);
 
-  QJsonObject mech;
+  QJsonArray mech;
   for(QString key: m_mechaduinoStates.keys())
   {
     int value = m_mechaduinoStates.value(key);
-    mech.insert(key, value);
+    QJsonObject mechObj;
+    mechObj.insert(key, value);
+    mech.push_back(mechObj);
   }
   recordObject.insert(MECH, mech);
 

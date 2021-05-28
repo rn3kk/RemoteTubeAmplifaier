@@ -6,6 +6,8 @@
 #include <QJsonObject>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QJsonArray>
+#include <QHBoxLayout>
 #include "../common/socketwrapper.h"
 #include "../common/common.h"
 #include "../common/jsonprotokol.h"
@@ -34,9 +36,18 @@ Form::~Form()
   delete ui;
 }
 
-void Form::addMechpanel(Ui::MechPanel *panel)
+void Form::changeMechPanel(QString name, int pos)
 {
-
+  MechPanel* panel;
+  if(m_mechPanels.contains(name))
+    m_mechPanels.value(name)->newPosition(pos);
+  else
+  {
+    panel = new MechPanel(name);
+    panel->newPosition(pos);
+    m_mechPanels[name] = panel;
+    ui->mechaduinoContainer->addWidget(panel);
+  }
 }
 
 void Form::on_tuneButton_clicked()
@@ -80,6 +91,15 @@ void Form::remoteModelIsChanged(const QByteArray &data)
   val = obj.value(POWER);
   if(!val.isNull())
     setPwrState(QVariant(val.toString()).toBool());
+
+  QJsonArray mechArr = obj[MECH].toArray();
+  for(const QJsonValue value: mechArr)
+  {
+    QJsonObject mechObj = value.toObject();
+    QString name = mechObj.keys().at(0);
+    int position = mechObj.value(name).toInt(-1);
+    changeMechPanel(name, position);
+  }
 
 }
 

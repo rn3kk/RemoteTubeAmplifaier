@@ -2,6 +2,7 @@
 #define FORM_H
 
 
+#include <QMap>
 #include <QWidget>
 
 namespace Ui {
@@ -17,7 +18,6 @@ public:
   explicit Form(QString name, QString ip, quint16 port, QWidget *parent = nullptr);
   ~Form();
 
-  void addMechpanel(Ui::MechPanel* panel);
 
 signals:
   void sendRequest(const QByteArray&);
@@ -33,6 +33,7 @@ private slots:
 
 private:
   void setPwrState(bool state);
+  void changeMechPanel(QString name, int pos);
 
 private:
   Ui::Form *ui;
@@ -45,6 +46,7 @@ private:
 
   class  QLineEdit* m_lineEdit;
   class QPushButton* m_pwrButton;
+  QMap<QString, class MechPanel*> m_mechPanels;
   bool m_pwr = false;
 
 };
