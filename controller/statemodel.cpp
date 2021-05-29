@@ -3,9 +3,9 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QJsonArray>
 #include <QVariant>
 #include <QPair>
-#include <QJsonArray>
 #include "applicaionsettings.h"
 #include "../common/common.h"
 #include "statemodel.h"

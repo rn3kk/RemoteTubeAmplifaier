@@ -17,6 +17,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         ../common/ampinfo.cpp \
+        ../common/backmodel.cpp \
+        ../common/model.cpp \
         ../common/socketwrapper.cpp \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
@@ -37,7 +39,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     ../common/ampinfo.h \
+    ../common/backmodel.h \
     ../common/common.h \
+    ../common/model.h \
     ../common/socketwrapper.h \
     MechaduinoController.h \
     applicaionsettings.h \

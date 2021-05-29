@@ -8,6 +8,7 @@
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
 #include "broadcastinformer.h"
+#include "../common/model.h"
 
 int main(int argc, char *argv[])
 {
@@ -20,6 +21,8 @@ int main(int argc, char *argv[])
   if(!setting.loadSettings(configPath))
     exit(0);
 
+  Model m;
+
   BroadcastInformer bi;
   QThread th;
   bi.moveToThread(&th);
@@ -27,7 +30,6 @@ int main(int argc, char *argv[])
   th.start();
 
   StateModel& model = StateModel::getInstance();
-  //model.fromJson(model.toJson());
 
   Server server;
   QThread serverThread;
