@@ -21,7 +21,5 @@ int main(int argc, char *argv[])
 
   QObject::connect(&bc, &BroadcastReceiver::findAmplifaier, &m, &MainWindow::updateLockalAmp);
 
-  //SocketWrapper sw("127.0.0.1", 5993);
-
   return a.exec();
 }

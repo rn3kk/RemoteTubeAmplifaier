@@ -4,3 +4,8 @@ Model::Model()
 {
 
 }
+
+void Model::markChanged()
+{
+  m_isChanged = true;
+}

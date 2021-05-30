@@ -14,6 +14,9 @@ public:
   virtual ~Model(){};
 
 protected:
+  void markChanged();
+
+protected:
   bool m_power;  //on off
   QMap<QString, int> m_mechaduinoStates; //negative degrees - mech not connected
   int m_radioFreq; //if empty or degreese - radio not connected

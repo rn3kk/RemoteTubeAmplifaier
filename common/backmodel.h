@@ -8,24 +8,24 @@ class BackModel : public QObject, public Model
 {
   Q_OBJECT
 public:  
-  BackModel& getInstance();
+  static BackModel& getInstance();
   void setMechaduinos(QMap<QString, int> mechaduinos);
 
-  QByteArray toJson();
-
 signals:
-  void modelIsChanged();
+  void modelIsChanged(const QByteArray& data);
 
 public slots:
   void externalProtection(bool state);
-  void changeModel(QPair<QString, QString> pair);
+  void change(QPair<QString, QString> pair);
+  void setRadioFreq(int radioFreq);
 
 private slots:
   void timerEvent(QTimerEvent *event) override;
 
 private:
   explicit BackModel(QObject *parent = nullptr);
-  void markChanged();
+
+  QByteArray toJson();
 
 };
 

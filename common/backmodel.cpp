@@ -53,8 +53,9 @@ void BackModel::externalProtection(bool state)
   markChanged();
 }
 
-void BackModel::changeModel(QPair<QString, QString> pair)
+void BackModel::change(QPair<QString, QString> pair)
 {
+  QMutexLocker ml(&m_mutex);
   if(pair.first.compare(POWER) == 0)
   {
     bool pwr = QVariant(pair.second).toBool();
@@ -96,6 +97,15 @@ void BackModel::changeModel(QPair<QString, QString> pair)
   markChanged();
 }
 
+void BackModel::setRadioFreq(int radioFreq)
+{
+  if(m_radioFreq == radioFreq)
+    return;
+  QMutexLocker ml(&m_mutex);
+  m_radioFreq = radioFreq;
+  markChanged();
+}
+
 void BackModel::timerEvent(QTimerEvent *event)
 {
   killTimer(event->timerId());
@@ -105,15 +115,11 @@ void BackModel::timerEvent(QTimerEvent *event)
     {
       QMutexLocker ml(&m_mutex);
       QByteArray a = toJson();
-      emit modelIsChanged();
+      emit modelIsChanged(toJson());
       m_isChanged = false;
     }
   }
   startTimer(100);
 }
 
-void BackModel::markChanged()
-{
-  QMutexLocker ml(&m_mutex);
-  m_isChanged = true;
-}
+

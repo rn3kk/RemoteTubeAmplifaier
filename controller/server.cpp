@@ -59,7 +59,7 @@ void Server::doWork()
 void Server::socketData(const QByteArray &data)
 {
   SocketWrapper* sw = (SocketWrapper*) sender();
-
+//todo тут смотрим на команду и разбираем куда ее послать
   QPair<QString, QString> pair = JsonProtokol::parceChangeRequest(data);
   if(!pair.first.isNull() && !pair.first.isEmpty())
   {

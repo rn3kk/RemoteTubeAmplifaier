@@ -8,7 +8,8 @@
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
 #include "broadcastinformer.h"
-#include "../common/model.h"
+#include "../common/backmodel.h"
+
 
 int main(int argc, char *argv[])
 {
@@ -21,15 +22,16 @@ int main(int argc, char *argv[])
   if(!setting.loadSettings(configPath))
     exit(0);
 
-  Model m;
-
   BroadcastInformer bi;
   QThread th;
   bi.moveToThread(&th);
   QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start, Qt::QueuedConnection);
   th.start();
 
-  StateModel& model = StateModel::getInstance();
+  BackModel& model = BackModel::getInstance();
+  QMap<QString, int> mechaduinos;
+  mechaduinos["Tune"] = 10;
+  model.setMechaduinos(mechaduinos); // заглушка
 
   Server server;
   QThread serverThread;
@@ -37,21 +39,21 @@ int main(int argc, char *argv[])
   QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
   serverThread.start();
 
-  QObject::connect(&model, &StateModel::modelChanged, &server, &Server::sendToAllClients);
-  QObject::connect(&server, &Server::changeModel, &model,  &StateModel::needChange);
+  QObject::connect(&model, &BackModel::modelIsChanged, &server, &Server::sendToAllClients);
+  QObject::connect(&server, &Server::changeModel, &model,  &BackModel::change);
 
   
   IRadio* radio = RadioFactory::getRadio();
-  QObject::connect(radio, &IRadio::freqChanged, &model, &StateModel::setRadioFreq);
+  QObject::connect(radio, &IRadio::freqChanged, &model, &BackModel::setRadioFreq);
 
-  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
-  QVector<MechaduinoController*>::const_iterator i;
-  for(i = v.begin(); i!= v.end(); ++i)
-  {
-    QObject::connect(*i, &MechaduinoController::changedPosition ,&model, &StateModel::needChange);
-    QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
-    QObject::connect(&model, &StateModel::tuneMode, *i, &MechaduinoController::tuneMode);
-  }
+//  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
+//  QVector<MechaduinoController*>::const_iterator i;
+//  for(i = v.begin(); i!= v.end(); ++i)
+//  {
+//    QObject::connect(*i, &MechaduinoController::changedPosition ,&model, &StateModel::needChange);
+//    QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+//    QObject::connect(&model, &StateModel::tuneMode, *i, &MechaduinoController::tuneMode);
+//  }
 
   return a.exec();
 }

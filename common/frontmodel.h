@@ -13,8 +13,10 @@ public:
   void fromJson(const QByteArray& data);
 
 signals:
+  void modelChanged();
 
 public slots:
+
 };
 
 #endif // FRONTMODEL_H

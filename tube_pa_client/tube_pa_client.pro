@@ -26,6 +26,7 @@ SOURCES += \
  mainwindow.cpp \
  broadcastreceiver.cpp \
  mechpanel.cpp \
+ presentor.cpp \
  vfo.cpp
 
 # Default rules for deployment.
@@ -51,4 +52,5 @@ HEADERS += \
  mainwindow.h \
  broadcastreceiver.h \
  mechpanel.h \
+ presentor.h \
  vfo.h
