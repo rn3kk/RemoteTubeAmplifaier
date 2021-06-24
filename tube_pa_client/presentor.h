@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QWidget>
+#include "../common/frontmodel.h"
 
 class Presentor : public QObject
 {
@@ -16,7 +17,7 @@ signals:
 private:
   QString m_name;
   class SocketWrapper* m_client;
-  class FrontModel* m_model;
+  FrontModel m_model;
   QWidget* m_form;
 
 };
