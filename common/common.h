@@ -13,6 +13,9 @@ const QString REQUEST_GET_INFO = "get-info";
 const QString KEY = "key";
 const QString VALUE = "value";
 
+const QString MODEL = "model";
+const QString DATA_TYPE = "data_type";
+
 const QString FREQ = "f";
 const QString POWER = "p";
 const QString RELAY = "r";

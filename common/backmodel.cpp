@@ -27,6 +27,7 @@ void BackModel::setMechaduinos(QMap<QString, int> mechaduinos)
 QByteArray BackModel::toJson()
 {
   QJsonObject recordObject;
+  recordObject.insert(DATA_TYPE, MODEL);
   recordObject.insert(POWER, QString::number(m_power));
   recordObject.insert(FREQ, m_radioFreq);
   recordObject.insert(RELAY, m_relayNumber);

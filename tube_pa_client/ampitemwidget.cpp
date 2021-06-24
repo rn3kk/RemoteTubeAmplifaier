@@ -1,4 +1,4 @@
-#include "form.h"
+#include "presentor.h"
 #include "ampitemwidget.h"
 #include "ui_ampitemwidget.h"
 
@@ -22,11 +22,10 @@ AmpItemWidget::~AmpItemWidget()
 
 void AmpItemWidget::on_connectButton_clicked()
 {
-  if(m_form)
-    delete m_form;
+  if(m_presentor)
+    delete m_presentor;
 
-  m_form = new Form(m_name, m_ip, m_port);
-  m_form->show();
+  m_presentor = new Presentor(m_name, m_ip, QString::number(m_port));
 }
 
 QDateTime AmpItemWidget::updateTime() const

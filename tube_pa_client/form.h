@@ -40,11 +40,6 @@ private:
   Ui::Form *ui;
   bool m_tuneMode = false;
 
-  QString m_ip;
-  quint16 m_port;
-  QString m_name;
-  class SocketWrapper* m_client;
-
   class  QLineEdit* m_lineEdit;
   class QPushButton* m_pwrButton;
   QMap<QString, class MechPanel*> m_mechPanels;

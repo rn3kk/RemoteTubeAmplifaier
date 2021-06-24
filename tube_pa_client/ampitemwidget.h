@@ -31,9 +31,9 @@ private:
   QString m_ip;
   quint16 m_port;
   QString m_name;
-  QDateTime m_updateTime;
+  QDateTime m_updateTime;  
 
-  class Form* m_form = nullptr;
+  class Presentor* m_presentor = nullptr;
 };
 
 #endif // AMPITEMWIDGET_H

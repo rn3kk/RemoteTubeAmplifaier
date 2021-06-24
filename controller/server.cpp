@@ -1,10 +1,10 @@
 #include <QLoggingCategory>
 #include <QTcpSocket>
 #include <QPair>
-#include "statemodel.h"
 #include "../common/jsonprotokol.h"
 #include "../common/socketwrapper.h"
 #include "../common/common.h"
+#include "../common/backmodel.h"
 #include "server.h"
 
 static QLoggingCategory srvCat("Server");
@@ -34,7 +34,7 @@ void Server::newConnection()
   connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected);
   connect(this, &Server::sendToAllClients, sw, &SocketWrapper::writeToSocket);
   m_socketList.append(sw);
-  sw->writeToSocket(StateModel::getInstance().toJson());
+  sw->writeToSocket(BackModel::getInstance().toJson());
 }
 
 void Server::socketDisconnected()

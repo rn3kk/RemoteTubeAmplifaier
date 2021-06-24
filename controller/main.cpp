@@ -2,7 +2,6 @@
 #include <QVector>
 #include <QThread>
 #include <server.h>
-#include "statemodel.h"
 #include "radio/radiofactory.h"
 #include "radio/iradio.h"
 #include "MechaduinoController.h"
@@ -16,7 +15,7 @@ int main(int argc, char *argv[])
   qRegisterMetaType<QPair<QString, QString>>("QPair<QString, QString>");
   QCoreApplication a(argc, argv);
 
-  QString configPath = "/home/user/projects/RemoteTubeAmplifaier/controller/config.conf";
+  QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
   //QString configPath = "config.conf";
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
@@ -25,7 +24,7 @@ int main(int argc, char *argv[])
   BroadcastInformer bi;
   QThread th;
   bi.moveToThread(&th);
-  QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start, Qt::QueuedConnection);
+  QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start);
   th.start();
 
   BackModel& model = BackModel::getInstance();
@@ -36,7 +35,7 @@ int main(int argc, char *argv[])
   Server server;
   QThread serverThread;
   server.moveToThread(&serverThread);
-  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork, Qt::QueuedConnection);
+  QObject::connect(&serverThread, &QThread::started, &server, &Server::doWork);
   serverThread.start();
 
   QObject::connect(&model, &BackModel::modelIsChanged, &server, &Server::sendToAllClients);

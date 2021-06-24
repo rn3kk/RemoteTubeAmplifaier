@@ -10,6 +10,7 @@ class BackModel : public QObject, public Model
 public:  
   static BackModel& getInstance();
   void setMechaduinos(QMap<QString, int> mechaduinos);
+  QByteArray toJson();
 
 signals:
   void modelIsChanged(const QByteArray& data);
@@ -25,7 +26,6 @@ private slots:
 private:
   explicit BackModel(QObject *parent = nullptr);
 
-  QByteArray toJson();
 
 };
 

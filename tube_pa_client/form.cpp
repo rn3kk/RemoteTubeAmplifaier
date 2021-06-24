@@ -8,7 +8,6 @@
 #include <QPushButton>
 #include <QJsonArray>
 #include <QHBoxLayout>
-#include "../common/socketwrapper.h"
 #include "../common/common.h"
 #include "../common/jsonprotokol.h"
 #include "form.h"
@@ -17,10 +16,7 @@
 
 Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   QWidget(parent),
-  ui(new Ui::Form),
-  m_name(name),
-  m_ip(ip),
-  m_port(port)
+  ui(new Ui::Form)
 {
   ui->setupUi(this);
   m_lineEdit = ui->lineEdit;
@@ -31,8 +27,6 @@ Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
 
 Form::~Form()
 {
-  if(m_client)
-    delete m_client;
   delete ui;
 }
 
@@ -96,7 +90,6 @@ void Form::remoteModelIsChanged(const QByteArray &data)
     int position = mechObj.value(name).toInt(-1);
     changeMechPanel(name, position);
   }
-
 }
 
 void Form::needChangeMechPos(int pos)
@@ -108,22 +101,12 @@ void Form::needChangeMechPos(int pos)
 
 void Form::showEvent(QShowEvent *event)
 {
-  switch (event->type()) {
-  case QShowEvent::Show:
-    m_client = new SocketWrapper(m_ip, m_port);
-    connect(m_client, &SocketWrapper::avaliableData, this, &Form::remoteModelIsChanged);
-    connect(this, &Form::sendRequest, m_client, &SocketWrapper::writeToSocket);
-    break;
-  }
+
 }
 
 void Form::closeEvent(QCloseEvent* event)
 {
-  if(m_client)
-  {
-    delete m_client;
-    m_client = nullptr;
-  }
+  this->deleteLater();
 }
 
 void Form::setPwrState(bool state)

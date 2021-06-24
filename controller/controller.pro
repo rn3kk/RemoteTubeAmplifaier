@@ -29,8 +29,7 @@ SOURCES += \
         radio/flex.cpp \
         radio/radiofactory.cpp \
         radio/yaesu.cpp \
-        server.cpp \
-        statemodel.cpp
+        server.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -52,8 +51,7 @@ HEADERS += \
     radio/iradio.h \
     radio/radiofactory.h \
     radio/yaesu.h \
-    server.h \
-    statemodel.h
+    server.h
 
 FORMS +=
 
