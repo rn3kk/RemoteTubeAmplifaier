@@ -33,7 +33,6 @@ private:
   QString m_name;
   QDateTime m_updateTime;  
 
-  class Presentor* m_presentor = nullptr;
 };
 
 #endif // AMPITEMWIDGET_H

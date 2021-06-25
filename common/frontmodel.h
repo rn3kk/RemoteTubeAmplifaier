@@ -10,12 +10,12 @@ class FrontModel : public QObject, public Model
 public:
   explicit FrontModel(QObject *parent = nullptr);
 
-  void fromJson(const QByteArray& data);
 
 signals:
   void modelChanged();
 
 public slots:
+  void fromJson(const QByteArray& data);
 
 };
 

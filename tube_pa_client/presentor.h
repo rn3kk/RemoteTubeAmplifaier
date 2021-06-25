@@ -14,12 +14,14 @@ public:
 
 signals:
 
+public slots:
+  void modelChanged();
+
 private:
   QString m_name;
-  class SocketWrapper* m_client;
   FrontModel m_model;
-  QWidget* m_form;
-
+  class SocketWrapper* m_client;
+  class Form * m_form;
 };
 
 #endif // PRESENTOR_H

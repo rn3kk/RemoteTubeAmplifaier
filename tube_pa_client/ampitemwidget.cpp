@@ -22,10 +22,7 @@ AmpItemWidget::~AmpItemWidget()
 
 void AmpItemWidget::on_connectButton_clicked()
 {
-  if(m_presentor)
-    delete m_presentor;
-
-  m_presentor = new Presentor(m_name, m_ip, QString::number(m_port));
+  new Presentor(m_name, m_ip, QString::number(m_port));
 }
 
 QDateTime AmpItemWidget::updateTime() const

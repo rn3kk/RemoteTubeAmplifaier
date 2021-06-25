@@ -50,7 +50,7 @@
     <string>Tune</string>
    </property>
   </widget>
-  <widget class="QLineEdit" name="lineEdit">
+  <widget class="QLineEdit" name="freqEdit">
    <property name="geometry">
     <rect>
      <x>0</x>

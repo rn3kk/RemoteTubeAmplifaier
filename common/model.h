@@ -10,8 +10,14 @@ class Model
 {
 public:
   Model();
-
   virtual ~Model(){};
+
+  bool power() const;
+  int radioFreq() const;
+  int relayNumber() const;
+  bool tuneMode() const;
+  bool extenalProtection() const;
+  QMap<QString, int> mechaduinoStates() const;
 
 protected:
   void markChanged();

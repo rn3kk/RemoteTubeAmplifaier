@@ -19,7 +19,7 @@ Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   ui(new Ui::Form)
 {
   ui->setupUi(this);
-  m_lineEdit = ui->lineEdit;
+  m_freqEdit = ui->freqEdit;
   m_pwrButton = ui->pwrButton;
   m_pwrButton->setAutoFillBackground(true);
   m_mechPanels.clear();
@@ -46,6 +46,11 @@ void Form::changeMechPanel(QString name, int pos)
   }
 }
 
+void Form::setFreq(float freq)
+{
+  m_freqEdit->setText(QString::number(freq));
+}
+
 void Form::on_tuneButton_clicked()
 {  
   QByteArray changeReq = JsonProtokol::createChangeRequest(TUNE_MODE, QString::number(!m_tuneMode));
@@ -58,40 +63,6 @@ void Form::on_pwrButton_clicked()
   Q_EMIT sendRequest(changeReq);
 }
 
-void Form::remoteModelIsChanged(const QByteArray &data)
-{
-  QJsonParseError jsonError;
-  QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
-  if (jsonError.error != QJsonParseError::NoError)
-  {
-    qDebug() << jsonError.errorString();
-    return;
-  }
-  QJsonObject obj = doc.object();
-
-  QJsonValue val = obj.value(FREQ);
-  QString str = QString::number(val.toDouble());
-  if(!str.isEmpty())
-    m_lineEdit->setText(str);
-
-  val = obj.value(POWER);
-  if(!val.isNull())
-    setPwrState(QVariant(val.toString()).toBool());
-
-  val = obj.value(TUNE_MODE);
-  if(!val.isNull())
-    setTuneMode(QVariant(val.toString()).toBool());
-
-  QJsonArray mechArr = obj[MECH].toArray();
-  for(const QJsonValue value: mechArr)
-  {
-    QJsonObject mechObj = value.toObject();
-    QString name = mechObj.keys().at(0);
-    int position = mechObj.value(name).toInt(-1);
-    changeMechPanel(name, position);
-  }
-}
-
 void Form::needChangeMechPos(int pos)
 {
   MechPanel* panel = qobject_cast<MechPanel*>(sender());
@@ -99,10 +70,6 @@ void Form::needChangeMechPos(int pos)
   Q_EMIT sendRequest(changeReq);
 }
 
-void Form::showEvent(QShowEvent *event)
-{
-
-}
 
 void Form::closeEvent(QCloseEvent* event)
 {
