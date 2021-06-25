@@ -78,9 +78,6 @@ void Form::closeEvent(QCloseEvent* event)
 
 void Form::setPwrState(bool state)
 {
-  if(m_pwr == state)
-    return;
-
   m_pwr = state;
   QPalette pal = m_pwrButton->palette();
   if(m_pwr)
@@ -100,9 +97,7 @@ void Form::setPwrState(bool state)
 
 void Form::setTuneMode(bool state)
 {
-  if(m_tuneMode== state)
-    return;
-  else if(state)
+  if(!state)
   {
     ui->tuneButton->setText("Tune");
     m_tuneMode = true;
