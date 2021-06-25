@@ -13,6 +13,11 @@ const QString REQUEST_GET_INFO = "get-info";
 const QString KEY = "key";
 const QString VALUE = "value";
 
+const QString CHANGE_POWER = "change-power";
+const QString CHANGE_TUNE = "change-tune";
+const QString CHANGE_MECH = "change-mech";
+const QString CHANGE_RELAY = "change-relay";
+
 const QString MODEL = "model";
 const QString DATA_TYPE = "data_type";
 

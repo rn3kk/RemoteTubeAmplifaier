@@ -18,12 +18,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         ../common/ampinfo.cpp \
         ../common/backmodel.cpp \
+        ../common/commands.cpp \
         ../common/model.cpp \
         ../common/socketwrapper.cpp \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
         broadcastinformer.cpp \
-        ../common/jsonprotokol.cpp \
         main.cpp \
         radio/emulatortrx.cpp \
         radio/flex.cpp \
@@ -45,7 +45,7 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     broadcastinformer.h \
-    ../common/jsonprotokol.h \
+    ../common/commands.h \
     radio/emulatortrx.h \
     radio/flex.h \
     radio/iradio.h \

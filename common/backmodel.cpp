@@ -22,6 +22,14 @@ BackModel &BackModel::getInstance()
 void BackModel::setMechaduinos(QMap<QString, int> mechaduinos)
 {
   m_mechaduinoStates = mechaduinos;
+  markChanged();
+}
+
+void BackModel::setPwr(bool pwr)
+{
+  QMutexLocker ml(&m_mutex);
+  m_power = pwr;
+  markChanged();
 }
 
 QByteArray BackModel::toJson()

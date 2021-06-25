@@ -9,12 +9,12 @@
 #include <QJsonArray>
 #include <QHBoxLayout>
 #include "../common/common.h"
-#include "../common/jsonprotokol.h"
+#include "../common/commands.h"
 #include "form.h"
 #include "ui_form.h"
 #include "mechpanel.h"
 
-Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
+Form::Form(QString name, QString ip, QString port, QWidget *parent) :
   QWidget(parent),
   ui(new Ui::Form)
 {
@@ -23,10 +23,12 @@ Form::Form(QString name, QString ip, quint16 port, QWidget *parent) :
   m_pwrButton = ui->pwrButton;
   m_pwrButton->setAutoFillBackground(true);
   m_mechPanels.clear();
+  setWindowTitle(name + " " + ip + ":" + port);
 }
 
 Form::~Form()
 {
+  qDebug() << "~Form()";
   delete ui;
 }
 
@@ -53,21 +55,21 @@ void Form::setFreq(float freq)
 
 void Form::on_tuneButton_clicked()
 {  
-  QByteArray changeReq = JsonProtokol::createChangeRequest(TUNE_MODE, QString::number(!m_tuneMode));
-  Q_EMIT sendRequest(changeReq);
+  Q_EMIT tuneMode(!m_tuneMode);
 }
 
 void Form::on_pwrButton_clicked()
 {
-  QByteArray changeReq = JsonProtokol::createChangeRequest(POWER, QString::number(!m_pwr));
-  Q_EMIT sendRequest(changeReq);
+  Q_EMIT pwr(!m_pwr);
 }
 
 void Form::needChangeMechPos(int pos)
 {
   MechPanel* panel = qobject_cast<MechPanel*>(sender());
-  QByteArray changeReq = JsonProtokol::createChangeRequest(MECH, panel->getName() + SEPARATOR+QString::number(pos));
-  Q_EMIT sendRequest(changeReq);
+  QPair<QString, int> p;
+  p.first = panel->getName();
+  p.second = pos;
+  Q_EMIT mechPos(p);
 }
 
 

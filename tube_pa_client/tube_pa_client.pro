@@ -17,7 +17,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
  ../common/ampinfo.cpp \
  ../common/frontmodel.cpp \
- ../common/jsonprotokol.cpp \
+ ../common/commands.cpp \
  ../common/model.cpp \
  ../common/socketwrapper.cpp \
  ampitemwidget.cpp \
@@ -43,8 +43,8 @@ FORMS += \
 
 HEADERS += \
  ../common/ampinfo.h \
+ ../common/commands.h \
  ../common/frontmodel.h \
- ../common/jsonprotokol.h \
  ../common/model.h \
  ../common/socketwrapper.h \
  ampitemwidget.h \

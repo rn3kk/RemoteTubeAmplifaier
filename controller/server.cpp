@@ -1,7 +1,7 @@
 #include <QLoggingCategory>
 #include <QTcpSocket>
 #include <QPair>
-#include "../common/jsonprotokol.h"
+#include "../common/commands.h"
 #include "../common/socketwrapper.h"
 #include "../common/common.h"
 #include "../common/backmodel.h"
@@ -59,10 +59,11 @@ void Server::doWork()
 void Server::socketData(const QByteArray &data)
 {
   SocketWrapper* sw = (SocketWrapper*) sender();
-//todo тут смотрим на команду и разбираем куда ее послать
-  QPair<QString, QString> pair = JsonProtokol::parceChangeRequest(data);
-  if(!pair.first.isNull() && !pair.first.isEmpty())
+  Commands::Type type = Commands::getType(data);
+  if(type ==  Commands::Type::CHANGE_POWER)
   {
-    emit changeModel(pair);
+    bool pwr = Commands::getValue(data).toInt();
+    BackModel::getInstance().setPwr(pwr);
   }
+  qDebug() << data;
 }

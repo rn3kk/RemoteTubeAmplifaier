@@ -17,6 +17,9 @@ signals:
 public slots:
   void modelChanged();
 
+private slots:
+  void needChangePWR(bool pwr);
+
 private:
   QString m_name;
   FrontModel m_model;
