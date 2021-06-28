@@ -32,7 +32,7 @@ Form::~Form()
   delete ui;
 }
 
-void Form::changeMechPanel(QString name, int pos)
+void Form::setMechPosition(QString name, int pos)
 {
   MechPanel* panel;
   if(m_mechPanels.contains(name))
@@ -43,6 +43,7 @@ void Form::changeMechPanel(QString name, int pos)
     panel->newPosition(pos);
     m_mechPanels[name] = panel;
     ui->mechaduinoContainer->addWidget(panel);
+    connect(panel, &MechPanel::changePosition, this, &Form::mechPositionToServer);
   }
 }
 
@@ -61,7 +62,7 @@ void Form::on_pwrButton_clicked()
   Q_EMIT pwr();
 }
 
-void Form::needChangeMechPos(int pos)
+void Form::mechPositionToServer(int pos)
 {
   MechPanel* panel = qobject_cast<MechPanel*>(sender());
   QPair<QString, int> p;

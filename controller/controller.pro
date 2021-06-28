@@ -1,4 +1,4 @@
-#QT -= gui widgets
+QT += gui widgets
 QT += network serialport xml
 
 CONFIG += c++11 console
@@ -27,6 +27,7 @@ SOURCES += \
         main.cpp \
         radio/emulatortrx.cpp \
         radio/flex.cpp \
+        radio/freqwidget.cpp \
         radio/radiofactory.cpp \
         radio/yaesu.cpp \
         server.cpp
@@ -48,12 +49,14 @@ HEADERS += \
     ../common/commands.h \
     radio/emulatortrx.h \
     radio/flex.h \
+    radio/freqwidget.h \
     radio/iradio.h \
     radio/radiofactory.h \
     radio/yaesu.h \
     server.h
 
-FORMS +=
+FORMS += \
+  radio/freqwidget.ui
 
 DISTFILES += \
     config.conf

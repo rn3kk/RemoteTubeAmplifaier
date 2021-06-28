@@ -1,4 +1,5 @@
-#include <QCoreApplication>
+//#include <QCoreApplication>
+#include <QApplication>
 #include <QVector>
 #include <QThread>
 #include <server.h>
@@ -13,7 +14,8 @@
 int main(int argc, char *argv[])
 {
   qRegisterMetaType<QPair<QString, QString>>("QPair<QString, QString>");
-  QCoreApplication a(argc, argv);
+  //QCoreApplication a(argc, argv);
+  QApplication a(argc, argv);
 
   //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
   QString configPath = "config.conf";
@@ -30,6 +32,9 @@ int main(int argc, char *argv[])
   BackModel& model = BackModel::getInstance();
   QMap<QString, int> mechaduinos;
   mechaduinos["Tune"] = 10;
+  model.addMechaduinos(mechaduinos); // заглушка
+
+  mechaduinos["Load"] = 20;
   model.addMechaduinos(mechaduinos); // заглушка
 
   Server server;

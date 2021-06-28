@@ -20,7 +20,7 @@ public:
 
   void setPwrState(bool state);
   void setTuneMode(bool state);
-  void changeMechPanel(QString name, int pos);
+  void setMechPosition(QString name, int pos);
   void setFreq(float freq);
 
 signals:
@@ -32,7 +32,7 @@ signals:
 private slots:
   void on_tuneButton_clicked();
   void on_pwrButton_clicked();  
-  void needChangeMechPos(int pos);  
+  void mechPositionToServer(int pos);
   void closeEvent(QCloseEvent *event) override;
 
 private:

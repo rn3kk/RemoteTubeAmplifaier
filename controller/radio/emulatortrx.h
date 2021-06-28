@@ -14,6 +14,9 @@ public Q_SLOTS:
 
 private:
   void timerEvent(QTimerEvent *event) override;
+
+  class FreqWidget* m_freqWidget;
+
 };
 
 #endif // EMULATORTRX_H

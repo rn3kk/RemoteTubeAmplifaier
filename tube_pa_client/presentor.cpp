@@ -37,35 +37,31 @@ void Presentor::modelChanged()
     QMap<QString, int> ms = m_model.mechaduinoStates();
     for(QMap<QString, int>::const_iterator it = ms.constBegin(); it != ms.constEnd(); it++)
     {
-      m_form->changeMechPanel(it.key(), it.value());
+      m_form->setMechPosition(it.key(), it.value());
     }
   }
 }
 
 void Presentor::needChangePWR()
 {
-  qDebug() << "needChangePWR";
   QByteArray cmd = Commands::changePwr(!m_model.power());
   m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeTuneMode()
 {
-  qDebug() << "needChangeTuneMode to " << !m_model.tuneMode();
   QByteArray cmd = Commands::changeTune(!m_model.tuneMode());
   m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeRelay(int relay)
 {
-  qDebug() << "needChangeRelay";
   QByteArray cmd = Commands::changeRelay(relay);
   m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeMechaduino(QPair<QString, int> mech)
 {
-  qDebug() << "needChangeMechaduino";
   QByteArray cmd = Commands::changeMech(mech.first, QString::number(mech.second));
   m_client->writeToSocket(cmd);
 }
