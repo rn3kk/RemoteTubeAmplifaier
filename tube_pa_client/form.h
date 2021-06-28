@@ -24,9 +24,10 @@ public:
   void setFreq(float freq);
 
 signals:
-  void tuneMode(bool isTuneMode);
-  void pwr(bool pwr);
+  void tuneMode();
+  void pwr();
   void mechPos(const QPair<QString, int>&);
+  void relay(int relay);
 
 private slots:
   void on_tuneButton_clicked();
@@ -36,12 +37,10 @@ private slots:
 
 private:
   Ui::Form *ui;
-  bool m_tuneMode = false;
 
   class  QLineEdit* m_freqEdit;
   class QPushButton* m_pwrButton;
   QMap<QString, class MechPanel*> m_mechPanels;
-  bool m_pwr = false;
 
 };
 

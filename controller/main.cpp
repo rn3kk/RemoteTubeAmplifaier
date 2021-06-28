@@ -15,8 +15,8 @@ int main(int argc, char *argv[])
   qRegisterMetaType<QPair<QString, QString>>("QPair<QString, QString>");
   QCoreApplication a(argc, argv);
 
-  QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
-  //QString configPath = "config.conf";
+  //QString configPath = "/home/user/Projects/RemoteTubeAmplifaier/controller/config.conf";
+  QString configPath = "config.conf";
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
     exit(0);
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
   BackModel& model = BackModel::getInstance();
   QMap<QString, int> mechaduinos;
   mechaduinos["Tune"] = 10;
-  model.setMechaduinos(mechaduinos); // заглушка
+  model.addMechaduinos(mechaduinos); // заглушка
 
   Server server;
   QThread serverThread;
@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
   serverThread.start();
 
   QObject::connect(&model, &BackModel::modelIsChanged, &server, &Server::sendToAllClients);
-  QObject::connect(&server, &Server::changeModel, &model,  &BackModel::change);
+//  QObject::connect(&server, &Server::changeModel, &model,  &BackModel::change);
 
   
   IRadio* radio = RadioFactory::getRadio();

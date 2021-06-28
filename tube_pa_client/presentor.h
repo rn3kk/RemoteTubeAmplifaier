@@ -18,7 +18,10 @@ public slots:
   void modelChanged();
 
 private slots:
-  void needChangePWR(bool pwr);
+  void needChangePWR();
+  void needChangeTuneMode();
+  void needChangeRelay(int relay);
+  void needChangeMechaduino(QPair<QString, int> mech);
 
 private:
   QString m_name;

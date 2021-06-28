@@ -12,7 +12,7 @@ MechPanel::MechPanel(const QString &panelName, QWidget *parent) :
                            "  border-radius: 9px;"
                            "  margin-top: 0.5em;"
                            "}");
-  ui->dial->setEnabled(m_tuneMode);
+  ui->dial->setEnabled(false);
 }
 
 MechPanel::~MechPanel()
@@ -35,10 +35,9 @@ void MechPanel::newPosition(int position)
 
 void MechPanel::tuneMode(bool tuneMode)
 {
-  m_tuneMode = tuneMode;
-  ui->dial->setEnabled(m_tuneMode);
+  ui->dial->setEnabled(tuneMode);
   ui->manualSettingsCheckBox->setCheckState(Qt::Unchecked);
-  ui->manualSettingsCheckBox->setEnabled(m_tuneMode);
+  ui->manualSettingsCheckBox->setEnabled(tuneMode);
 }
 
 void MechPanel::on_Panel_objectNameChanged(const QString &objectName)

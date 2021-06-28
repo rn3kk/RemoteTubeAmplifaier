@@ -9,16 +9,18 @@ class BackModel : public QObject, public Model
   Q_OBJECT
 public:  
   static BackModel& getInstance();
-  void setMechaduinos(QMap<QString, int> mechaduinos);
+  void addMechaduinos(QMap<QString, int> mechaduinos);
   void setPwr(bool pwr);
+  void setTuneMode(bool tm);
+  void setRelay(int relay);
   QByteArray toJson();
+  void changeMechaduino(QPair<QString, int> pair);
 
 signals:
   void modelIsChanged(const QByteArray& data);
 
 public slots:
   void externalProtection(bool state);
-  void change(QPair<QString, QString> pair);
   void setRadioFreq(int radioFreq);
 
 private slots:

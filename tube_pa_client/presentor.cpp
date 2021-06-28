@@ -12,7 +12,9 @@ Presentor::Presentor(QString name, QString ip, QString port, QObject *parent) : 
   connect(&m_model, &FrontModel::modelChanged, this, &Presentor::modelChanged);
   connect(m_form, &Form::destroyed,this, &Presentor::deleteLater);
   connect(m_form, &Form::pwr,this, &Presentor::needChangePWR);
-
+  connect(m_form, &Form::tuneMode,this, &Presentor::needChangeTuneMode);
+  connect(m_form, &Form::relay,this, &Presentor::needChangeRelay);
+  connect(m_form, &Form::mechPos,this, &Presentor::needChangeMechaduino);
   m_form->show();
 
 }
@@ -32,12 +34,38 @@ void Presentor::modelChanged()
     m_form->setPwrState(m_model.power());
     m_form->setTuneMode(m_model.tuneMode());
     m_form->setFreq(m_model.radioFreq());
+    QMap<QString, int> ms = m_model.mechaduinoStates();
+    for(QMap<QString, int>::const_iterator it = ms.constBegin(); it != ms.constEnd(); it++)
+    {
+      m_form->changeMechPanel(it.key(), it.value());
+    }
   }
 }
 
-void Presentor::needChangePWR(bool pwr)
+void Presentor::needChangePWR()
 {
   qDebug() << "needChangePWR";
-  QByteArray cmd = Commands::changePwr(pwr);
+  QByteArray cmd = Commands::changePwr(!m_model.power());
+  m_client->writeToSocket(cmd);
+}
+
+void Presentor::needChangeTuneMode()
+{
+  qDebug() << "needChangeTuneMode to " << !m_model.tuneMode();
+  QByteArray cmd = Commands::changeTune(!m_model.tuneMode());
+  m_client->writeToSocket(cmd);
+}
+
+void Presentor::needChangeRelay(int relay)
+{
+  qDebug() << "needChangeRelay";
+  QByteArray cmd = Commands::changeRelay(relay);
+  m_client->writeToSocket(cmd);
+}
+
+void Presentor::needChangeMechaduino(QPair<QString, int> mech)
+{
+  qDebug() << "needChangeMechaduino";
+  QByteArray cmd = Commands::changeMech(mech.first, QString::number(mech.second));
   m_client->writeToSocket(cmd);
 }

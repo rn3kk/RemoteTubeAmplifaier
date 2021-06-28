@@ -23,8 +23,9 @@ public:
   static QByteArray createChangeRequest(QString key, QString newValue);
   static QPair<QString, QString> parceChangeRequest(QByteArray data);
 
-  static Type getType(QByteArray data);
-  static QString getValue(QByteArray data);
+  static Type getType(const QByteArray& data);
+  static QString getValue(const QByteArray& data);
+  static QPair<QString, int> getMechaduinoPos(const QByteArray& data);
 
   static QByteArray changePwr(bool pwr);
   static QByteArray changeTune(bool tune);

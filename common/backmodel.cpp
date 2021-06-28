@@ -19,7 +19,7 @@ BackModel &BackModel::getInstance()
   return model;
 }
 
-void BackModel::setMechaduinos(QMap<QString, int> mechaduinos)
+void BackModel::addMechaduinos(QMap<QString, int> mechaduinos)
 {
   m_mechaduinoStates = mechaduinos;
   markChanged();
@@ -29,6 +29,21 @@ void BackModel::setPwr(bool pwr)
 {
   QMutexLocker ml(&m_mutex);
   m_power = pwr;
+  markChanged();
+}
+
+void BackModel::setTuneMode(bool tm)
+{
+  qDebug()<<"setTuneMode to " << tm;
+  QMutexLocker ml(&m_mutex);
+  m_tuneMode = tm;
+  markChanged();
+}
+
+void BackModel::setRelay(int relay)
+{
+  QMutexLocker ml(&m_mutex);
+  m_relayNumber = relay;
   markChanged();
 }
 
@@ -62,47 +77,13 @@ void BackModel::externalProtection(bool state)
   markChanged();
 }
 
-void BackModel::change(QPair<QString, QString> pair)
+void BackModel::changeMechaduino(QPair<QString, int> pair)
 {
   QMutexLocker ml(&m_mutex);
-  if(pair.first.compare(POWER) == 0)
+  if(m_mechaduinoStates.contains(pair.first))
   {
-    bool pwr = QVariant(pair.second).toBool();
-    if(pwr == m_power)
-      return;
-    else
-      m_power = pwr;
+    m_mechaduinoStates[pair.first] = pair.second;
   }
-  else if(pair.first.compare(RELAY) == 0)
-  {
-    int relay = pair.second.toInt();
-    if(m_relayNumber == relay)
-      return;
-    else
-      m_relayNumber = relay;
-  }
-  else if(pair.first.compare(TUNE_MODE) == 0)
-  {
-    bool tuneMode = QVariant(pair.second).toBool();
-    if(m_tuneMode == tuneMode)
-      return;
-    else
-      m_tuneMode = tuneMode;
-  }
-  else if(pair.first.indexOf(MECH) == 0)
-  {
-    int pos = pair.second.indexOf(SEPARATOR);
-    QString mechName = pair.second.left(pos-1);
-    int mechPos = pair.second.right(pos+1).toInt();
-
-    if(m_mechaduinoStates.value(mechName) == mechPos)
-      return;
-    else
-      m_mechaduinoStates[mechName] = mechPos;
-  }
-  else
-    return;
-
   markChanged();
 }
 

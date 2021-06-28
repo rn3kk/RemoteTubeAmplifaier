@@ -41,8 +41,6 @@ void Form::changeMechPanel(QString name, int pos)
   {
     panel = new MechPanel(name);
     panel->newPosition(pos);
-    connect(this, &Form::tuneMode, panel, &MechPanel::tuneMode);
-    connect(panel, &MechPanel::changePosition, this, &Form::needChangeMechPos);
     m_mechPanels[name] = panel;
     ui->mechaduinoContainer->addWidget(panel);
   }
@@ -55,12 +53,12 @@ void Form::setFreq(float freq)
 
 void Form::on_tuneButton_clicked()
 {  
-  Q_EMIT tuneMode(!m_tuneMode);
+  Q_EMIT tuneMode();
 }
 
 void Form::on_pwrButton_clicked()
 {
-  Q_EMIT pwr(!m_pwr);
+  Q_EMIT pwr();
 }
 
 void Form::needChangeMechPos(int pos)
@@ -80,9 +78,8 @@ void Form::closeEvent(QCloseEvent* event)
 
 void Form::setPwrState(bool state)
 {
-  m_pwr = state;
   QPalette pal = m_pwrButton->palette();
-  if(m_pwr)
+  if(state)
   {
     pal.setColor(QPalette::Button, QColor(Qt::blue));
     m_pwrButton->setText("ВКЛ");
@@ -102,13 +99,14 @@ void Form::setTuneMode(bool state)
   if(!state)
   {
     ui->tuneButton->setText("Tune");
-    m_tuneMode = true;
-    Q_EMIT tuneMode(m_tuneMode);
   }
   else
   {
     ui->tuneButton->setText("End tune");
-    m_tuneMode = false;
-    Q_EMIT tuneMode(m_tuneMode);
+  }
+
+  for(QMap<QString, class MechPanel*>::iterator it = m_mechPanels.begin(); it != m_mechPanels.end(); it++)
+  {
+    it.value()->tuneMode(state);
   }
 }

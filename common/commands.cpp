@@ -56,7 +56,7 @@ QPair<QString, QString> Commands::parceChangeRequest(QByteArray data)
   return QPair<QString, QString>();
 }
 
-Commands::Type Commands::getType(QByteArray data)
+Commands::Type Commands::getType(const QByteArray &data)
 {
   QJsonDocument d = QJsonDocument::fromJson(data);
   QJsonObject o = d.object();
@@ -75,12 +75,20 @@ Commands::Type Commands::getType(QByteArray data)
     return UNKW;
 }
 
-QString Commands::getValue(QByteArray data)
+QString Commands::getValue(const QByteArray &data)
 {
   QJsonDocument d = QJsonDocument::fromJson(data);
   QJsonObject o = d.object();
   QString val = o[VALUE].toString();
   return val;
+}
+
+QPair<QString, int> Commands::getMechaduinoPos(const QByteArray &data)
+{
+  QByteArray mech = getValue(data).toUtf8();
+  QString name =  mech.split(SEPARATOR.at(0).toLatin1()).at(0);
+  int pos = mech.split(SEPARATOR.at(0).toLatin1()).at(1).toInt();
+  return QPair<QString, int> (name, pos);
 }
 
 

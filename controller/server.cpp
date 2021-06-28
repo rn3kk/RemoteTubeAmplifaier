@@ -59,11 +59,28 @@ void Server::doWork()
 void Server::socketData(const QByteArray &data)
 {
   SocketWrapper* sw = (SocketWrapper*) sender();
+
   Commands::Type type = Commands::getType(data);
   if(type ==  Commands::Type::CHANGE_POWER)
   {
     bool pwr = Commands::getValue(data).toInt();
     BackModel::getInstance().setPwr(pwr);
+  }
+  else if (type == Commands::Type::CHANGE_TUNE)
+  {
+    bool tune = Commands::getValue(data).toInt();
+    qDebug() << "change tune to " << tune;
+    BackModel::getInstance().setTuneMode(tune);
+  }
+  else if(type == Commands::Type::CHANGE_RELAY)
+  {
+    int relay = Commands::getValue(data).toInt();
+    BackModel::getInstance().setRelay(relay);
+  }
+  else if(type == Commands::Type::CHANGE_MECH)
+  {
+    QPair<QString, int> p = Commands::getMechaduinoPos(data);
+    BackModel::getInstance().changeMechaduino(p);
   }
   qDebug() << data;
 }
