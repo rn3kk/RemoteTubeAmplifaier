@@ -41,9 +41,16 @@ bool Model::power() const
   return m_power;
 }
 
+Mechaduino::Mechaduino(const Mechaduino &m)
+{
+  name = m.name;
+  position = m.position;
+  manualMode = m.manualMode;
+}
+
 QString Mechaduino::toString() const
 {
-  QString str = name+SEPARATOR+position+SEPARATOR+manualMode;
+  QString str = name+SEPARATOR+QString::number(position)+SEPARATOR+QString::number(manualMode);
   return str;
 }
 
