@@ -2,6 +2,7 @@
 #include <QJsonObject>
 //#include "applicaionsettings.h"
 #include "../common/common.h"
+#include "../common/model.h"
 #include "commands.h"
 
 bool Commands::isRequest(const QByteArray &data)
@@ -50,8 +51,8 @@ QPair<QString, QString> Commands::parceChangeRequest(QByteArray data)
   QString value = o[VALUE].toString();
   if(request.compare(CHANGE_REUQEST) == 0)
   {
-       QPair<QString, QString> pair(key, value);
-       return pair;
+    QPair<QString, QString> pair(key, value);
+    return pair;
   }
   return QPair<QString, QString>();
 }
@@ -83,14 +84,18 @@ QString Commands::getValue(const QByteArray &data)
   return val;
 }
 
-QPair<QString, int> Commands::getMechaduinoPos(const QByteArray &data)
+Mechaduino Commands::getMechaduinoProperty(const QByteArray &data)
 {
   QByteArray mech = getValue(data).toUtf8();
-  QString name =  mech.split(SEPARATOR.at(0).toLatin1()).at(0);
-  int pos = mech.split(SEPARATOR.at(0).toLatin1()).at(1).toInt();
-  return QPair<QString, int> (name, pos);
-}
+  Mechaduino m;
+  if(m.fromString(mech))
+  {
+    return m;
+  }
+  else
+    return Mechaduino();
 
+}
 
 QByteArray Commands::changePwr(bool pwr)
 {
@@ -107,9 +112,9 @@ QByteArray Commands::changeRelay(int relay)
   return createReq(::CHANGE_POWER, QString::number(relay));
 }
 
-QByteArray Commands::changeMech(QString mech, QString pos)
+QByteArray Commands::changeMech(QString mechString)
 {
-  return createReq(::CHANGE_MECH, mech + SEPARATOR + pos);
+  return createReq(::CHANGE_MECH, mechString);
 }
 
 QByteArray Commands::createReq(QString req, QString value)

@@ -6,6 +6,17 @@
 #include <QString>
 #include <QByteArray>
 
+struct Mechaduino
+{
+  QString name;
+  int position;
+  bool manualMode;
+
+  QString toString() const ;
+  bool fromString(QString str);
+  bool isValid();
+};
+
 class Model
 {
 public:
@@ -17,14 +28,14 @@ public:
   int relayNumber() const;
   bool tuneMode() const;
   bool extenalProtection() const;
-  QMap<QString, int> mechaduinoStates() const;
+  QList<Mechaduino> mechaduinos() const;
 
 protected:
   void markChanged();
 
 protected:
   bool m_power;  //on off
-  QMap<QString, int> m_mechaduinoStates; //negative degrees - mech not connected
+  QList<Mechaduino> m_mechaduinos;
   int m_radioFreq; //if empty or degreese - radio not connected
   int m_relayNumber; // 0 - empty
   bool m_tuneMode = false;

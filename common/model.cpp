@@ -1,3 +1,4 @@
+#include "../common/common.h"
 #include "model.h"
 
 Model::Model()
@@ -10,9 +11,9 @@ void Model::markChanged()
   m_isChanged = true;
 }
 
-QMap<QString, int> Model::mechaduinoStates() const
+QList<Mechaduino> Model::mechaduinos() const
 {
-  return m_mechaduinoStates;
+  return m_mechaduinos;
 }
 
 bool Model::extenalProtection() const
@@ -38,4 +39,31 @@ int Model::radioFreq() const
 bool Model::power() const
 {
   return m_power;
+}
+
+QString Mechaduino::toString() const
+{
+  QString str = name+SEPARATOR+position+SEPARATOR+manualMode;
+  return str;
+}
+
+bool Mechaduino::fromString(QString str)
+{
+  QStringList list = str.split(SEPARATOR);
+  if(list.count() == 3)
+  {
+    name = list.at(0);
+    position = list.at(1).toInt();
+    manualMode = list.at(2).toInt();
+    return  true;
+  }
+  return false;
+}
+
+bool Mechaduino::isValid()
+{
+  if (!name.isEmpty())
+    return true;
+
+  return false;
 }

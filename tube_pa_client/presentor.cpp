@@ -1,6 +1,7 @@
 #include "form.h"
 #include "../common/socketwrapper.h"
 #include "../common/commands.h"
+#include "mechpanel.h"
 #include "presentor.h"
 
 Presentor::Presentor(QString name, QString ip, QString port, QObject *parent) : QObject(parent), m_name(name)
@@ -14,7 +15,7 @@ Presentor::Presentor(QString name, QString ip, QString port, QObject *parent) : 
   connect(m_form, &Form::pwr,this, &Presentor::needChangePWR);
   connect(m_form, &Form::tuneMode,this, &Presentor::needChangeTuneMode);
   connect(m_form, &Form::relay,this, &Presentor::needChangeRelay);
-  connect(m_form, &Form::mechPos,this, &Presentor::needChangeMechaduino);
+  connect(m_form, &Form::mechChanged,this, &Presentor::needChangeMechaduino);
   m_form->show();
 
 }
@@ -34,10 +35,9 @@ void Presentor::modelChanged()
     m_form->setPwrState(m_model.power());
     m_form->setTuneMode(m_model.tuneMode());
     m_form->setFreq(m_model.radioFreq());
-    QMap<QString, int> ms = m_model.mechaduinoStates();
-    for(QMap<QString, int>::const_iterator it = ms.constBegin(); it != ms.constEnd(); it++)
+    for(Mechaduino m: m_model.mechaduinos())
     {
-      m_form->setMechPosition(it.key(), it.value());
+      m_form->setMechaduinoParams(m);
     }
   }
 }
@@ -60,8 +60,8 @@ void Presentor::needChangeRelay(int relay)
   m_client->writeToSocket(cmd);
 }
 
-void Presentor::needChangeMechaduino(QPair<QString, int> mech)
+void Presentor::needChangeMechaduino(const Mechaduino &mech)
 {
-  QByteArray cmd = Commands::changeMech(mech.first, QString::number(mech.second));
+  QByteArray cmd = Commands::changeMech(mech.toString());
   m_client->writeToSocket(cmd);
 }

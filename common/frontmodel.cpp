@@ -14,6 +14,7 @@ FrontModel::FrontModel(QObject *parent) : QObject(parent)
 
 void FrontModel::fromJson(const QByteArray &data)
 {
+  QMutexLocker lk(&m_mutex);
   QJsonParseError jsonError;
   QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
   if (jsonError.error != QJsonParseError::NoError)
@@ -38,12 +39,20 @@ void FrontModel::fromJson(const QByteArray &data)
   QJsonArray mechArr = obj[MECH].toArray();
   for(const QJsonValue value: mechArr)
   {
-    QJsonObject mechObj = value.toObject();
-    QString name = mechObj.keys().at(0);
-    int position = mechObj.value(name).toInt(-1);
-    m_mechaduinoStates[name] = position;
+    Mechaduino mechaduino;
+    if(mechaduino.fromString(value.toString()))
+    {
+      QList<Mechaduino> m_mechaduinos;
+      for(Mechaduino m : m_mechaduinos)
+      {
+        if(m.name.compare(mechaduino.name) == 0)
+        {
+          m.position = mechaduino.position;
+          m.manualMode = mechaduino.manualMode;
+        }
+      }
+    }
   }
-  QMutexLocker lk(&m_mutex);
   markChanged();
   Q_EMIT modelChanged();
 }

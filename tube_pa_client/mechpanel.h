@@ -2,6 +2,7 @@
 #define MECHPANEL_H
 
 #include <QWidget>
+#include "../common/model.h"
 
 namespace Ui {
 class MechPanel;
@@ -17,13 +18,13 @@ public:
 
   QString getName();
   void tuneMode(bool tuneMode);
+  void setManualMode(bool mode);
 
 signals:
-  void changePosition(qint64 position);
-  void manualMode(bool manualMode);
+  void changed(const Mechaduino& m);
 
 public slots:
-  void newPosition(int position);
+  void position(int position);
 
 private slots:
   void on_Panel_objectNameChanged(const QString &objectName);

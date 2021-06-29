@@ -32,10 +32,14 @@ int main(int argc, char *argv[])
   BackModel& model = BackModel::getInstance();
   QMap<QString, int> mechaduinos;
   mechaduinos["Tune"] = 10;
-  model.addMechaduinos(mechaduinos); // заглушка
+  Mechaduino m;
+  m.name = "Tune";
+  m.position = 12;
+  m.manualMode = false;
+  model.addMechaduinos(m); // заглушка
 
-  mechaduinos["Load"] = 20;
-  model.addMechaduinos(mechaduinos); // заглушка
+  m.name="Load";
+  model.addMechaduinos(m); // заглушка
 
   Server server;
   QThread serverThread;

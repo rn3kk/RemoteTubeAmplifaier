@@ -4,6 +4,7 @@
 
 #include <QMap>
 #include <QWidget>
+#include "../common/model.h"
 
 namespace Ui {
 class Form;
@@ -20,19 +21,18 @@ public:
 
   void setPwrState(bool state);
   void setTuneMode(bool state);
-  void setMechPosition(QString name, int pos);
+  void setMechaduinoParams(Mechaduino m);
   void setFreq(float freq);
 
 signals:
   void tuneMode();
   void pwr();
-  void mechPos(const QPair<QString, int>&);
+  void mechChanged(const Mechaduino&);
   void relay(int relay);
 
 private slots:
   void on_tuneButton_clicked();
-  void on_pwrButton_clicked();  
-  void mechPositionToServer(int pos);
+  void on_pwrButton_clicked();
   void closeEvent(QCloseEvent *event) override;
 
 private:
@@ -40,7 +40,7 @@ private:
 
   class  QLineEdit* m_freqEdit;
   class QPushButton* m_pwrButton;
-  QMap<QString, class MechPanel*> m_mechPanels;
+  QList<class MechPanel*> m_mechPanels;
 
 };
 

@@ -21,7 +21,7 @@ private slots:
   void needChangePWR();
   void needChangeTuneMode();
   void needChangeRelay(int relay);
-  void needChangeMechaduino(QPair<QString, int> mech);
+  void needChangeMechaduino(const Mechaduino& mech);
 
 private:
   QString m_name;

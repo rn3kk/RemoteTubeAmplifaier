@@ -32,21 +32,6 @@ Form::~Form()
   delete ui;
 }
 
-void Form::setMechPosition(QString name, int pos)
-{
-  MechPanel* panel;
-  if(m_mechPanels.contains(name))
-    m_mechPanels.value(name)->newPosition(pos);
-  else
-  {
-    panel = new MechPanel(name);
-    panel->newPosition(pos);
-    m_mechPanels[name] = panel;
-    ui->mechaduinoContainer->addWidget(panel);
-    connect(panel, &MechPanel::changePosition, this, &Form::mechPositionToServer);
-  }
-}
-
 void Form::setFreq(float freq)
 {
   m_freqEdit->setText(QString::number(freq));
@@ -61,16 +46,6 @@ void Form::on_pwrButton_clicked()
 {
   Q_EMIT pwr();
 }
-
-void Form::mechPositionToServer(int pos)
-{
-  MechPanel* panel = qobject_cast<MechPanel*>(sender());
-  QPair<QString, int> p;
-  p.first = panel->getName();
-  p.second = pos;
-  Q_EMIT mechPos(p);
-}
-
 
 void Form::closeEvent(QCloseEvent* event)
 {
@@ -105,9 +80,32 @@ void Form::setTuneMode(bool state)
   {
     ui->tuneButton->setText("End tune");
   }
-
-  for(QMap<QString, class MechPanel*>::iterator it = m_mechPanels.begin(); it != m_mechPanels.end(); it++)
+  for(MechPanel* p: m_mechPanels)
   {
-    it.value()->tuneMode(state);
+    p->tuneMode(state);
+  }
+}
+
+void Form::setMechaduinoParams(Mechaduino m)
+{
+  bool found=false;
+  for(MechPanel* p: m_mechPanels)
+  {
+    if(p->getName().compare(m.name) == 0)
+    {
+      found=true;
+      p->position(m.position);
+      p->setManualMode(m.manualMode);
+    }
+  }
+  if(found)
+    return;
+  else
+  {
+    MechPanel* panel = new MechPanel(m.name);
+    panel->position(m.position);
+    panel->setManualMode(m.manualMode);
+    ui->mechaduinoContainer->addWidget(panel);
+    connect(panel, &MechPanel::changed, this, &Form::mechChanged);
   }
 }

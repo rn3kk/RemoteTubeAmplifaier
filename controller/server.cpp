@@ -79,8 +79,8 @@ void Server::socketData(const QByteArray &data)
   }
   else if(type == Commands::Type::CHANGE_MECH)
   {
-    QPair<QString, int> p = Commands::getMechaduinoPos(data);
-    BackModel::getInstance().changeMechaduino(p);
+    Mechaduino m = Commands::getMechaduinoProperty(data);
+    BackModel::getInstance().changeMechaduino(m);
   }
   qDebug() << data;
 }

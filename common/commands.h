@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QPair>
 #include <QVariant>
+#include "../common/model.h"
 
 class Commands
 {
@@ -25,12 +26,13 @@ public:
 
   static Type getType(const QByteArray& data);
   static QString getValue(const QByteArray& data);
-  static QPair<QString, int> getMechaduinoPos(const QByteArray& data);
+  static Mechaduino getMechaduinoProperty(const QByteArray& data);
 
   static QByteArray changePwr(bool pwr);
   static QByteArray changeTune(bool tune);
   static QByteArray changeRelay(int relay);
-  static QByteArray changeMech(QString mech, QString pos);
+
+  static QByteArray changeMech(QString mechString);
 
 private:
   static QByteArray createReq(QString req, QString value);

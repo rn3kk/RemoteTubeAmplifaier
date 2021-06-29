@@ -19,9 +19,9 @@ BackModel &BackModel::getInstance()
   return model;
 }
 
-void BackModel::addMechaduinos(QMap<QString, int> mechaduinos)
+void BackModel::addMechaduinos(Mechaduino mechaduino)
 {
-  m_mechaduinoStates = mechaduinos;
+  m_mechaduinos.append(mechaduino);
   markChanged();
 }
 
@@ -57,12 +57,9 @@ QByteArray BackModel::toJson()
   recordObject.insert(TUNE_MODE, QString::number(m_tuneMode));
 
   QJsonArray mech;
-  for(QString key: m_mechaduinoStates.keys())
+  for(Mechaduino m: m_mechaduinos)
   {
-    int value = m_mechaduinoStates.value(key);
-    QJsonObject mechObj;
-    mechObj.insert(key, value);
-    mech.push_back(mechObj);
+    mech.insert(0,QJsonValue(m.toString()));
   }
   recordObject.insert(MECH, mech);
 
@@ -77,12 +74,16 @@ void BackModel::externalProtection(bool state)
   markChanged();
 }
 
-void BackModel::changeMechaduino(QPair<QString, int> pair)
+void BackModel::changeMechaduino(const Mechaduino& mechaduino)
 {
   QMutexLocker ml(&m_mutex);
-  if(m_mechaduinoStates.contains(pair.first))
+  for(Mechaduino m: m_mechaduinos)
   {
-    m_mechaduinoStates[pair.first] = pair.second;
+    if(m.name.compare(mechaduino.name) == 0)
+    {
+      m.position = mechaduino.position;
+      m.manualMode = mechaduino.manualMode;
+    }
   }
   markChanged();
 }

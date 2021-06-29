@@ -9,12 +9,12 @@ class BackModel : public QObject, public Model
   Q_OBJECT
 public:  
   static BackModel& getInstance();
-  void addMechaduinos(QMap<QString, int> mechaduinos);
+  void addMechaduinos(Mechaduino mechaduino);
   void setPwr(bool pwr);
   void setTuneMode(bool tm);
   void setRelay(int relay);
   QByteArray toJson();
-  void changeMechaduino(QPair<QString, int> pair);
+  void changeMechaduino(const Mechaduino &mechaduino);
 
 signals:
   void modelIsChanged(const QByteArray& data);
