@@ -41,16 +41,20 @@ void FrontModel::fromJson(const QByteArray &data)
   {
     Mechaduino mechaduino;
     if(mechaduino.fromString(value.toString()))
-    {
-      QList<Mechaduino> m_mechaduinos;
-      for(Mechaduino m : m_mechaduinos)
+    {     
+      bool found = false;
+      for(Mechaduino& m : m_mechaduinos)
       {
         if(m.name.compare(mechaduino.name) == 0)
         {
           m.position = mechaduino.position;
           m.manualMode = mechaduino.manualMode;
+          found = true;
+          break;
         }
       }
+      if(!found)
+        m_mechaduinos.append(mechaduino);
     }
   }
   markChanged();

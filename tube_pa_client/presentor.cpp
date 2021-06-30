@@ -35,7 +35,7 @@ void Presentor::modelChanged()
     m_form->setPwrState(m_model.power());
     m_form->setTuneMode(m_model.tuneMode());
     m_form->setFreq(m_model.radioFreq());
-    for(Mechaduino m: m_model.mechaduinos())
+    for(const Mechaduino& m: m_model.mechaduinos())
     {
       m_form->setMechaduinoParams(m);
     }

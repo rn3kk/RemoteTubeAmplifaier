@@ -21,7 +21,7 @@ public:
 
   void setPwrState(bool state);
   void setTuneMode(bool state);
-  void setMechaduinoParams(Mechaduino m);
+  void setMechaduinoParams(const Mechaduino &m);
   void setFreq(float freq);
 
 signals:
@@ -41,6 +41,7 @@ private:
   class  QLineEdit* m_freqEdit;
   class QPushButton* m_pwrButton;
   QList<class MechPanel*> m_mechPanels;
+  bool m_tuneMode=false;
 
 };
 

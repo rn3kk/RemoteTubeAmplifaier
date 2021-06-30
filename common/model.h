@@ -13,6 +13,8 @@ struct Mechaduino
   bool manualMode;
 
   Mechaduino(const Mechaduino& m);
+  Mechaduino();
+
   QString toString() const ;
   bool fromString(QString str);
   bool isValid();

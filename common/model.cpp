@@ -48,6 +48,11 @@ Mechaduino::Mechaduino(const Mechaduino &m)
   manualMode = m.manualMode;
 }
 
+Mechaduino::Mechaduino()
+{
+
+}
+
 QString Mechaduino::toString() const
 {
   QString str = name+SEPARATOR+QString::number(position)+SEPARATOR+QString::number(manualMode);

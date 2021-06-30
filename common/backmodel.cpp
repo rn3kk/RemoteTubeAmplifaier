@@ -57,7 +57,7 @@ QByteArray BackModel::toJson()
   recordObject.insert(TUNE_MODE, QString::number(m_tuneMode));
 
   QJsonArray mech;
-  for(Mechaduino m: m_mechaduinos)
+  for(const Mechaduino& m: m_mechaduinos)
   {
     mech.insert(0,QJsonValue(m.toString()));
   }
@@ -77,7 +77,7 @@ void BackModel::externalProtection(bool state)
 void BackModel::changeMechaduino(const Mechaduino& mechaduino)
 {
   QMutexLocker ml(&m_mutex);
-  for(Mechaduino m: m_mechaduinos)
+  for(Mechaduino& m: m_mechaduinos)
   {
     if(m.name.compare(mechaduino.name) == 0)
     {

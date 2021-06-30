@@ -72,6 +72,7 @@ void Form::setPwrState(bool state)
 
 void Form::setTuneMode(bool state)
 {
+  m_tuneMode = state;
   if(!state)
   {
     ui->tuneButton->setText("Tune");
@@ -86,7 +87,7 @@ void Form::setTuneMode(bool state)
   }
 }
 
-void Form::setMechaduinoParams(Mechaduino m)
+void Form::setMechaduinoParams(const Mechaduino& m)
 {
   bool found=false;
   for(MechPanel* p: m_mechPanels)
@@ -105,7 +106,9 @@ void Form::setMechaduinoParams(Mechaduino m)
     MechPanel* panel = new MechPanel(m.name);
     panel->position(m.position);
     panel->setManualMode(m.manualMode);
+    panel->tuneMode(m_tuneMode);
     ui->mechaduinoContainer->addWidget(panel);
     connect(panel, &MechPanel::changed, this, &Form::mechChanged);
+    m_mechPanels.append(panel);
   }
 }
