@@ -25,6 +25,7 @@ SOURCES += \
         applicaionsettings.cpp \
         broadcastinformer.cpp \
         main.cpp \
+        pinsworker.cpp \
         radio/emulatortrx.cpp \
         radio/flex.cpp \
         radio/freqwidget.cpp \
@@ -47,6 +48,7 @@ HEADERS += \
     applicaionsettings.h \
     broadcastinformer.h \
     ../common/commands.h \
+    pinsworker.h \
     radio/emulatortrx.h \
     radio/flex.h \
     radio/freqwidget.h \
