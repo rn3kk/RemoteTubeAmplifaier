@@ -28,11 +28,7 @@ public slots:
 
 private slots:
   void on_Panel_objectNameChanged(const QString &objectName);
-  void on_dial_sliderMoved(int position);
   void on_dial_valueChanged(int value);
-
-  void on_manualSettingsCheckBox_stateChanged(int arg1);
-
   void on_manualSettingsCheckBox_clicked(bool checked);
 
 private:
