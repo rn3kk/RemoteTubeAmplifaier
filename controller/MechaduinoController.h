@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QSerialPort>
 #include <QTimerEvent>
+#include "../common/model.h"
 
 class QSerialPort;
 
@@ -18,17 +19,18 @@ public:
   ~MechaduinoController();
 
   QString getName() const;
+  int getLastPos() const;
+  bool getManualMode() const;
 
 signals:
-  void changedPosition(QPair<QString,QString> pair);
+  void changed();
 
 public Q_SLOTS:
   void init();
   void changeFreq(int newFreq);
-  void setPosition(qint64 newPosition);
+  void changeProperty(const Mechaduino& m);
   void savePosition();
   void tuneMode(bool mode);
-  void manualMode(bool manualMode);
 
 private Q_SLOTS:
   void readyRead();
@@ -38,6 +40,9 @@ private Q_SLOTS:
 private:
   void getPositionAsync();//read position in ReadyRead
   void timerEvent(QTimerEvent *event) override;
+  //todo  наверное удалить
+  void setPosition(qint64 newPosition);
+  void setManualMode(bool setManualMode);
 
 private:
   QSerialPort* m_port;

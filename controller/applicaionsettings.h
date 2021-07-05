@@ -3,6 +3,7 @@
 
 #include <QVector>
 #include <QString>
+#include "../common/model.h"
 class MechaduinoController;
 class QSettings;
 
@@ -26,6 +27,7 @@ public:
 
   QVector<MechaduinoController *> getMechConrollerList() const;
   QMap<QString, QString> getMechStates();
+  QVector<Mechaduino> getMechaduinos();
   void savePosition(QString name, QMap<int, int> *positions);
 
   RadioType getRadioType() const;

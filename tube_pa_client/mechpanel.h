@@ -1,6 +1,7 @@
 #ifndef MECHPANEL_H
 #define MECHPANEL_H
 
+#include <QTimerEvent>
 #include <QWidget>
 #include "../common/model.h"
 

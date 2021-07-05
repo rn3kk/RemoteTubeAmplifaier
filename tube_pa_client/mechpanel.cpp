@@ -50,8 +50,13 @@ void MechPanel::on_Panel_objectNameChanged(const QString &objectName)
 
 }
 
+int lastValue;
 void MechPanel::on_dial_valueChanged(int value)
 {
+  if (lastValue == value)
+      return;
+
+  lastValue = value;
   Mechaduino m;
   m.name = getName();
   m.position = ui->dial->value();

@@ -1,10 +1,12 @@
 #include <QLoggingCategory>
 #include <QTcpSocket>
 #include <QPair>
+#include "applicaionsettings.h"
 #include "../common/commands.h"
 #include "../common/socketwrapper.h"
 #include "../common/common.h"
 #include "../common/backmodel.h"
+#include "MechaduinoController.h"
 #include "server.h"
 
 static QLoggingCategory srvCat("Server");
@@ -69,6 +71,11 @@ void Server::socketData(const QByteArray &data)
   else if (type == Commands::Type::CHANGE_TUNE)
   {
     bool tune = Commands::getValue(data).toInt();
+    Q_EMIT clientTuneModeChanged(tune);
+//    for(MechaduinoController* mc: ApplicaionSettings::getInstance().getMechConrollerList())
+//    {
+//        mc->tuneMode(tune);
+//    }
     qDebug() << "change tune to " << tune;
     BackModel::getInstance().setTuneMode(tune);
   }
@@ -80,7 +87,12 @@ void Server::socketData(const QByteArray &data)
   else if(type == Commands::Type::CHANGE_MECH)
   {
     Mechaduino m = Commands::getMechaduinoProperty(data);
-    BackModel::getInstance().changeMechaduino(m);
+//    for(MechaduinoController* mc: ApplicaionSettings::getInstance().getMechConrollerList())
+//    {
+//        mc->changeProperty(m);
+//    }
+    Q_EMIT clientNeedChangeMechaduino(m);
+    //BackModel::getInstance().changeMechaduino(m);
   }
   qDebug() << data;
 }

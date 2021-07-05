@@ -6,6 +6,8 @@
 #include <QTcpServer>
 #include <array>
 
+#include "../common/model.h"
+
 class SocketWrapper;
 
 class Server final: public QObject
@@ -18,6 +20,8 @@ public:
 signals:
   void sendToAllClients(const QByteArray& data);
   void changeModel(const QPair<QString, QString>& pair);
+  void clientNeedChangeMechaduino(const Mechaduino&);
+  void clientTuneModeChanged(bool mode);
 
 public slots:
   void doWork();

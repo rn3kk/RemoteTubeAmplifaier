@@ -50,7 +50,7 @@ void MechaduinoController::init()
   }
   else
   {
-    m_port->write("xy");        
+    m_port->write("n\n");
   }
 }
 
@@ -72,13 +72,13 @@ void MechaduinoController::changeFreq(int newFreq)
   m_lastFreq = freq;
   int pos = m_points->value(m_lastFreq); //+00
 
-  qDebug() << "Change freq " << m_lastFreq << " " << pos;
+  qDebug() << m_name << "Change freq " << m_lastFreq << " " << pos;
    setPosition(pos);
 }
 
 void MechaduinoController::getPositionAsync() //read position in ReadyRead
 {
-  qDebug() << "getPositionAsync()";
+  qDebug() << m_name <<  "getPositionAsync()";
   if(m_port->isOpen())
   {
     m_port->write("p\n");
@@ -112,13 +112,13 @@ void MechaduinoController::getPositionAsync() //read position in ReadyRead
         else
           break;
       }
-      qDebug() << "Read packet:" << m_readedPacket;
-      qDebug() << "Angle is:" << angleStr;
+      qDebug() << m_name << "Read packet:" << m_readedPacket;
+      qDebug() << m_name << "Angle is:" << angleStr;
       if(m_lastPos != angleStr.toInt())
       {
         m_lastPos=angleStr.toInt();
         QPair<QString, QString> pair(MECH, m_name + SEPARATOR + angleStr);
-        Q_EMIT changedPosition(pair);
+        Q_EMIT changed();
       }
     }
     m_readedPacket.clear();
@@ -133,6 +133,16 @@ void MechaduinoController::timerEvent(QTimerEvent *event)
   startTimer(250);
 }
 
+bool MechaduinoController::getManualMode() const
+{
+  return m_manualMode;
+}
+
+int MechaduinoController::getLastPos() const
+{
+  return m_lastPos;
+}
+
 QString MechaduinoController::getName() const
 {
   return m_name;
@@ -140,7 +150,7 @@ QString MechaduinoController::getName() const
 
 void MechaduinoController::setPosition(qint64 newPosition)
 {
- // qDebug() << "setPosition(" << newPosition<<")";
+  qDebug() << "setPosition(" << newPosition<<")";
   if(m_lastPos == newPosition)
     return;
   if(!m_port || !m_port->isOpen())
@@ -149,21 +159,30 @@ void MechaduinoController::setPosition(qint64 newPosition)
   }
   if(newPosition >= 0 && newPosition <= 360)
   {    
-    QString  str = "xyr"+QString::number(newPosition) + "\nn";
+    QString  str = "xyr"+QString::number(newPosition) + "\n";
     m_port->write(str.toStdString().c_str());
     m_port->flush();
+    thread()->msleep(200);
+//    m_port->write("n\n");
+//    m_port->flush();
     if(m_lastPos != newPosition)
-    {
       m_lastPos=newPosition;
-      QPair<QString, QString> pair(MECH, m_name + SEPARATOR + QString::number(newPosition));
-      Q_EMIT changedPosition(pair);
-    }
+  }
+}
+
+void MechaduinoController::changeProperty(const Mechaduino &m)
+{
+  if(m.name.compare(m_name) == 0)
+  {
+    setPosition(m.position);
+    setManualMode(m.manualMode);
+    Q_EMIT changed();
   }
 }
 
 void MechaduinoController::savePosition()
 {
-  qDebug() << "Save position " << m_lastFreq << " " << m_lastPos;
+  qDebug() << m_name << "Save position " << m_lastFreq << " " << m_lastPos;
   if(m_tuneMode)
     m_points->insert(m_lastFreq, m_lastPos);
 }
@@ -179,23 +198,22 @@ void MechaduinoController::tuneMode(bool mode)
   m_tuneMode = mode;
 }
 
-void MechaduinoController::manualMode(bool manualMode)
+void MechaduinoController::setManualMode(bool manualMode)
 {
-  if(!m_tuneMode)
-    return;
+//  if(!m_tuneMode)
+//    return;
   if(m_manualMode && manualMode == false) // выключается ручной режим настройки
   {
     if(m_port && m_port->isOpen())
     {
-      m_port->write("xy");
-      m_port->flush();
+//      m_port->write("xy");
+//      m_port->flush();
       setPosition(m_lastPos);
     }
   }
   if(manualMode)
     startTimer(500);
   m_manualMode = manualMode;
-
 }
 
 void MechaduinoController::readyRead()
@@ -210,18 +228,18 @@ void MechaduinoController::readyRead()
   a.resize(b);
   b = m_port->read(a.data(), b);
   if(a.length()>0)
-    qDebug() << "ReadFrom Mechaduino COM port" << a;
+    qDebug() << m_name << "ReadFrom Mechaduino COM port" << a;
 }
 
 void MechaduinoController::bytesWriten(qint64 bytes)
 {
   QDateTime d = QDateTime::currentDateTime();
-  qDebug() << "Writen " << bytes << " " << d;
+  qDebug() << m_name << "Writen " << bytes << " " << d;
 }
 
 void MechaduinoController::errorOccurred(QSerialPort::SerialPortError error)
 {
-  qDebug()<< "Serial port error " << error;
+  qDebug()<< m_name <<  "Serial port error " << error;
   if(error == 0)
     return;
 

@@ -163,6 +163,20 @@ QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
   return m_mechConrollerList;
 }
 
+QVector<Mechaduino> ApplicaionSettings::getMechaduinos()
+{
+  QVector<Mechaduino> result;
+  for(MechaduinoController* mc:m_mechConrollerList)
+  {
+    Mechaduino m;
+    m.name = mc->getName();
+    m.position = mc->getLastPos();
+    m.manualMode = mc->getManualMode();
+    result.append(m);
+  }
+  return result;
+}
+
 QStringList ApplicaionSettings::getMechNameList()
 {
   QStringList result;
