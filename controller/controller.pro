@@ -23,6 +23,7 @@ SOURCES += \
         ../common/socketwrapper.cpp \
         MechaduinoController.cpp \
         applicaionsettings.cpp \
+        broadcastinformer.cpp \
         main.cpp \
         pinsworker.cpp \
         radio/emulatortrx.cpp \
@@ -46,6 +47,7 @@ HEADERS += \
     MechaduinoController.h \
     applicaionsettings.h \
     ../common/commands.h \
+    broadcastinformer.h \
     pinsworker.h \
     radio/emulatortrx.h \
     radio/flex.h \

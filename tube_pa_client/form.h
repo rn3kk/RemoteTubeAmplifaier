@@ -33,6 +33,7 @@ signals:
 private slots:
   void on_tuneButton_clicked();
   void on_pwrButton_clicked();
+  void closeEvent(QCloseEvent *event) override;
 
 private:
   Ui::Form *ui;

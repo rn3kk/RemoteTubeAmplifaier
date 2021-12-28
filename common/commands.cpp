@@ -1,7 +1,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-//#include "applicaionsettings.h"
+#include <QDebug>
 #include "../common/common.h"
 #include "../common/model.h"
 #include "commands.h"
@@ -39,15 +39,111 @@ QByteArray Commands::createStatusMessage(bool pwr, bool tune_mode, bool manual_m
   mm.insert(CMD, CMD_RELAY);
   mm.insert(VALUE, relay);
 
+  QJsonObject m1;
+  m1.insert(CMD, CMD_MECH1);
+  m1.insert(VALUE, mech1);
+
+  QJsonObject m2;
+  m2.insert(CMD, CMD_MECH2);
+  m2.insert(VALUE, mech2);
+
+
   QJsonArray a;
   a.append(power);
   a.append(tm);
   a.append(mm);
   a.append(r);
+  a.append(m1);
+  a.append(m2);
 
   record.insert(DATA, a);
   QJsonDocument doc(record);
   return doc.toJson();
+}
+
+QByteArray Commands::createMessage(int cmd, int value)
+{
+    QJsonObject obj;
+    obj.insert(CMD, cmd);
+    obj.insert(VALUE, value);
+    QJsonDocument doc(obj);
+    return doc.toJson();
+}
+
+bool Commands::parseMessage(const QByteArray &data, int &cmd, int &value)
+{
+  QJsonParseError jsonError;
+  QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
+  if (jsonError.error != QJsonParseError::NoError)
+  {
+      qDebug() << jsonError.errorString();
+      return false;
+  }
+  QJsonObject obj = doc.object();
+  QJsonValue command = obj.value(CMD);
+  QJsonValue val = obj.value(VALUE);
+  if(command.isNull() || val.isNull())
+    return false;
+  cmd = command.toInt();
+  value = val.toInt();
+  return true;
+}
+
+
+
+bool Commands::parseStatus(const QByteArray &data, int &pwr, int &tune_mode, int &manual_mode, int &relay, int &mech1, int &mech2)
+{
+  QJsonParseError jsonError;
+  QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
+  if (jsonError.error != QJsonParseError::NoError)
+  {
+    qDebug() << jsonError.errorString();
+    return false;
+  }
+  QJsonObject obj = doc.object();
+
+  QJsonValue val = obj.value(CMD);
+  if(!val.isNull())
+  {
+    int cmd = val.toInt();
+    if(cmd == CMD_STATUS)
+    {
+      QJsonArray params = obj.value(DATA).toArray();
+      if(params.isEmpty())
+        return false;
+      for(const QJsonValue value: params)
+      {
+        QJsonObject o = value.toObject();
+        QJsonValue p = o.value(CMD);
+        QJsonValue p_v = o.value(VALUE);
+        int parameter = p.toInt();
+        int parameter_value = p_v.toInt();
+        switch (parameter) {
+        case CMD_PWR:
+          pwr = parameter_value;
+          break;
+        case CMD_MECH1:
+          mech1 = parameter_value;
+          break;
+        case CMD_MECH2:
+          mech2 = parameter_value;
+          break;
+        case CMD_TUNE_MODE:
+          tune_mode = parameter_value;
+          break;
+        case CMD_MANUAL_MODE:
+          manual_mode = parameter_value;
+          break;
+        case CMD_RELAY:
+          relay = parameter_value;
+          break;
+        }
+      }
+      return true;
+    }
+  }
+
+  return false;
 }
 
 //bool JsonProtokol::checkToken(const QByteArray &data)

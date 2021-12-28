@@ -7,6 +7,7 @@
 
 int main(int argc, char *argv[])
 {
+  qDebug() << "Tube PA client is RUN";
   qRegisterMetaType<AmpInfo>("AmpInfo");
 
   QApplication a(argc, argv);
@@ -20,6 +21,7 @@ int main(int argc, char *argv[])
   th.start();
 
   QObject::connect(&bc, &BroadcastReceiver::findAmplifaier, &m, &MainWindow::updateLockalAmp);
-
-  return a.exec();
+  int r = a.exec();
+  qDebug() << "Tube PA client is STOPPED";
+  return r;
 }

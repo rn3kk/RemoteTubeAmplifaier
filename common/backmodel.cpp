@@ -59,7 +59,12 @@ void BackModel::setRelay(int relay)
 
 QByteArray BackModel::getStatus()
 {
-  const QByteArray& a1 = Commands::createStatusMessage(false, false,false, 10, 12, 12);
+  const QByteArray& a1 =
+      Commands::createMessage(CMD_PWR, m_power) +
+      Commands::createMessage(CMD_TUNE_MODE, m_tuneMode)+
+      Commands::createMessage(CMD_MANUAL_MODE, m_mech1_pos) +
+      Commands::createMessage(CMD_MECH2, m_mech2_pos);
+
   return a1;
 }
 

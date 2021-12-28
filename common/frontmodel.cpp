@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QDebug>
 #include <QTimerEvent>
+#include "../common/commands.h"
 #include "common.h"
 #include "frontmodel.h"
 
@@ -14,50 +15,36 @@ FrontModel::FrontModel(QObject *parent) : QObject(parent)
 
 void FrontModel::fromJson(const QByteArray &data)
 {
-  QMutexLocker lk(&m_mutex);
-  QJsonParseError jsonError;
-  QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
-  if (jsonError.error != QJsonParseError::NoError)
+  QByteArray d(data);
+  d = d.replace('\n', "");
+  d = d.replace(' ', "");
+  тутут
+  int start = d.indexOf('{');
+
+  QList<QByteArray> list = data.split('}');
+  for(QByteArray a: list)
   {
-    qDebug() << jsonError.errorString();
-    return;
-  }
-  QJsonObject obj = doc.object();
-
-  QJsonValue val = obj.value(FREQ);
-  if(!val.isNull())
-    m_radioFreq = val.toInt();
-
-  val = obj.value(POWER);
-  if(!val.isNull())
-    m_power = QVariant(val.toString()).toBool();
-
-//  val = obj.value(TUNE_MODE);
-//  if(!val.isNull())
-//    m_tuneMode = QVariant(val.toString()).toBool();
-
-  QJsonArray mechArr = obj[MECH].toArray();
-  for(const QJsonValue value: mechArr)
-  {
-    Mechaduino mechaduino;
-    if(mechaduino.fromString(value.toString()))
-    {     
-      bool found = false;
-      for(Mechaduino& m : m_mechaduinos)
-      {
-        if(m.name.compare(mechaduino.name) == 0)
-        {
-          m.position = mechaduino.position;
-          m.manualMode = mechaduino.manualMode;
-          found = true;
-          break;
-        }
-      }
-      if(!found)
-        m_mechaduinos.append(mechaduino);
+    a = a.replace('\n', "");
+    if(a.isNull() || a.isEmpty())
+      continue;
+    int cmd, value;
+    if(Commands::parseMessage(a, cmd, value))
+    {
+      qDebug() << "Cmd" << cmd << "Value" << value;
     }
   }
-  markChanged();
-  Q_EMIT modelChanged();
+
+  int pwr, tune_mode, manual_mode, relay, mech1, mech2;
+  QMutexLocker lk(&m_mutex);
+  bool res = Commands::parseStatus(data, pwr,tune_mode, manual_mode, relay, mech1, mech2);
+  if(res)
+  {
+    m_power = pwr;
+    m_tuneMode = tune_mode;
+    m_mech1_pos = mech1;
+    m_mech2_pos = mech2;
+    markChanged();
+    Q_EMIT modelChanged();
+  }
 }
 

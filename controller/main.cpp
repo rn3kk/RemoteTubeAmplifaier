@@ -7,6 +7,7 @@
 #include "radio/iradio.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
+#include "broadcastinformer.h"
 #include "../common/backmodel.h"
 #include "../common/commands.h"
 
@@ -21,6 +22,13 @@ int main(int argc, char *argv[])
   ApplicaionSettings& setting = ApplicaionSettings::getInstance();
   if(!setting.loadSettings(configPath))
     exit(0);
+
+  BroadcastInformer bi;
+  QThread th;
+  bi.moveToThread(&th);
+  QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start);
+  th.start();
+
 
   BackModel& model = BackModel::getInstance();
 

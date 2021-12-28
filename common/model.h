@@ -37,13 +37,15 @@ protected:
   void markChanged();
 
 protected:
-  bool m_power;  //on off
+  int m_power;  //on off
   QList<Mechaduino> m_mechaduinos;
+  int m_mech1_pos, m_mech2_pos;
+
   int m_radioFreq; //if empty or degreese - radio not connected
   int m_relayNumber; // 0 - empty
-  bool m_tuneMode = false;
-  bool m_extenalProtection = false;
-  bool m_isChanged = false;
+  int m_tuneMode = 0;
+  int m_extenalProtection = 0;
+  int m_isChanged = 0;
   QMutex m_mutex;
 };
 

@@ -22,7 +22,11 @@ public:
   static bool isRequest(const QByteArray& data);
   //static bool checkToken(const QByteArray& data);
 
+  static QByteArray createMessage(int cmd, int value);
+  static bool parseMessage(const QByteArray& data, int& cmd, int& value);
   static QByteArray createStatusMessage(bool pwr, bool tune_mode, bool manual_mode, int relay, int mech1, int mech2);
+
+  static bool parseStatus(const QByteArray& data, int &pwr, int &tune_mode, int &manual_mode, int& relay, int& mech1, int& mech2);
 
   static QByteArray createChangeRequest(QString key, QString newValue);
   static QPair<QString, QString> parceChangeRequest(QByteArray data);
