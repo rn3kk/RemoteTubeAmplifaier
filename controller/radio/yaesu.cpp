@@ -93,9 +93,9 @@ void Yaesu::timerEvent(QTimerEvent *event)
   QMutexLocker l(&m_writeToSerialPortMutex);
   m_port->write(array);
   m_port->waitForBytesWritten();
-  if(m_port->waitForReadyRead());
+  if(m_port->waitForReadyRead())
   {
-    QByteArray data(5, '0x0');
+    QByteArray data(5, 0x0);
     int size  = m_port->read(data.data(), 5);
     if(size == 5 )
     {

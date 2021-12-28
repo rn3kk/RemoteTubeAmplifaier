@@ -60,7 +60,7 @@ void Server::doWork()
 
 void Server::socketData(const QByteArray &data)
 {
-  SocketWrapper* sw = (SocketWrapper*) sender();
+//  SocketWrapper* sw = (SocketWrapper*) sender();
 
   Commands::Type type = Commands::getType(data);
   if(type ==  Commands::Type::CHANGE_POWER)

@@ -28,7 +28,6 @@ public slots:
   void position(int position);
 
 private slots:
-  void on_Panel_objectNameChanged(const QString &objectName);
   void on_dial_valueChanged(int value);
   void on_manualSettingsCheckBox_clicked(bool checked);
 

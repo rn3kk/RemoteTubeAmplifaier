@@ -13,7 +13,8 @@ SocketWrapper::SocketWrapper(QTcpSocket *socket, QObject *parent): //connected t
   qCDebug(sockWrapper) << "SocketWrapper()";
 }
 
-SocketWrapper::SocketWrapper(QString host, quint16 port, QObject *parent)
+SocketWrapper::SocketWrapper(QString host, quint16 port, QObject *parent):
+  QObject(parent)
 {
   m_socket = new QTcpSocket();
   connectSocketSignalsToSlots();
@@ -63,7 +64,6 @@ void SocketWrapper::connectSocketSignalsToSlots()
 {
   if(!m_socket) return;
   QObject::connect(m_socket, &QTcpSocket::readyRead, this, &SocketWrapper::readyRead, Qt::QueuedConnection);
-  QObject::connect(m_socket, &QTcpSocket::stateChanged, this, &SocketWrapper::stateChanged, Qt::QueuedConnection);
   QObject::connect(m_socket, &QTcpSocket::connected, this, &SocketWrapper::connected, Qt::QueuedConnection);
   QObject::connect(m_socket, &QTcpSocket::disconnected, this, &SocketWrapper::disconnected, Qt::QueuedConnection);
 }

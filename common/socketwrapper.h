@@ -21,7 +21,6 @@ public slots:
 
 protected slots:
   void readyRead();
-  virtual void stateChanged(QAbstractSocket::SocketState socketState){}
   void connected();
   void disconnected();
 

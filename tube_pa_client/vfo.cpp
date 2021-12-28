@@ -39,7 +39,7 @@ void Vfo::tuneMode(bool isTuneMode)
   ui->upFreqButton->setEnabled(isTuneMode);
   ui->downFreqButton->setEnabled(isTuneMode);
 
-  int pos, f(0);
+  int f(0);
   int begin = freq/100; // отбрасываем последние два числа
   begin *= 100;
   int end = freq % 100; //остаток от деления есть два последних числа частоты

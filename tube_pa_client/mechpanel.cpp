@@ -45,11 +45,6 @@ void MechPanel::setManualMode(bool mode)
   ui->dial->setEnabled(!mode);
 }
 
-void MechPanel::on_Panel_objectNameChanged(const QString &objectName)
-{
-
-}
-
 int lastValue;
 void MechPanel::on_dial_valueChanged(int value)
 {

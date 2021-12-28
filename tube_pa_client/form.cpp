@@ -24,6 +24,8 @@ Form::Form(QString name, QString ip, QString port, QWidget *parent) :
   m_pwrButton->setAutoFillBackground(true);
   m_mechPanels.clear();
   setWindowTitle(name + " " + ip + ":" + port);
+  connect(this, &QWidget::destroyed, this, &Form::deleteLater);
+
 }
 
 Form::~Form()
@@ -45,11 +47,6 @@ void Form::on_tuneButton_clicked()
 void Form::on_pwrButton_clicked()
 {
   Q_EMIT pwr();
-}
-
-void Form::closeEvent(QCloseEvent* event)
-{
-  this->deleteLater();
 }
 
 void Form::setPwrState(bool state)

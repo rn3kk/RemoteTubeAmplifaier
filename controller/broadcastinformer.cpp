@@ -7,7 +7,8 @@
 #include "../common/common.h"
 #include "broadcastinformer.h"
 
-BroadcastInformer::BroadcastInformer(QObject *parent)
+BroadcastInformer::BroadcastInformer(QObject *parent):
+QObject(parent)
 {
 
 }

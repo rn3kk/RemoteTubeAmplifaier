@@ -113,7 +113,7 @@ void Flex::socketChangeState(QAbstractSocket::SocketState socketState)
 }
 
 void Flex::socketError(QAbstractSocket::SocketError error)
-{
+{  
   switch (error)
   {
   case QAbstractSocket::AddressInUseError:
@@ -128,6 +128,8 @@ void Flex::socketError(QAbstractSocket::SocketError error)
   case QAbstractSocket::RemoteHostClosedError:
     qCCritical(radioLog) <<  "SOCKET ERROR: Remote host closed";
     break;
+  default:
+    qCCritical(radioLog) << "FlexRadio socket error " << QString::number(error) ;
   }
 
   m_socket->abort();
