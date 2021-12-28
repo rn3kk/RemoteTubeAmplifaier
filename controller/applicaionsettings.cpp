@@ -101,20 +101,9 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
   m_settings->endGroup();
 
   QStringList keys;
-  for(int i=1; i<=3; ++i)
+  for(int i=1; i<=2; ++i)
   {
     m_settings->beginGroup(MECH+QString::number(i));
-    //    int freq = 1700; //add freq to config
-    //    while(1)
-    //    {
-    //      settings.setValue(QString::number(freq), "0");
-    //      freq+=25;
-    //      if(freq > 30000)
-    //        break;
-    //    }
-    //    settings.endGroup();
-    //    continue;
-
     QString name = m_settings->value(NAME).toString();
     QString port = m_settings->value(PORT).toString();
     float step = m_settings->value(STEP).toFloat();
@@ -141,7 +130,12 @@ bool ApplicaionSettings::loadSettings(const QString &configPath)
        !port.isNull() && !port.isEmpty() &&
        step != 0)
     {
-      m_mechConrollerList.append(new MechaduinoController(name, port, step, map));
+      if( i ==1 )
+      {
+        m_mech1 = new MechaduinoController(name, port, step, map);
+      }
+      else
+        m_mech2 = m_mech1;
     }
   }
 
@@ -156,35 +150,6 @@ QString ApplicaionSettings::getFlex6xxx_IP() const
 int ApplicaionSettings::getFlex6xxx_port() const
 {
   return m_flex6xxx_port;
-}
-
-QVector<MechaduinoController *> ApplicaionSettings::getMechConrollerList() const
-{
-  return m_mechConrollerList;
-}
-
-QVector<Mechaduino> ApplicaionSettings::getMechaduinos()
-{
-  QVector<Mechaduino> result;
-  for(MechaduinoController* mc:m_mechConrollerList)
-  {
-    Mechaduino m;
-    m.name = mc->getName();
-    m.position = mc->getLastPos();
-    m.manualMode = mc->getManualMode();
-    result.append(m);
-  }
-  return result;
-}
-
-QStringList ApplicaionSettings::getMechNameList()
-{
-  QStringList result;
-  for(MechaduinoController* mc: m_mechConrollerList)
-  {
-    result.append(mc->getName());
-  }
-  return result;
 }
 
 void ApplicaionSettings::savePosition(QString name, QMap<int, int>* positions)

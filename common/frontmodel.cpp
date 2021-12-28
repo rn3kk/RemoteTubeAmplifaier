@@ -32,9 +32,9 @@ void FrontModel::fromJson(const QByteArray &data)
   if(!val.isNull())
     m_power = QVariant(val.toString()).toBool();
 
-  val = obj.value(TUNE_MODE);
-  if(!val.isNull())
-    m_tuneMode = QVariant(val.toString()).toBool();
+//  val = obj.value(TUNE_MODE);
+//  if(!val.isNull())
+//    m_tuneMode = QVariant(val.toString()).toBool();
 
   QJsonArray mechArr = obj[MECH].toArray();
   for(const QJsonValue value: mechArr)

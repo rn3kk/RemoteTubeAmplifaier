@@ -1,5 +1,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 //#include "applicaionsettings.h"
 #include "../common/common.h"
 #include "../common/model.h"
@@ -15,6 +16,38 @@ bool Commands::isRequest(const QByteArray &data)
     return true;
 
   return false;
+}
+
+QByteArray Commands::createStatusMessage(bool pwr, bool tune_mode, bool manual_mode, int relay, int mech1, int mech2)
+{
+  QJsonObject record;
+  record.insert(CMD, CMD_STATUS);
+
+  QJsonObject power;
+  power.insert(CMD, CMD_PWR);
+  power.insert(VALUE, pwr);
+
+  QJsonObject tm;
+  tm.insert(CMD, CMD_TUNE_MODE);
+  tm.insert(VALUE, tune_mode);
+
+  QJsonObject mm;
+  mm.insert(CMD, CMD_MANUAL_MODE);
+  mm.insert(VALUE, manual_mode);
+
+  QJsonObject r;
+  mm.insert(CMD, CMD_RELAY);
+  mm.insert(VALUE, relay);
+
+  QJsonArray a;
+  a.append(power);
+  a.append(tm);
+  a.append(mm);
+  a.append(r);
+
+  record.insert(DATA, a);
+  QJsonDocument doc(record);
+  return doc.toJson();
 }
 
 //bool JsonProtokol::checkToken(const QByteArray &data)

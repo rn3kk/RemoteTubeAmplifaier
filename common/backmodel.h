@@ -14,7 +14,7 @@ public:
   void setPwr(bool pwr);
   void setTuneMode(bool tm);
   void setRelay(int relay);
-  QByteArray toJson();
+  QByteArray getStatus();
 
 signals:
   void modelIsChanged(const QByteArray& data);

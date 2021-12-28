@@ -21,6 +21,9 @@ public:
 
   static bool isRequest(const QByteArray& data);
   //static bool checkToken(const QByteArray& data);
+
+  static QByteArray createStatusMessage(bool pwr, bool tune_mode, bool manual_mode, int relay, int mech1, int mech2);
+
   static QByteArray createChangeRequest(QString key, QString newValue);
   static QPair<QString, QString> parceChangeRequest(QByteArray data);
 
@@ -36,6 +39,12 @@ public:
 
 private:
   static QByteArray createReq(QString req, QString value);
+
+
+private:
+
+
+
 
 };
 

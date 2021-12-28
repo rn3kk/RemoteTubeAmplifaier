@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QTimerEvent>
 #include "common.h"
+#include "../common/commands.h"
 #include "MechaduinoController.h"
 #include "backmodel.h"
 
@@ -56,24 +57,10 @@ void BackModel::setRelay(int relay)
   markChanged();
 }
 
-QByteArray BackModel::toJson()
+QByteArray BackModel::getStatus()
 {
-  QJsonObject recordObject;
-  recordObject.insert(DATA_TYPE, MODEL);
-  recordObject.insert(POWER, QString::number(m_power));
-  recordObject.insert(FREQ, m_radioFreq);
-  recordObject.insert(RELAY, m_relayNumber);
-  recordObject.insert(TUNE_MODE, QString::number(m_tuneMode));
-
-  QJsonArray mech;
-  for(const Mechaduino& m: m_mechaduinos)
-  {
-    mech.insert(0,QJsonValue(m.toString()));
-  }
-  recordObject.insert(MECH, mech);
-
-  QJsonDocument doc(recordObject);
-  return doc.toJson();
+  const QByteArray& a1 = Commands::createStatusMessage(false, false,false, 10, 12, 12);
+  return a1;
 }
 
 void BackModel::externalProtection(bool state)
@@ -115,8 +102,8 @@ void BackModel::timerEvent(QTimerEvent *event)
   {
     {
       QMutexLocker ml(&m_mutex);
-      QByteArray a = toJson();
-      emit modelIsChanged(toJson());
+      QByteArray a = getStatus();
+      emit modelIsChanged(getStatus());
       m_isChanged = false;
     }
   }

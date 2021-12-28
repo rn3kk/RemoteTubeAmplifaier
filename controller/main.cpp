@@ -7,9 +7,8 @@
 #include "radio/iradio.h"
 #include "MechaduinoController.h"
 #include "applicaionsettings.h"
-#include "broadcastinformer.h"
 #include "../common/backmodel.h"
-
+#include "../common/commands.h"
 
 int main(int argc, char *argv[])
 {
@@ -23,14 +22,7 @@ int main(int argc, char *argv[])
   if(!setting.loadSettings(configPath))
     exit(0);
 
-  BroadcastInformer bi;
-  QThread th;
-  bi.moveToThread(&th);
-  QObject::connect(&th, &QThread::started, &bi, &BroadcastInformer::start);
-  th.start();
-
-  BackModel& model = BackModel::getInstance(); 
-  model.addMechaduinoList(setting.getMechaduinos());
+  BackModel& model = BackModel::getInstance();
 
   Server server;
   QThread serverThread;
@@ -45,16 +37,16 @@ int main(int argc, char *argv[])
   IRadio* radio = RadioFactory::getRadio();
   QObject::connect(radio, &IRadio::freqChanged, &model, &BackModel::setRadioFreq);
 
-  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
-  QVector<MechaduinoController*>::const_iterator i;
-  for(i = v.begin(); i!= v.end(); ++i)
-  {
-    QObject::connect(*i, &MechaduinoController::changed ,&model, &BackModel::mechaduinoIsChanged);
-    QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
-    QObject::connect(&server, &Server::clientNeedChangeMechaduino, *i, &MechaduinoController::changeProperty);
-    QObject::connect(&server, &Server::clientTuneModeChanged, *i, &MechaduinoController::tuneMode);
+//  const QVector<MechaduinoController*>& v = setting.getMechConrollerList();
+//  QVector<MechaduinoController*>::const_iterator i;
+//  for(i = v.begin(); i!= v.end(); ++i)
+//  {
+//    QObject::connect(*i, &MechaduinoController::changed ,&model, &BackModel::mechaduinoIsChanged);
+//    QObject::connect(radio, &IRadio::freqChanged, *i, &MechaduinoController::changeFreq, Qt::QueuedConnection);
+//    QObject::connect(&server, &Server::clientNeedChangeMechaduino, *i, &MechaduinoController::changeProperty);
+//    QObject::connect(&server, &Server::clientTuneModeChanged, *i, &MechaduinoController::tuneMode);
 
-  }
+//  }
 
   return a.exec();
 }
