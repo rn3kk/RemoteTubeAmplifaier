@@ -96,7 +96,7 @@ void BackModel::timerEvent(QTimerEvent *event)
     {
       QMutexLocker ml(&m_mutex);
       QByteArray a = getStatus();
-      emit modelIsChanged(getStatus());
+      emit modelIsChanged(a);
       m_isChanged = false;
     }
   }

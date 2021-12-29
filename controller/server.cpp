@@ -34,6 +34,7 @@ void Server::newConnection()
   SocketWrapper* sw = new SocketWrapper(socket);
   connect(sw, &SocketWrapper::avaliableData, this, &Server::socketData);
   connect(sw, &SocketWrapper::socketDiskonnected, this, &Server::socketDisconnected);
+  connect(this, &Server::sendToAllClients, sw, &SocketWrapper::writeToSocket);
   m_socketList.append(sw);
   sw->writeToSocket(BackModel::getInstance().getStatus());
 }
@@ -59,7 +60,15 @@ void Server::doWork()
 
 void Server::socketData(const QByteArray &data)
 {
-//  SocketWrapper* sw = (SocketWrapper*) sender();
-
-  qDebug() << data;
+  //  SocketWrapper* sw = (SocketWrapper*) sender();
+  qDebug() << "Receive from remote client" << data;
+  int cmd, value;
+  if(Commands::parseMessage(data, cmd, value))
+  {
+    switch (cmd) {
+    case CMD_PWR:
+      BackModel::getInstance().setPwr(value);
+      break;
+    }
+  }
 }

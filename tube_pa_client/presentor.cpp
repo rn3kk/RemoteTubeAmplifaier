@@ -1,6 +1,7 @@
 #include "form.h"
 #include "../common/socketwrapper.h"
 #include "../common/commands.h"
+#include "../common/common.h"
 #include "mechpanel.h"
 #include "presentor.h"
 
@@ -41,24 +42,24 @@ void Presentor::modelChanged()
 
 void Presentor::needChangePWR()
 {
-  QByteArray cmd = Commands::changePwr(!m_model.power());
+  const QByteArray& cmd = Commands::createMessage(CMD_PWR, !m_model.power());
   m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeTuneMode()
 {
-  QByteArray cmd = Commands::changeTune(!m_model.tuneMode());
-  m_client->writeToSocket(cmd);
+//  QByteArray cmd = Commands::changeTune(!m_model.tuneMode());
+//  m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeRelay(int relay)
 {
-  QByteArray cmd = Commands::changeRelay(relay);
-  m_client->writeToSocket(cmd);
+//  QByteArray cmd = Commands::changeRelay(relay);
+//  m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeMechaduino(const Mechaduino &mech)
 {
-  QByteArray cmd = Commands::changeMech(mech.toString());
-  m_client->writeToSocket(cmd);
+//  QByteArray cmd = Commands::changeMech(mech.toString());
+//  m_client->writeToSocket(cmd);
 }

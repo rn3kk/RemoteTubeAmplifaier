@@ -10,45 +10,9 @@
 class Commands
 {
 public:
-  enum Type
-  {
-    CHANGE_POWER = 0,
-    CHANGE_TUNE,
-    CHANGE_RELAY,
-    CHANGE_MECH,
-    UNKW
-  };
-
-  static bool isRequest(const QByteArray& data);
-  //static bool checkToken(const QByteArray& data);
 
   static QByteArray createMessage(int cmd, int value);
-  static bool parseMessage(const QByteArray& data, int& cmd, int& value);
-  static QByteArray createStatusMessage(bool pwr, bool tune_mode, bool manual_mode, int relay, int mech1, int mech2);
-
-  static bool parseStatus(const QByteArray& data, int &pwr, int &tune_mode, int &manual_mode, int& relay, int& mech1, int& mech2);
-
-  static QByteArray createChangeRequest(QString key, QString newValue);
-  static QPair<QString, QString> parceChangeRequest(QByteArray data);
-
-  static Type getType(const QByteArray& data);
-  static QString getValue(const QByteArray& data);
-  static Mechaduino getMechaduinoProperty(const QByteArray& data);
-
-  static QByteArray changePwr(bool pwr);
-  static QByteArray changeTune(bool tune);
-  static QByteArray changeRelay(int relay);
-
-  static QByteArray changeMech(QString mechString);
-
-private:
-  static QByteArray createReq(QString req, QString value);
-
-
-private:
-
-
-
+  static bool parseMessage(const QByteArray& data, int& cmd, int& value);  
 
 };
 
