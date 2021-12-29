@@ -21,20 +21,6 @@ BackModel &BackModel::getInstance()
   return model;
 }
 
-void BackModel::addMechaduinos(Mechaduino mechaduino)
-{
-  m_mechaduinos.append(mechaduino);
-  markChanged();
-}
-
-void BackModel::addMechaduinoList(QVector<Mechaduino> ml)
-{
-  for(Mechaduino m:ml)
-  {
-    addMechaduinos(m);
-  }
-}
-
 void BackModel::setPwr(bool pwr)
 {
   QMutexLocker ml(&m_mutex);
@@ -63,7 +49,9 @@ QByteArray BackModel::getStatus()
       Commands::createMessage(CMD_PWR, m_power) +
       Commands::createMessage(CMD_TUNE_MODE, m_tuneMode)+
       Commands::createMessage(CMD_MANUAL_MODE, m_mech1_pos) +
-      Commands::createMessage(CMD_MECH2, m_mech2_pos);
+      Commands::createMessage(CMD_MECH2, m_mech2_pos) +
+      Commands::createMessage(CMD_PROTECTION_STATUS, m_extenalProtection) +
+      Commands::createMessage(CMD_FREQ, m_radioFreq);
 
   return a1;
 }
@@ -88,14 +76,14 @@ void BackModel::mechaduinoIsChanged()
 {
   MechaduinoController * controller = qobject_cast<MechaduinoController*>(sender());
   QMutexLocker ml(&m_mutex);
-  for(Mechaduino& m: m_mechaduinos)
-  {
-    if(m.name.compare(controller->getName()) == 0)
-    {
-      m.position = controller->getLastPos();
-      m.manualMode = controller->getManualMode();
-    }
-  }
+//  for(Mechaduino& m: m_mechaduinos)
+//  {
+//    if(m.name.compare(controller->getName()) == 0)
+//    {
+//      m.position = controller->getLastPos();
+//      m.manualMode = controller->getManualMode();
+//    }
+//  }
   markChanged();
 }
 

@@ -16,8 +16,8 @@
   <widget class="QPushButton" name="pwrButton">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>20</y>
+     <x>10</x>
+     <y>10</y>
      <width>89</width>
      <height>25</height>
     </rect>
@@ -40,8 +40,8 @@
   <widget class="QPushButton" name="tuneButton">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>50</y>
+     <x>10</x>
+     <y>40</y>
      <width>89</width>
      <height>25</height>
     </rect>

@@ -38,5 +38,8 @@ const int CMD_MECH2 = 4;
 const int CMD_TUNE_MODE = 5;
 const int CMD_MANUAL_MODE = 6;
 const int CMD_RELAY = 7;
+const int CMD_PROTECTION_STATUS = 8;
+const int CMD_PROTECTION_RESET = 9;
+const int CMD_FREQ = 10;
 
 #endif // COMMON_H

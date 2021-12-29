@@ -89,8 +89,6 @@ bool Commands::parseMessage(const QByteArray &data, int &cmd, int &value)
   return true;
 }
 
-
-
 bool Commands::parseStatus(const QByteArray &data, int &pwr, int &tune_mode, int &manual_mode, int &relay, int &mech1, int &mech2)
 {
   QJsonParseError jsonError;

@@ -9,8 +9,6 @@ class BackModel : public QObject, public Model
   Q_OBJECT
 public:  
   static BackModel& getInstance();
-  void addMechaduinos(Mechaduino mechaduino);
-  void addMechaduinoList(QVector<Mechaduino> ml);
   void setPwr(bool pwr);
   void setTuneMode(bool tm);
   void setRelay(int relay);

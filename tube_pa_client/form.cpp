@@ -22,9 +22,13 @@ Form::Form(QString name, QString ip, QString port, QWidget *parent) :
   m_freqEdit = ui->freqEdit;
   m_pwrButton = ui->pwrButton;
   m_pwrButton->setAutoFillBackground(true);
-  m_mechPanels.clear();
+  m_mech_panel1 = new MechPanel("Tune");
+  m_mech_panel2 = new MechPanel("Load");
+  connect(m_mech_panel1, &MechPanel::changed, this, &Form::mechChanged);
+  connect(m_mech_panel2, &MechPanel::changed, this, &Form::mechChanged);
+  ui->mechaduinoContainer->addWidget(m_mech_panel1);
+  ui->mechaduinoContainer->addWidget(m_mech_panel2);
   setWindowTitle(name + " " + ip + ":" + port);
-
 }
 
 Form::~Form()
@@ -36,6 +40,11 @@ Form::~Form()
 void Form::setFreq(float freq)
 {
   m_freqEdit->setText(QString::number(freq));
+}
+
+void Form::setProtectionStatus(int status)
+{
+
 }
 
 void Form::on_tuneButton_clicked()
@@ -58,12 +67,12 @@ void Form::setPwrState(bool state)
   QPalette pal = m_pwrButton->palette();
   if(state)
   {
-    pal.setColor(QPalette::Button, QColor(Qt::blue));
+    pal.setColor(QPalette::Button, QColor(Qt::green));
     m_pwrButton->setText("ВКЛ");
   }
   else
   {
-    pal.setColor(QPalette::Button, QColor(Qt::green));
+    pal.setColor(QPalette::Button, QColor(Qt::gray));
     m_pwrButton->setText("ВЫКЛ");
   }
 
@@ -82,34 +91,14 @@ void Form::setTuneMode(bool state)
   {
     ui->tuneButton->setText("End tune");
   }
-  for(MechPanel* p: m_mechPanels)
-  {
-    p->tuneMode(state);
-  }
+//  for(MechPanel* p: m_mechPanels)
+//  {
+//    p->tuneMode(state);
+//  }
 }
 
-void Form::setMechaduinoParams(const Mechaduino& m)
+void Form::setMechaduinoParams(int mech1_pos, int mech2_pos)
 {
-  bool found=false;
-  for(MechPanel* p: m_mechPanels)
-  {
-    if(p->getName().compare(m.name) == 0)
-    {
-      found=true;
-      p->position(m.position);
-      p->setManualMode(m.manualMode);
-    }
-  }
-  if(found)
-    return;
-  else
-  {
-    MechPanel* panel = new MechPanel(m.name);
-    panel->position(m.position);
-    panel->setManualMode(m.manualMode);
-    panel->tuneMode(m_tuneMode);
-    ui->mechaduinoContainer->addWidget(panel);
-    connect(panel, &MechPanel::changed, this, &Form::mechChanged);
-    m_mechPanels.append(panel);
-  }
+  m_mech_panel1->position(mech1_pos);
+  m_mech_panel2->position(mech2_pos);
 }

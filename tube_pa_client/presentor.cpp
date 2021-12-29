@@ -34,11 +34,8 @@ void Presentor::modelChanged()
   {
     m_form->setPwrState(m_model.power());
     m_form->setTuneMode(m_model.tuneMode());
-    m_form->setFreq(m_model.radioFreq());
-    for(const Mechaduino& m: m_model.mechaduinos())
-    {
-      m_form->setMechaduinoParams(m);
-    }
+    m_form->setFreq(m_model.radioFreq());    
+    m_form->setMechaduinoParams(m_model.mech1_pos(), m_model.mech2_pos());    
   }
 }
 

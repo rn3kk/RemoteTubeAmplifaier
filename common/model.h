@@ -30,19 +30,21 @@ public:
   int radioFreq() const;
   int relayNumber() const;
   bool tuneMode() const;
-  bool extenalProtection() const;
-  QList<Mechaduino> mechaduinos() const;
+  bool extenalProtection() const;  
+
+  int mech1_pos() const;
+
+  int mech2_pos() const;
 
 protected:
   void markChanged();
 
 protected:
-  int m_power;  //on off
-  QList<Mechaduino> m_mechaduinos;
-  int m_mech1_pos, m_mech2_pos;
+  int m_power = 0;  //on off
+  int m_mech1_pos =0, m_mech2_pos =0;
 
-  int m_radioFreq; //if empty or degreese - radio not connected
-  int m_relayNumber; // 0 - empty
+  int m_radioFreq = -1; //if empty or degreese - radio not connected
+  int m_relayNumber = 0; // 0 - empty
   int m_tuneMode = 0;
   int m_extenalProtection = 0;
   int m_isChanged = 0;

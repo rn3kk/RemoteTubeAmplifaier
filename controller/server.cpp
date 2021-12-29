@@ -61,37 +61,5 @@ void Server::socketData(const QByteArray &data)
 {
 //  SocketWrapper* sw = (SocketWrapper*) sender();
 
-  Commands::Type type = Commands::getType(data);
-  if(type ==  Commands::Type::CHANGE_POWER)
-  {
-    bool pwr = Commands::getValue(data).toInt();
-    BackModel::getInstance().setPwr(pwr);
-  }
-  else if (type == Commands::Type::CHANGE_TUNE)
-  {
-    bool tune = Commands::getValue(data).toInt();
-    Q_EMIT clientTuneModeChanged(tune);
-//    for(MechaduinoController* mc: ApplicaionSettings::getInstance().getMechConrollerList())
-//    {
-//        mc->tuneMode(tune);
-//    }
-    qDebug() << "change tune to " << tune;
-    BackModel::getInstance().setTuneMode(tune);
-  }
-  else if(type == Commands::Type::CHANGE_RELAY)
-  {
-    int relay = Commands::getValue(data).toInt();
-    BackModel::getInstance().setRelay(relay);
-  }
-  else if(type == Commands::Type::CHANGE_MECH)
-  {
-    Mechaduino m = Commands::getMechaduinoProperty(data);
-//    for(MechaduinoController* mc: ApplicaionSettings::getInstance().getMechConrollerList())
-//    {
-//        mc->changeProperty(m);
-//    }
-    Q_EMIT clientNeedChangeMechaduino(m);
-    //BackModel::getInstance().changeMechaduino(m);
-  }
   qDebug() << data;
 }

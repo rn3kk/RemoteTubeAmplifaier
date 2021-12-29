@@ -11,9 +11,14 @@ void Model::markChanged()
   m_isChanged = true;
 }
 
-QList<Mechaduino> Model::mechaduinos() const
+int Model::mech2_pos() const
 {
-  return m_mechaduinos;
+  return m_mech2_pos;
+}
+
+int Model::mech1_pos() const
+{
+  return m_mech1_pos;
 }
 
 bool Model::extenalProtection() const
