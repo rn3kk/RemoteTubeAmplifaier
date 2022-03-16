@@ -48,12 +48,12 @@ void Presentor::needChangePWR()
 
 void Presentor::needChangeTuneMode()
 {
-//  QByteArray cmd = Commands::changeTune(!m_model.tuneMode());
-//  m_client->writeToSocket(cmd);
+  const QByteArray& cmd = Commands::createMessage(CMD_TUNE_MODE, !m_model.tuneMode());
+  m_client->writeToSocket(cmd);
 }
 
 void Presentor::needChangeRelay(int relay)
-{
+{  
 //  QByteArray cmd = Commands::changeRelay(relay);
 //  m_client->writeToSocket(cmd);
 }
