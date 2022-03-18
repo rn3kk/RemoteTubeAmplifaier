@@ -118,6 +118,7 @@ class ClientThread(Thread):
     def __cleint_autorised(self):
         addr = self.__addr
         log.info('input connection from  ' + addr[0]+ ' autorised')
+        self.__autorised = True
 
 
     def __client_disconnected(self):

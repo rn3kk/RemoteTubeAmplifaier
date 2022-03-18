@@ -2,8 +2,7 @@ import wx
 import wx.lib.agw.knobctrl as KC
 from wx import CheckBox
 
-from py_server.Mechaduino import Mechaduino
-from py_server.settings import Settings
+from py_client.PA_Client import PA_Client
 
 
 class Window(wx.Frame):
@@ -20,7 +19,7 @@ class Window(wx.Frame):
         self.__knob1.SetAngularRange(0, 359)
         self.__knob1.SetValue(0)
         self.__check1 = CheckBox(self, wx.NewId(), label='Manual')
-        self.__check1.Bind(wx.EVT_CHECKBOX, self.__onCheched1)
+        self.__check1.Bind(wx.EVT_CHECKBOX, self.__onManualCheched)
         self.__angle1 = wx.TextCtrl(self, wx.NewId(), value="0", size=(80, -1), style=wx.TE_CENTER)
         self.__knob1.Bind(wx.EVT_MOUSEWHEEL, self.onMouseWheel)
         s1.Add(l)
@@ -29,13 +28,13 @@ class Window(wx.Frame):
         s1.Add(self.__check1)
 
         s2 = wx.BoxSizer(wx.VERTICAL)
-        l =  wx.StaticText(self, wx.NewId(), label="Load", size=(80, -1), style=wx.TE_CENTER)
+        l = wx.StaticText(self, wx.NewId(), label="Load", size=(80, -1), style=wx.TE_CENTER)
         self.__knob2 = KC.KnobCtrl(self, wx.NewId(), size=(80, 80))
         self.__knob2._maxvalue = 359
         self.__knob2.SetAngularRange(0, 359)
         self.__knob2.SetValue(0)
         self.__check2 = CheckBox(self, wx.NewId(), label='Manual')
-        self.__check2.Bind(wx.EVT_CHECKBOX, self.__onCheched1)
+        self.__check2.Bind(wx.EVT_CHECKBOX, self.__onManualCheched)
         self.__angle2 = wx.TextCtrl(self, wx.NewId(), value="0", size=(80, -1), style=wx.TE_CENTER)
         self.__knob2.Bind(wx.EVT_MOUSEWHEEL, self.onMouseWheel)
         s2.Add(l)
@@ -49,7 +48,10 @@ class Window(wx.Frame):
         self.SetSizer(main_sizer)
         self.Layout()
 
-        self.settings = Settings.getInstance()
+        self.__radio_client = PA_Client()
+        self.__radio_client.start()
+
+        # self.settings = Settings.getInstance()
         # self.mech1 = Mechaduino(self.settings.mech1_name, self.settings.mech1_port, self.mech1)
         # self.mech1.start()
 
@@ -79,8 +81,11 @@ class Window(wx.Frame):
                 else:
                     self.__knob2.SetValue(self.__knob2.GetValue() - 1)
             self.__angle2.SetValue(str(self.__knob2.GetValue()))
-            # self.mech1.set_angle(str(self.__knob1.GetValue())
 
-    def __onCheched1(self, event):
+    def __onManualCheched(self, event):
         print('click')
-        self.__check1.SetValue(False)
+        o = event.GetEventObject()
+        if o == self.__check1:
+            self.__check1.SetValue(False)
+        elif o == self.__check2:
+            self.__check2.SetValue(False)
