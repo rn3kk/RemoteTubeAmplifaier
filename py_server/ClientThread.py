@@ -21,7 +21,7 @@ PORT_AUDIO = 6992
 class ClientThread(Thread):
     __terminate = False
 
-    def __init__(self, conn, addr):
+    def __init__(self, conn, addr, mech1):
         log.debug('ClientControlThread()')
         Thread.__init__(self)
         self.__conn = conn
@@ -31,6 +31,7 @@ class ClientThread(Thread):
         self.__autorised = False
         self.__connection_time = datetime.now()
         self.__addr = addr
+        self.__mech1 = mech1
 
 
     def __del__(self):
@@ -54,7 +55,7 @@ class ClientThread(Thread):
                     self.__conn.close()
                     self.__client_disconnected()
                     break
-                # print('receive', data)
+                print('receive', data)
                 s = re.compile(b"{.*?}")
                 m = s.search(data)
                 while m:
@@ -62,8 +63,11 @@ class ClientThread(Thread):
                         data = data.replace(m.group(), b'')
                         cmd = json.loads(m.group())
                         if self.__autorised:
-                            if cmd[COMMAND] == CMD_CHANGE_ANGLE:
-                                mech_name = cmd[MECH_NAME]
+                            if cmd[COMMAND] == CMD_CHANGE_ANGLE_MECH1:
+                                angle = int(cmd[VALUE])
+                                print('mech1 angle', angle)
+                                self.__mech1.set_angle(angle)
+                            elif cmd[COMMAND] == CMD_CHANGE_ANGLE_MECH2:
                                 angle = cmd[VALUE]
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
@@ -133,5 +137,7 @@ class ClientThread(Thread):
 
     def set_terminate(self):
         self.__terminate = True
+
+
 
 

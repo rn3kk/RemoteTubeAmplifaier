@@ -25,6 +25,9 @@ class Mechaduino(Thread):
         self.__port = port
         self.__freq_points = freq_points
 
+    def __del__(self):
+        print('~Mechaduino()', self.__name)
+
     def set_terminate(self):
         self.__terminate = True
 
@@ -63,13 +66,20 @@ class Mechaduino(Thread):
     def __process_from_mech_data(self):
         if self.__serial_port.in_waiting > 0:
             self.__from_mech_queue += bytes(self.__serial_port.read(self.__serial_port.in_waiting))
-            print('from mech', self.__from_mech_queue)
-            self.__from_mech_queue = b''
+            # print('from mech', self.__from_mech_queue)
+            # self.__from_mech_queue = b''
 
         if not self.__from_mech_queue:
             return
         if self.__from_mech_queue.find(b';') == -1:
             return
+
+        cmds = self.__from_mech_queue.split(b';')
+        for cmd in cmds:
+            if cmd.find(b'A') == 0:
+                angle = round(float(cmd[2:]))
+                print(angle)
+        self.__from_mech_queue = b''
 
     def __process_to_mech_data(self):
         if self.__to_mech_queue:

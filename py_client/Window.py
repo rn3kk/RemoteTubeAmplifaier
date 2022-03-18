@@ -69,6 +69,7 @@ class Window(wx.Frame):
                 else:
                     self.__knob1.SetValue(self.__knob1.GetValue() - 1)
             self.__angle1.SetValue(str(self.__knob1.GetValue()))
+            self.__radio_client.set_mech1_angle(self.__knob1.GetValue())
         elif o == self.__knob2:
             if event.GetWheelRotation() > 0:
                 if self.__knob2.GetValue() + 1 > 359:

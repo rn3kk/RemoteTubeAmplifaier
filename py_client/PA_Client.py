@@ -96,3 +96,11 @@ class PA_Client(Thread):
         self.__mutex.acquire()
         self.__out_queue.append(data)
         self.__mutex.release()
+
+    def set_mech1_angle(self, angle):
+        d = Protocol.createCmd(CMD_CHANGE_ANGLE_MECH1, angle)
+        self.send_to_server(d)
+
+    def set_mech2_angle(self, angle):
+        d = Protocol.createCmd(CMD_CHANGE_ANGLE_MECH2, angle)
+        self.send_to_server(d)
