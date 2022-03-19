@@ -99,14 +99,14 @@ class Pins(Thread):
         if RASPBERRY:
             GPIO.output(PTT_PIN, self.__pwr)
 
-    def __client_connected(self):
+    def client_connected(self):
+        self.__send_status()
         if RASPBERRY:
             GPIO.output(CLIENT_CONNECTED, True)
 
-    def __client_disconnected(self):
+    def client_disconnected(self):
         if RASPBERRY:
             GPIO.output(CLIENT_CONNECTED, False)
-            self.__ptt_out = False
 
     def json_cmd(self, cmd):
         c = cmd[COMMAND]
@@ -132,4 +132,7 @@ class Pins(Thread):
         d += Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__ptt_out))
         d += Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, int(self.__protection))
         self.__add_data(d)
+
+    def set_terminate(self):
+        self.__terminate = True
 

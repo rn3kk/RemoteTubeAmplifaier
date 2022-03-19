@@ -17,6 +17,8 @@ class PA_Client(Thread):
     __terminate = False
     __out_queue = collections.deque(maxlen=15)
     __mutex = threading.Lock()
+    __mech1_angle = 0
+    __mech1_manual_mode = False
 
     __autorisation_token = 'dfss-s24s-d4-wqe-2-ew-dswd'
 
@@ -53,7 +55,7 @@ class PA_Client(Thread):
                             break
                     try:
                         data = conn.recv(1024)
-                        # print(data)
+                        print(data)
                         if not data:
                             logging.debug('disconnected2')
                             break
@@ -104,3 +106,10 @@ class PA_Client(Thread):
     def set_mech2_angle(self, angle):
         d = Protocol.createCmd(CMD_CHANGE_ANGLE_MECH2, angle)
         self.send_to_server(d)
+
+    def set_power(self):
+        d = Protocol.createCmd(CMD_CHANGE_PWR, 0)
+        self.send_to_server(d)
+
+    def execute_cmd(self, cmd):
+        print(cmd)

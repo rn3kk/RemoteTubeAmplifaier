@@ -7,6 +7,7 @@ import signal
 
 from py_server.Mechaduino import Mechaduino
 from py_server.PA_TCP_Server import PA_TCP_Server
+from py_server.Pins import Pins
 from py_server.settings import Settings
 
 PORT = 6994
@@ -29,6 +30,7 @@ def init_log():
     log.info('**********Started**********')
 
 serv = None
+pins = None
 def handler(signum, frame):
     print('set terminate is True')
     if serv:
@@ -39,18 +41,19 @@ if __name__ == '__main__':
     init_log()
 
     s = Settings.getInstance()
-    m1 = Mechaduino(s.mech1_name, s.mech1_port, s.mech1)
+    m1 = Mechaduino(s.mech1_name, s.mech1_port, s.mech1, 1)
     m1.start()
 
-    serv = PA_TCP_Server(PORT, m1)
+    pins = Pins()
+    pins.start()
+    serv = PA_TCP_Server(PORT, m1, pins)
     serv.start()
 
     serv.join()
     m1.set_terminate()
     m1.join()
-    # app = wx.App(0)
-    # frame = Window(None)
-    # app.SetTopWindow(frame)
-    # frame.Show()
-    # app.MainLoop()
+
+    pins.set_terminate()
+    pins.join()
+
     quit(0)

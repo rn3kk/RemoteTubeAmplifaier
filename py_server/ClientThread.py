@@ -21,7 +21,7 @@ PORT_AUDIO = 6992
 class ClientThread(Thread):
     __terminate = False
 
-    def __init__(self, conn, addr, mech1):
+    def __init__(self, conn, addr, mech1, pins):
         log.debug('ClientControlThread()')
         Thread.__init__(self)
         self.__conn = conn
@@ -32,6 +32,7 @@ class ClientThread(Thread):
         self.__connection_time = datetime.now()
         self.__addr = addr
         self.__mech1 = mech1
+        self.__pins = pins
 
 
     def __del__(self):
@@ -92,28 +93,29 @@ class ClientThread(Thread):
                 self.__client_disconnected()
                 break
 
-            # try:
-            #     if self.__autorised:
-            #         pass
-            #         # rd = self.__radio.get_data()
-            #         # pd = self.__pins.get_data()
-            #         # if rd:
-            #         #     self.__conn.send(rd)
-            #         # if pd:
-            #         #     self.__conn.send(pd)
-            #
-            # except socket.error as e:
-            #     log.error('socket.error' + str(e))
-            #     if e.errno == errno.ECONNRESET:
-            #         self.__conn.close()
-            #         self.__conn = None
-            #         log.error('close connection')
-            #         self.__client_disconnected()
-            #         break
-            #     else:
-            #         raise
-            # except socket.timeout:
-            #     pass
+            try:
+                if self.__autorised:
+                    pins_d = self.__pins.get_data()
+                    if pins_d:
+                        print('Send',pins_d)
+                        self.__conn.send(pins_d)
+                    mech1_d = self.__mech1.get_data()
+                    if mech1_d:
+                        self.__conn.send(mech1_d)
+
+
+            except socket.error as e:
+                log.error('socket.error' + str(e))
+                if e.errno == errno.ECONNRESET:
+                    self.__conn.close()
+                    self.__conn = None
+                    log.error('close connection')
+                    self.__client_disconnected()
+                    break
+                else:
+                    raise
+            except socket.timeout:
+                pass
         if self.__conn:
             self.__conn.close()
 
@@ -123,6 +125,7 @@ class ClientThread(Thread):
         addr = self.__addr
         log.info('input connection from  ' + addr[0]+ ' autorised')
         self.__autorised = True
+        self.__pins.client_connected()
 
 
     def __client_disconnected(self):

@@ -103,10 +103,10 @@ class Window(wx.Frame):
             self.__angle2.SetValue(str(self.__knob2.GetValue()))
 
     def __onManualCheched(self, event):
-        print('click')
         o = event.GetEventObject()
         if o == self.__check1:
             self.__check1.SetValue(False)
+            # self.__radio_client.
         elif o == self.__check2:
             self.__check2.SetValue(False)
 

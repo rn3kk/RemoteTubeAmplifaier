@@ -15,11 +15,12 @@ class PA_TCP_Server(Thread):
     __port = 6991
     __last_client = None
 
-    def __init__(self, port, mech1):
+    def __init__(self, port, mech1, pins):
         log.debug('PA_TCP_Server()')
         Thread.__init__(self)
         self.__port = port
         self.__mech1 = mech1
+        self.__pins = pins
 
     def __del__(self):
         print('~PA_TCP_Server()')
@@ -47,7 +48,7 @@ class PA_TCP_Server(Thread):
             if self.__last_client:
                 self.__last_client.set_terminate()
                 self.__last_client.join()
-            self.__last_client = ClientThread(conn, addr, self.__mech1)
+            self.__last_client = ClientThread(conn, addr, self.__mech1, self.__pins)
 
             self.__last_client.start()
             time.sleep(0.1)
