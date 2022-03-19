@@ -1,4 +1,16 @@
+import io
 import json
+
+def is_raspberrypi():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'raspberry pi' in m.read().lower(): return True
+    except Exception:
+        pass
+    return False
+
+
+RASPBERRY = is_raspberrypi()
 
 COMMAND = "c"
 VALUE = "v"
@@ -15,6 +27,7 @@ FROM_PA_ANGLE_MECH1 = 2
 FROM_PA_ANGLE_MECH2 = 3
 FROM_PA_PIN_PWR_STATE = 4
 FROM_PA_PIN_PROTECTION_STATE = 5
+FROM_PA_PTT_STATE = 6
 
 
 class Protocol:
