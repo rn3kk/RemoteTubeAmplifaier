@@ -17,6 +17,16 @@ CLIENT_CONNECTED = 10
 PROTECTION_PIN = 22
 PTT_REQUEST_PIN = 23
 
+RELAY1 = 1
+RELAY2 = 2
+RELAY3 = 3
+RELAY4 = 4
+RELAY5 = 5
+RELAY6 = 6
+RELAY7 = 7
+RELAY8 = 8
+
+
 log = logging.getLogger('root')
 
 
@@ -26,6 +36,8 @@ class Pins(Thread):
     __ptt_req = False #request to TX
     __protection = False
     __is_changed = True
+    __relay_num = 0
+    __relay = {}
 
     __to_client_queue = collections.deque(maxlen=15)
     __mutex = threading.Lock()
@@ -35,6 +47,16 @@ class Pins(Thread):
     def __init__(self):
         log.debug('Pins()')
         Thread.__init__(self)
+
+        self.__relay[1] = RELAY1
+        self.__relay[2] = RELAY2
+        self.__relay[3] = RELAY3
+        self.__relay[4] = RELAY4
+        self.__relay[5] = RELAY5
+        self.__relay[6] = RELAY6
+        self.__relay[7] = RELAY7
+        self.__relay[8] = RELAY8
+
         if RASPBERRY:
             GPIO.setwarnings(False)
             GPIO.setmode(GPIO.BCM)
@@ -135,8 +157,25 @@ class Pins(Thread):
         d = Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__pwr))
         d += Protocol.createCmd(FROM_PA_PTT_STATE, int(self.__ptt_out))
         d += Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, int(self.__protection))
+        d += Protocol.createCmd(FROM_PA_RELAY_NUM, self.__relay_num)
         self.__add_data(d)
 
     def set_terminate(self):
         self.__terminate = True
+
+    def set_relay_number(self, num):
+        if num < 0 or num > 8:
+            num = 0
+        self.__reset_relay_pins()
+        if num > 0 and RASPBERRY:
+            GPIO.output(self.__relay[num], 1)
+        self.__relay_num = num
+        d = Protocol.createCmd(FROM_PA_RELAY_NUM, num)
+        self.__add_data(d)
+
+    def __reset_relay_pins(self):
+        if not RASPBERRY:
+            return
+        for i in range(1,8):
+            GPIO.output(self.__relay[i], 0)
 

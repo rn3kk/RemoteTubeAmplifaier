@@ -7,7 +7,7 @@ from py_client.PA_Client import PA_Client
 
 class Window(wx.Frame):
     mech1 = None
-    __steps_list = ['1', '2', '3', '4', '5', '6', '7', '8']
+    __relay_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8']
     __pa_client = None
 
     def __init__(self, parent):
@@ -54,7 +54,7 @@ class Window(wx.Frame):
         self.__check2.Bind(wx.EVT_CHECKBOX, self.__onManualCheched)
         self.__angle2 = wx.TextCtrl(self, wx.NewId(), value="0", size=(80, -1), style=wx.TE_CENTER)
         self.__knob2.Bind(wx.EVT_MOUSEWHEEL, self.onMouseWheel)
-        self.__relay_combox = wx.ComboBox(self, wx.NewId(), value='0', choices=self.__steps_list, size=(70, -1))
+        self.__relay_combox = wx.ComboBox(self, wx.NewId(), value='0', choices=self.__relay_list, size=(70, -1))
         self.__relay_combox.Bind(wx.EVT_COMBOBOX, self.__relay_changed_event)
         s2.Add(l)
         s2.Add(self.__knob2)
@@ -62,14 +62,17 @@ class Window(wx.Frame):
         s2.Add(self.__check2)
         s2.Add(self.__relay_combox)
 
+        m = wx.BoxSizer(wx.VERTICAL)
         self.__freq_radio = wx.StaticText(self, wx.NewId(), label="freq 14.150.00", size=(150, -1), style=wx.TE_CENTER)
         self.__ptt_state_label = wx.StaticText(self, wx.NewId(), label="none", size=(150, -1), style=wx.TE_CENTER)
+        m.Add(self.__freq_radio)
+        m.Add(self.__ptt_state_label)
+
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
         main_sizer.Add(f)
         main_sizer.Add(s1)
         main_sizer.Add(s2)
-        main_sizer.Add(self.__freq_radio)
-        main_sizer.Add(self.__ptt_state_label)
+        main_sizer.Add(m)
         self.SetSizer(main_sizer)
 
         self.timer = wx.Timer(self)
@@ -129,7 +132,7 @@ class Window(wx.Frame):
         self.__pa_client.reset_protection()
 
     def timerEvent(self, event):
-        pwr, ptt, m1_angle, m1_manual_mode = self.__pa_client.get_state()
+        pwr, ptt, m1_angle, m1_manual_mode, relay_num = self.__pa_client.get_state()
         if pwr == 1:
             self.__pwr_btn.SetLabel("On")
         else:
@@ -153,6 +156,7 @@ class Window(wx.Frame):
                 self.__knob1.SetValue(m1_angle)
 
         self.__angle1.SetValue(str(m1_angle))
+        self.__relay_combox.SetValue(str(relay_num))
 
     def OnClose(self, event):
         self.timer.Stop()

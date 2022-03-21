@@ -32,6 +32,7 @@ class ClientThread(Thread):
         self.__connection_time = datetime.now()
         self.__addr = addr
         self.__mech1 = mech1
+        self.__mech2 = mech1
         self.__pins = pins
 
 
@@ -70,11 +71,17 @@ class ClientThread(Thread):
                                 self.__mech1.set_angle(angle)
                             elif c == CMD_CHANGE_ANGLE_MECH2:
                                 angle = cmd[VALUE]
-                                self.__mech1.set_angle(angle)
+                                self.__mech2.set_angle(angle)
                             elif c == CMD_CHANGE_MANUAL_MECH1:
                                 self.__mech1.set_manual_mode()
+                            elif c == CMD_CHANGE_MANUAL_MECH2:
+                                self.__mech2.set_manual_mode()
                             elif c == CMD_CHANGE_PWR:
                                 self.__pins.change_pwr()
+                            elif c == CMD_CHANGE_RELAY:
+                                self.__pins.set_relay_number(int(cmd[VALUE]))
+                            elif c == CMD_RESET_PROTECTION:
+                                self.__pins.reset_protection()
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
