@@ -6,7 +6,7 @@ from py_client.PA_Client import PA_Client
 
 
 class Window(wx.Frame):
-    mech1 = None
+    # mech1 = None
     __relay_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8']
     __pa_client = None
 
@@ -19,9 +19,12 @@ class Window(wx.Frame):
         self.__pwr_btn = wx.Button(self, wx.NewId(), label="PWR", size=(80, -1))
         self.__radio_found = wx.StaticText(self, wx.NewId(), label="No Radio", size=(80, -1), style=wx.TE_CENTER)
         self.__reset_protection_btn = wx.Button(self, wx.NewId(), label="Reset", size=(80, -1))
+        self.__edit_mode_checkbox = CheckBox(self, wx.NewId(), label='Edit')
         f.Add(self.__pwr_btn)
         f.Add(self.__radio_found)
         f.Add(self.__reset_protection_btn)
+        f.Add(self.__edit_mode_checkbox)
+        self.__edit_mode_checkbox.Bind(wx.EVT_CHECKBOX, self.__edit_mode_ckeckbox_click)
 
         self.__pwr_btn.Bind(wx.EVT_BUTTON, self.__pwr_btn_click)
         self.__reset_protection_btn.Bind(wx.EVT_BUTTON, self.__reset_protection_btn_click)
@@ -36,12 +39,12 @@ class Window(wx.Frame):
         self.__check1.Bind(wx.EVT_CHECKBOX, self.__onManualCheched)
         self.__angle1 = wx.TextCtrl(self, wx.NewId(), value="-1", size=(80, -1), style=wx.TE_CENTER)
         self.__knob1.Bind(wx.EVT_MOUSEWHEEL, self.onMouseWheel)
-        r = wx.StaticText(self, wx.NewId(), label="Relay ->", size=(80, -1), style=wx.TE_CENTER)
+        self.__relay_label = wx.StaticText(self, wx.NewId(), label="Relay ->", size=(80, -1), style=wx.TE_CENTER)
         s1.Add(l)
         s1.Add(self.__knob1)
         s1.Add(self.__angle1)
         s1.Add(self.__check1)
-        s1.Add(r, 0, wx.EXPAND | wx.TOP, 7)
+        s1.Add(self.__relay_label, 0, wx.EXPAND | wx.TOP, 7)
         self.__s1 = s1
 
         s2 = wx.BoxSizer(wx.VERTICAL)
@@ -132,7 +135,7 @@ class Window(wx.Frame):
         self.__pa_client.reset_protection()
 
     def timerEvent(self, event):
-        pwr, ptt, m1_angle, m1_manual_mode, relay_num = self.__pa_client.get_state()
+        pwr, ptt, m1_angle, m1_manual_mode, relay_num, edit_mode = self.__pa_client.get_state()
         if pwr == 1:
             self.__pwr_btn.SetLabel("On")
         else:
@@ -158,6 +161,15 @@ class Window(wx.Frame):
         self.__angle1.SetValue(str(m1_angle))
         self.__relay_combox.SetValue(str(relay_num))
 
+        self.__edit_mode_changed(edit_mode)
+
+    def __edit_mode_ckeckbox_click(self, event):
+        self.__edit_mode_checkbox.SetValue(0)
+        self.__pa_client.change_edit_mode()
+
+
+
+
     def OnClose(self, event):
         self.timer.Stop()
 
@@ -165,3 +177,16 @@ class Window(wx.Frame):
             self.__pa_client.set_terminate()
             self.__pa_client.join()
         self.Destroy()
+
+    def __edit_mode_changed(self, value):
+            b = bool(value)
+            self.__edit_mode_checkbox.SetValue(b)
+            self.__knob1.Enable(b)
+            self.__knob2.Enable(b)
+            self.__check1.Enable(b)
+            self.__check2.Enable(b)
+            self.__angle1.Enable(b)
+            self.__angle2.Enable(b)
+            self.__relay_label.Enable(b)
+            self.__relay_combox.Enable(b)
+

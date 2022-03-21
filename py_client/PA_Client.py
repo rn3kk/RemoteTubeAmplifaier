@@ -23,6 +23,7 @@ class PA_Client(Thread):
     __pa_pin_ptt = 0
     __protection_pin = 0
     __relay_num = 0
+    __edit_mode = 0
     __autorisation_token = 'dfss-s24s-d4-wqe-2-ew-dswd'
 
     __changed = False
@@ -134,6 +135,10 @@ class PA_Client(Thread):
         d = Protocol.createCmd(CMD_CHANGE_PWR, 0)
         self.send_to_server(d)
 
+    def change_edit_mode(self):
+        d = Protocol.createCmd(CMD_EDIT_MODE, 0)
+        self.send_to_server(d)
+
     def execute_cmd(self, data):
         cmd = data[COMMAND]
         value = data[VALUE]
@@ -149,9 +154,10 @@ class PA_Client(Thread):
             self.__protection_pin = int(value)
         elif cmd == FROM_PA_RELAY_NUM:
             self.__relay_num = int(value)
-            print('Receive relay', self.__relay_num)
+        elif cmd == FROM_PA_EDIT_MODE:
+            self.__edit_mode = int(value)
         else:
             print('Uncknown command:', data)
 
     def get_state(self):
-        return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode, self.__relay_num
+        return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode, self.__relay_num, self.__edit_mode

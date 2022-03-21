@@ -34,6 +34,7 @@ class ClientThread(Thread):
         self.__mech1 = mech1
         self.__mech2 = mech1
         self.__pins = pins
+        self.__edit_mode = 0
 
 
     def __del__(self):
@@ -82,6 +83,13 @@ class ClientThread(Thread):
                                 self.__pins.set_relay_number(int(cmd[VALUE]))
                             elif c == CMD_RESET_PROTECTION:
                                 self.__pins.reset_protection()
+                            elif c == CMD_EDIT_MODE:
+                                self.__edit_mode = int(not self.__edit_mode)
+                                d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
+                                self.__conn.send(d)
+                                if self.__edit_mode == 0:
+                                    self.__mech1.disable_manual_mode()
+
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
@@ -140,10 +148,13 @@ class ClientThread(Thread):
         self.__autorised = True
         self.__pins.client_connected()
         self.__mech1.client_connected()
+        d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
+        self.__conn.send(d)
 
 
     def __client_disconnected(self):
         addr = self.__addr
+        self.__edit_mode = False
         log.info('disconnected ' + addr[0])
 
     def __set_keep_alive(self, sock, after_idle_sec=1, interval_sec=5, max_fails=6):

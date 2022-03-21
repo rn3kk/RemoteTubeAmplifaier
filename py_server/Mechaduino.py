@@ -121,6 +121,13 @@ class Mechaduino(Thread):
         d = Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
         self.__add_data(d)
 
+    def disable_manual_mode(self):
+        if self.__manual is True:
+            self.__send_to_com_port(b'y')
+            self.__manual = False
+            d = Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
+            self.__add_data(d)
+
     def __request_angle_if_manual(self):
         if self.__manual and \
                 ((datetime.now() - self.__last_manual_check_time).total_seconds() * 1000 > 300.0):
