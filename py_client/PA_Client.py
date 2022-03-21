@@ -18,15 +18,21 @@ class PA_Client(Thread):
     __out_queue = collections.deque(maxlen=15)
     __mutex = threading.Lock()
     __mech1_angle = 0
-    __mech1_manual_mode = False
-
+    __mech1_manual_mode = 0
+    __pa_pin_pwr = 0
+    __pa_pin_ptt = 0
+    __protection_pin = 0
     __autorisation_token = 'dfss-s24s-d4-wqe-2-ew-dswd'
+
+    __changed = False
+    __changed_mutex = threading.Lock()
+
 
     def __init__(self):
         Thread.__init__(self)
         print('PA_Client')
 
-    def ste_terminate(self):
+    def set_terminate(self):
         self.__terminate = True
 
     def run(self) -> None:
@@ -55,7 +61,7 @@ class PA_Client(Thread):
                             break
                     try:
                         data = conn.recv(1024)
-                        print(data)
+                        # print('Received', data)
                         if not data:
                             logging.debug('disconnected2')
                             break
@@ -107,9 +113,41 @@ class PA_Client(Thread):
         d = Protocol.createCmd(CMD_CHANGE_ANGLE_MECH2, angle)
         self.send_to_server(d)
 
+    def mech1_manual(self):
+        d = Protocol.createCmd(CMD_CHANGE_MANUAL_MECH1, 0)
+        self.send_to_server(d)
+
     def set_power(self):
         d = Protocol.createCmd(CMD_CHANGE_PWR, 0)
         self.send_to_server(d)
 
-    def execute_cmd(self, cmd):
-        print(cmd)
+    def set_relay(self, relay):
+        d = Protocol.createCmd(CMD_CHANGE_RELAY, relay)
+        self.send_to_server(d)
+
+    def reset_protection(self):
+        d = Protocol.createCmd(CMD_RESET_PROTECTION, 0)
+        self.send_to_server(d)
+
+    def change_pwr(self):
+        d = Protocol.createCmd(CMD_CHANGE_PWR, 0)
+        self.send_to_server(d)
+
+    def execute_cmd(self, data):
+        cmd = data[COMMAND]
+        value = data[VALUE]
+        if cmd == FROM_PA_ANGLE_MECH1:
+            self.__mech1_angle = int(value)
+        elif cmd == FROM_PA_MECH1_MANUAL_MODE:
+            self.__mech1_manual_mode = int(value)
+        elif cmd == FROM_PA_PIN_PWR_STATE:
+            self.__pa_pin_pwr = int(value)
+        elif cmd == FROM_PA_PTT_STATE:
+            self.__pa_pin_ptt = int(value)
+        elif cmd == FROM_PA_PIN_PROTECTION_STATE:
+            self.__protection_pin = int(value)
+        else:
+            print('Uncknown command:', data)
+
+    def get_state(self):
+        return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode

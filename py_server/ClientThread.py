@@ -64,12 +64,17 @@ class ClientThread(Thread):
                         data = data.replace(m.group(), b'')
                         cmd = json.loads(m.group())
                         if self.__autorised:
-                            if cmd[COMMAND] == CMD_CHANGE_ANGLE_MECH1:
+                            c = cmd[COMMAND]
+                            if c == CMD_CHANGE_ANGLE_MECH1:
                                 angle = int(cmd[VALUE])
-                                print('mech1 angle', angle)
                                 self.__mech1.set_angle(angle)
-                            elif cmd[COMMAND] == CMD_CHANGE_ANGLE_MECH2:
+                            elif c == CMD_CHANGE_ANGLE_MECH2:
                                 angle = cmd[VALUE]
+                                self.__mech1.set_angle(angle)
+                            elif c == CMD_CHANGE_MANUAL_MECH1:
+                                self.__mech1.set_manual_mode()
+                            elif c == CMD_CHANGE_PWR:
+                                self.__pins.change_pwr()
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
@@ -97,10 +102,11 @@ class ClientThread(Thread):
                 if self.__autorised:
                     pins_d = self.__pins.get_data()
                     if pins_d:
-                        print('Send',pins_d)
+                        print('Send_pins',pins_d)
                         self.__conn.send(pins_d)
                     mech1_d = self.__mech1.get_data()
                     if mech1_d:
+                        print('Send_mech', mech1_d)
                         self.__conn.send(mech1_d)
 
 
@@ -126,6 +132,7 @@ class ClientThread(Thread):
         log.info('input connection from  ' + addr[0]+ ' autorised')
         self.__autorised = True
         self.__pins.client_connected()
+        self.__mech1.client_connected()
 
 
     def __client_disconnected(self):

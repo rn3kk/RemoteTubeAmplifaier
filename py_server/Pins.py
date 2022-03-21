@@ -58,32 +58,33 @@ class Pins(Thread):
     def run(self) -> None:
         if not RASPBERRY:
             return
-        while not self.__terminate:
-            time.sleep(0.001)
-            if GPIO.input(PROTECTION_PIN) == 1:
-                log.warning('PROTECTION!')
-                self.__change_ptt(False)
-                if self.__protection == False:
-                    self.__protection = True
-                    d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 1)
-                    self.__add_data(d)
-                continue
-            else:
-                if self.__protection == True:
-                    self.__protection = False
-                    d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 1)
-                    self.__add_data(d)
 
-            if GPIO.input(PTT_REQUEST_PIN) == 1:
-                ptt_req = GPIO.input(PTT_REQUEST_PIN)
-                if ptt_req and not self.__protection:
-                    self.__change_ptt(True)
-                else:
-                    self.__change_ptt(False)
-            else:
-                self.__change_ptt(False)
+        # while not self.__terminate:
+        #     time.sleep(0.001)
+        #     if GPIO.input(PROTECTION_PIN) == 1:
+        #         log.warning('PROTECTION!')
+        #         self.__change_ptt(False)
+        #         if self.__protection == False:
+        #             self.__protection = True
+        #             d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 1)
+        #             self.__add_data(d)
+        #         continue
+        #     else:
+        #         if self.__protection == True:
+        #             self.__protection = False
+        #             d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 1)
+        #             self.__add_data(d)
+        #
+        #     if GPIO.input(PTT_REQUEST_PIN) == 1:
+        #         ptt_req = GPIO.input(PTT_REQUEST_PIN)
+        #         if ptt_req and not self.__protection:
+        #             self.__change_ptt(True)
+        #         else:
+        #             self.__change_ptt(False)
+        #     else:
+        #         self.__change_ptt(False)
 
-    def __change_pwr(self):
+    def change_pwr(self):
         self.__pwr = not self.__pwr
         if RASPBERRY:
             GPIO.output(PWR_PIN, self.__pwr)
@@ -92,12 +93,20 @@ class Pins(Thread):
         d = Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__pwr))
         self.__add_data(d)
 
-    def __change_ptt(self, state):
+    def change_ptt(self, state):
         if self.__ptt_out == state:
             return
         self.__ptt_out = state
         if RASPBERRY:
             GPIO.output(PTT_PIN, self.__pwr)
+
+    def reset_protection(self):
+        if RASPBERRY:
+            log.debug('Start reset protection PIN')
+            GPIO.output(PROTECTION_PIN, True)
+            time.sleep(1)
+            GPIO.output(PROTECTION_PIN, False)
+            log.debug('End reset protection PIN')
 
     def client_connected(self):
         self.__send_status()
@@ -107,11 +116,6 @@ class Pins(Thread):
     def client_disconnected(self):
         if RASPBERRY:
             GPIO.output(CLIENT_CONNECTED, False)
-
-    def json_cmd(self, cmd):
-        c = cmd[COMMAND]
-        if c == CMD_CHANGE_PWR_PIN:
-            self.__change_pwr()
 
     def __add_data(self, data):
         self.__mutex.acquire()
@@ -129,7 +133,7 @@ class Pins(Thread):
 
     def __send_status(self):
         d = Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__pwr))
-        d += Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__ptt_out))
+        d += Protocol.createCmd(FROM_PA_PTT_STATE, int(self.__ptt_out))
         d += Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, int(self.__protection))
         self.__add_data(d)
 

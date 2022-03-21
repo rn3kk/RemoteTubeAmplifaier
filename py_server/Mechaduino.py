@@ -47,7 +47,7 @@ class Mechaduino(Thread):
             try:
                 time.sleep(1)
                 log.info('Probe open port ' + self.__port)
-                self.__serial_port = serial.Serial(port=self.__port, baudrate=9600, parity=serial.PARITY_NONE,
+                self.__serial_port = serial.Serial(port=self.__port, baudrate=115200, parity=serial.PARITY_NONE,
                                                    timeout=0.1, bytesize=serial.EIGHTBITS,
                                                    stopbits=serial.STOPBITS_ONE, xonxoff=True, rtscts=False,
                                                    dsrdtr=False)
@@ -85,7 +85,11 @@ class Mechaduino(Thread):
         cmds = self.__from_mech_queue.split(b';')
         for cmd in cmds:
             if cmd.find(b'A') == 0:
-                self.__angle = round(float(cmd[2:]))
+                angle = round(float(cmd[1:]))
+                if self.__angle != angle:
+                    self.__angle = angle
+                    d = Protocol.createCmd(FROM_PA_ANGLE_MECH1, self.__angle)
+                    self.__add_data(d)
         self.__from_mech_queue = b''
 
     def __process_to_mech_data(self):
@@ -106,6 +110,7 @@ class Mechaduino(Thread):
             return
         s = b'r' + str(angle).encode()
         self.__send_to_com_port(s)
+        # print('set angle', s)
 
     def set_manual_mode(self):
         self.__manual = not self.__manual
@@ -113,6 +118,8 @@ class Mechaduino(Thread):
             self.__send_to_com_port(b'n')
         else:
             self.__send_to_com_port(b'y')
+        d = Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
+        self.__add_data(d)
 
     def __request_angle_if_manual(self):
         if self.__manual and \
@@ -121,14 +128,15 @@ class Mechaduino(Thread):
             self.__last_manual_check_time = datetime.now()
 
     def client_connected(self):
-        if id == 1:
+        if self.__id == 1:
             d = Protocol.createCmd(FROM_PA_ANGLE_MECH1, self.__angle)
-            d += Protocol.createCmd(FROM_PA_ANGLE_MECH1, self.__manual)
+            d += Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
+            print('Mech1 state', d)
             self.__add_data(d)
-        elif id == 2:
-            d = Protocol.createCmd(FROM_PA_ANGLE_MECH2, self.__angle)
-            d += Protocol.createCmd(FROM_PA_ANGLE_MECH2, self.__manual)
-            self.__add_data(d)
+        # elif id == 2:
+        #     d = Protocol.createCmd(FROM_PA_ANGLE_MECH2, self.__angle)
+        #     d += Protocol.createCmd(FRO, self.__manual)
+        #     self.__add_data(d)
 
     def cliend_dickonected(self):
         pass

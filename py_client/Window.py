@@ -8,10 +8,12 @@ from py_client.PA_Client import PA_Client
 class Window(wx.Frame):
     mech1 = None
     __steps_list = ['1', '2', '3', '4', '5', '6', '7', '8']
+    __pa_client = None
 
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, -1, "Bi4PowerAmplifier")
-        self.SetSize((400, 270))
+        self.SetSize((500, 270))
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         f = wx.BoxSizer(wx.VERTICAL)
         self.__pwr_btn = wx.Button(self, wx.NewId(), label="PWR", size=(80, -1))
@@ -21,6 +23,9 @@ class Window(wx.Frame):
         f.Add(self.__radio_found)
         f.Add(self.__reset_protection_btn)
 
+        self.__pwr_btn.Bind(wx.EVT_BUTTON, self.__pwr_btn_click)
+        self.__reset_protection_btn.Bind(wx.EVT_BUTTON, self.__reset_protection_btn_click)
+
         s1 = wx.BoxSizer(wx.VERTICAL)
         l = wx.StaticText(self, wx.NewId(), label="Tune", size=(80, -1), style=wx.TE_CENTER)
         self.__knob1 = KC.KnobCtrl(self, wx.NewId(), size=(80, 80))
@@ -29,7 +34,7 @@ class Window(wx.Frame):
         self.__knob1.SetValue(0)
         self.__check1 = CheckBox(self, wx.NewId(), label='Manual')
         self.__check1.Bind(wx.EVT_CHECKBOX, self.__onManualCheched)
-        self.__angle1 = wx.TextCtrl(self, wx.NewId(), value="0", size=(80, -1), style=wx.TE_CENTER)
+        self.__angle1 = wx.TextCtrl(self, wx.NewId(), value="-1", size=(80, -1), style=wx.TE_CENTER)
         self.__knob1.Bind(wx.EVT_MOUSEWHEEL, self.onMouseWheel)
         r = wx.StaticText(self, wx.NewId(), label="Relay ->", size=(80, -1), style=wx.TE_CENTER)
         s1.Add(l)
@@ -58,58 +63,101 @@ class Window(wx.Frame):
         s2.Add(self.__relay_combox)
 
         self.__freq_radio = wx.StaticText(self, wx.NewId(), label="freq 14.150.00", size=(150, -1), style=wx.TE_CENTER)
+        self.__ptt_state_label = wx.StaticText(self, wx.NewId(), label="none", size=(150, -1), style=wx.TE_CENTER)
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
         main_sizer.Add(f)
         main_sizer.Add(s1)
         main_sizer.Add(s2)
         main_sizer.Add(self.__freq_radio)
+        main_sizer.Add(self.__ptt_state_label)
         self.SetSizer(main_sizer)
+
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.timerEvent, self.timer)
+        self.timer.Start(100)
         self.Layout()
 
-        self.__radio_client = PA_Client()
-        self.__radio_client.start()
-
-        # self.settings = Settings.getInstance()
-        # self.mech1 = Mechaduino(self.settings.mech1_name, self.settings.mech1_port, self.mech1)
-        # self.mech1.start()
-
+        self.__pa_client = PA_Client()
+        self.__pa_client.start()
 
     def onMouseWheel(self, event):
         o = event.GetEventObject()
         if o == self.__knob1:
-            if event.GetWheelRotation() > 0:
-                if self.__knob1.GetValue() + 1 > 359:
-                    self.__knob1.SetValue(0)
+            if not self.__check1.GetValue():
+                if event.GetWheelRotation() > 0:
+                    if self.__knob1.GetValue() + 1 > 359:
+                        self.__knob1.SetValue(0)
+                    else:
+                        self.__knob1.SetValue(self.__knob1.GetValue() + 1)
                 else:
-                    self.__knob1.SetValue(self.__knob1.GetValue() + 1)
-            else:
-                if self.__knob1.GetValue() - 1 < 0:
-                    self.__knob1.SetValue(359)
-                else:
-                    self.__knob1.SetValue(self.__knob1.GetValue() - 1)
-            self.__angle1.SetValue(str(self.__knob1.GetValue()))
-            self.__radio_client.set_mech1_angle(self.__knob1.GetValue())
+                    if self.__knob1.GetValue() - 1 < 0:
+                        self.__knob1.SetValue(359)
+                    else:
+                        self.__knob1.SetValue(self.__knob1.GetValue() - 1)
+                self.__pa_client.set_mech1_angle(self.__knob1.GetValue())
         elif o == self.__knob2:
-            if event.GetWheelRotation() > 0:
-                if self.__knob2.GetValue() + 1 > 359:
-                    self.__knob2.SetValue(0)
+            if not self.__check2.GetValue():
+                if event.GetWheelRotation() > 0:
+                    if self.__knob2.GetValue() + 1 > 359:
+                        self.__knob2.SetValue(0)
+                    else:
+                        self.__knob2.SetValue(self.__knob2.GetValue() + 1)
                 else:
-                    self.__knob2.SetValue(self.__knob2.GetValue() + 1)
-            else:
-                if self.__knob2.GetValue() - 1 < 0:
-                    self.__knob2.SetValue(359)
-                else:
-                    self.__knob2.SetValue(self.__knob2.GetValue() - 1)
-            self.__angle2.SetValue(str(self.__knob2.GetValue()))
+                    if self.__knob2.GetValue() - 1 < 0:
+                        self.__knob2.SetValue(359)
+                    else:
+                        self.__knob2.SetValue(self.__knob2.GetValue() - 1)
+                self.__angle2.SetValue(str(self.__knob2.GetValue()))
 
     def __onManualCheched(self, event):
         o = event.GetEventObject()
         if o == self.__check1:
             self.__check1.SetValue(False)
-            # self.__radio_client.
+            self.__pa_client.mech1_manual()
         elif o == self.__check2:
             self.__check2.SetValue(False)
+            self.__pa_client.mech1_manual()
 
     def __relay_changed_event(self, event):
         v = self.__relay_combox.GetValue()
-        print('Relay', v)
+        self.__pa_client.set_relay(v)
+
+    def __pwr_btn_click(self, event):
+        self.__pa_client.change_pwr()
+
+    def __reset_protection_btn_click(self, event):
+        self.__pa_client.reset_protection()
+
+    def timerEvent(self, event):
+        pwr, ptt, m1_angle, m1_manual_mode = self.__pa_client.get_state()
+        if pwr == 1:
+            self.__pwr_btn.SetLabel("On")
+        else:
+            self.__pwr_btn.SetLabel("Off")
+
+        if ptt == 1:
+            self.__ptt_state_label.SetLabel('TX')
+            self.__ptt_state_label.SetBackgroundColour((220,20,60))
+        else:
+            self.__ptt_state_label.SetLabel('RX')
+            self.__ptt_state_label.SetBackgroundColour((127, 255, 212))
+
+        self.__check1.SetValue(m1_manual_mode)
+
+        if m1_manual_mode == 1:
+            self.__knob1.Enable(False)
+            self.__knob1.SetValue(m1_angle)
+        else:
+            self.__knob1.Enable(True)
+            if self.__angle1.GetValue() == '-1':
+                self.__knob1.SetValue(m1_angle)
+
+        self.__angle1.SetValue(str(m1_angle))
+
+    def OnClose(self, event):
+        self.timer.Stop()
+
+        if self.__pa_client:
+            self.__pa_client.set_terminate()
+            self.__pa_client.join()
+        self.Destroy()
