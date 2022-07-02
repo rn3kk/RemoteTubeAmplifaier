@@ -3,9 +3,11 @@ from configparser import ConfigParser
 MECH1 = 'mech1'
 MECH2 = 'mech2'
 PORT = 'port'
+IP = 'ip'
 RELAY= 'relay'
 STEP = 'step'
 NAME = 'Name'
+TRX= 'trx'
 CONFIG_FILE_NAME = 'server_config.ini'
 
 
@@ -19,6 +21,8 @@ class Settings:
     __mech2_port = '/dev/ttyACM1'
     __mech1_name = 'tune'
     __mech2_name = 'load'
+    __trx_ip = '127.0.0.1'
+    __trx_port = 6994
 
     def __init__(self):
             self.__relay = {}
@@ -64,6 +68,8 @@ class Settings:
         print('~Settings')
 
     def __read_settings(self):
+        self.__trx_ip = self.__config.get(TRX, IP)
+        self.__trx_port = int(self.__config.get(TRX, PORT))
         self.__mech1_port = self.__config.get(MECH1, PORT)
         self.__mech1_name = self.__config.get(MECH1, NAME)
         self.__mech2_port = self.__config.get(MECH2, PORT)
@@ -92,6 +98,12 @@ class Settings:
             i += self.__step_freq
 
     def save_settings(self):
+        try:
+            self.__config.add_section(TRX)
+        except:
+            pass
+        self.__config.set(TRX, IP, self.__trx_ip)
+        self.__config.set(TRX, PORT, str(self.__trx_port))
         try:
             self.__config.add_section(MECH1)
         except:
@@ -152,6 +164,11 @@ class Settings:
     @property
     def mech2_port(self):
         return self.__mech2_port
+
+    @property
+    def trx_addr(self):
+        return (self.__trx_ip, self.__trx_port)
+
 
 
 

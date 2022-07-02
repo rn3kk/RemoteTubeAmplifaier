@@ -8,6 +8,7 @@ import signal
 from py_server.Mechaduino import Mechaduino
 from py_server.PA_TCP_Server import PA_TCP_Server
 from py_server.Pins import Pins
+from py_server.TRX_State_TCP_Client import TRX_State_TCP_Client
 from py_server.settings import Settings
 
 PORT = 6994
@@ -49,10 +50,13 @@ if __name__ == '__main__':
     serv = PA_TCP_Server(PORT, m1, pins)
     serv.start()
 
+    trx_state = TRX_State_TCP_Client().getInstance()
+
     serv.join()
+
+    trx_state.resetInstance()
     m1.set_terminate()
     m1.join()
-
     pins.set_terminate()
     pins.join()
 

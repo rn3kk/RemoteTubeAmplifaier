@@ -46,7 +46,7 @@ class Pins(Thread):
     __terminate = False
 
     def __init__(self):
-        log.debug('Pins()')
+        # log.debug('Pins()')
         Thread.__init__(self)
 
         self.__relay[1] = RELAY1
@@ -77,7 +77,7 @@ class Pins(Thread):
             self.__reset_relay_pins()
 
     def __del__(self):
-        log.debug('~Pins()')
+        print('~Pins()')
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
