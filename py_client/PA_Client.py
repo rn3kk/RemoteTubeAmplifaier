@@ -21,13 +21,19 @@ class PA_Client(Thread):
     __mech1_manual_mode = 0
     __pa_pin_pwr = 0
     __pa_pin_ptt = 0
+    __bandpass = 0
     __protection_pin = 0
+    __protection_pin_2 = 0
     __relay_num = 0
     __edit_mode = 0
+    __trx_found = False
+    __trx_freq = 0
     __autorisation_token = 'dfss-s24s-d4-wqe-2-ew-dswd'
 
     __changed = False
     __changed_mutex = threading.Lock()
+
+    __connected_to_pa = False
 
 
     def __init__(self):
@@ -50,6 +56,7 @@ class PA_Client(Thread):
                 self.__set_keep_alive(conn)
                 print('connected')
                 self.send_to_server(Protocol.createCmd(CMD_AUTORISATION_TOKEN, self.__autorisation_token))
+                self.__connected_to_pa = True
                 while not self.__terminate:
                     while self.__out_queue.__len__() > 0:
                         self.__mutex.acquire()
@@ -63,7 +70,7 @@ class PA_Client(Thread):
                             break
                     try:
                         data = conn.recv(1024)
-                        # print('Received', data)
+                        print('Received', data)
                         if not data:
                             logging.debug('disconnected2')
                             break
@@ -74,21 +81,22 @@ class PA_Client(Thread):
                             # print('REPLACE', data)
                             try:
                                 json_cmd = json.loads(m.group())
+                                self.execute_cmd(json_cmd)
                             except Exception as ee:
                                 print('parse json error', ee, m.group())
-
-                            self.execute_cmd(json_cmd)
                             m = s.search(data)
-
                     except socket.timeout:
                         continue
                     except BlockingIOError:
                         pass
                     time.sleep(0.001)
+                self.__connected_to_pa = False
             except Exception as e:
                 traceback.print_exc(file=sys.stdout)
+                self.__connected_to_pa = False
                 print
             finally:
+                self.__connected_to_pa = False
                 pass
             time.sleep(1)
         print('RadioClient run is end')
@@ -139,6 +147,10 @@ class PA_Client(Thread):
         d = Protocol.createCmd(CMD_EDIT_MODE, 0)
         self.send_to_server(d)
 
+    def change_bandpath(self):
+        d = Protocol.createCmd(CMD_CHANGE_BANDPATH, 0)
+        self.send_to_server(d)
+
     def execute_cmd(self, data):
         cmd = data[COMMAND]
         value = data[VALUE]
@@ -152,12 +164,24 @@ class PA_Client(Thread):
             self.__pa_pin_ptt = int(value)
         elif cmd == FROM_PA_PIN_PROTECTION_STATE:
             self.__protection_pin = int(value)
+        elif cmd == FROM_PA_PIN_2_PROTECTION_STATE:
+            self.__protection_pin_2 = int(value)
         elif cmd == FROM_PA_RELAY_NUM:
             self.__relay_num = int(value)
         elif cmd == FROM_PA_EDIT_MODE:
             self.__edit_mode = int(value)
+        elif cmd == FROM_PA_TRX_FOUND:
+            if value.lower() == 'true':
+                self.__trx_found = True
+            else:
+                self.__trx_found = False
+        elif cmd == FROM_PA_TRX_FREQ:
+            self.__trx_freq = int(value)
+        elif cmd == FROM_PA_BANDPASS:
+            self.__bandpass = int(value)
         else:
-            print('Uncknown command:', data)
+            print('Unknown command:', data)
 
     def get_state(self):
-        return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode, self.__relay_num, self.__edit_mode
+        return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode, \
+               self.__relay_num, self.__edit_mode, self.__trx_found, self.__trx_freq, self.__bandpass

@@ -20,11 +20,14 @@ class Window(wx.Frame):
         self.__radio_found = wx.StaticText(self, wx.NewId(), label="No Radio", size=(80, -1), style=wx.TE_CENTER)
         self.__reset_protection_btn = wx.Button(self, wx.NewId(), label="Reset", size=(80, -1))
         self.__edit_mode_checkbox = CheckBox(self, wx.NewId(), label='Edit')
+        self.__bandpath_checkbox = CheckBox(self, wx.NewId(), label='Bandpass')
         f.Add(self.__pwr_btn)
         f.Add(self.__radio_found)
         f.Add(self.__reset_protection_btn)
         f.Add(self.__edit_mode_checkbox)
+        f.Add(self.__bandpath_checkbox)
         self.__edit_mode_checkbox.Bind(wx.EVT_CHECKBOX, self.__edit_mode_ckeckbox_click)
+        self.__bandpath_checkbox.Bind(wx.EVT_CHECKBOX, self.__bandpath_click)
 
         self.__pwr_btn.Bind(wx.EVT_BUTTON, self.__pwr_btn_click)
         self.__reset_protection_btn.Bind(wx.EVT_BUTTON, self.__reset_protection_btn_click)
@@ -135,7 +138,19 @@ class Window(wx.Frame):
         self.__pa_client.reset_protection()
 
     def timerEvent(self, event):
-        pwr, ptt, m1_angle, m1_manual_mode, relay_num, edit_mode = self.__pa_client.get_state()
+        pwr, ptt, m1_angle, m1_manual_mode, relay_num, edit_mode, trx_found, trx_freq, bandpath = self.__pa_client.get_state()
+        if bandpath:
+            self.__bandpath_checkbox.SetValue(1)
+        else:
+            self.__bandpath_checkbox.SetValue(0)
+        if trx_found:
+            self.__radio_found.SetLabel('Radio')
+            self.__radio_found.SetBackgroundColour(wx.GREEN)
+            self.__freq_radio.SetLabel(f'Freq:{trx_freq}')
+        else:
+            self.__radio_found.SetLabel('No radio')
+            self.__radio_found.SetBackgroundColour(wx.NullColour)
+            self.__freq_radio.SetLabel('0')
         if pwr == 1:
             self.__pwr_btn.SetLabel("On")
         else:
@@ -167,8 +182,9 @@ class Window(wx.Frame):
         self.__edit_mode_checkbox.SetValue(0)
         self.__pa_client.change_edit_mode()
 
-
-
+    def __bandpath_click(self, event):
+        self.__bandpath_checkbox.SetValue(0)
+        self.__pa_client.change_bandpath()
 
     def OnClose(self, event):
         self.timer.Stop()

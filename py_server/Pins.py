@@ -31,6 +31,7 @@ log = logging.getLogger('root')
 
 
 class Pins(Thread):
+    __bandpath = False #обход
     __pwr = False
     __ptt_out = False  # cmd to TX
     __ptt_req = False  # request to TX
@@ -90,44 +91,25 @@ class Pins(Thread):
 
         while not self.__terminate:
             time.sleep(0.001)
-            if GPIO.input(PROTECTION_PIN) == 1:
-                if self.__protection == False:
-                    log.warning('PROTECTION!')
-                    self.change_ptt(False)
-                    self.__protection = True
-                    d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 1)
-                    self.__add_data(d)
-                continue
-            else:
-                if self.__protection == True:
-                    log.debug('Protection reseted!')
-                    self.__protection = False
-                    d = Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, 0)
-                    self.__add_data(d)
 
-            if GPIO.input(PROTECTION_PIN_2) == 1:
-                if self.__protection2 == False:
-                    log.warning('PROTECTION2!')
-                    self.change_ptt(False)
-                    self.__protection2 = True
-                    d = Protocol.createCmd(FROM_PA_PIN_2_PROTECTION_STATE, 1)
-                    self.__add_data(d)
-                continue
-            else:
-                if self.__protection == True:
-                    log.debug('Protection2 reseted!')
-                    self.__protection2 = False
-                    d = Protocol.createCmd(FROM_PA_PIN_2_PROTECTION_STATE, 0)
-                    self.__add_data(d)
+            prot1 = GPIO.input(PROTECTION_PIN)
+            if prot1 != self.__protection:
+                self.__add_data(Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, prot1))
+                self.__protection = prot1
 
-            if GPIO.input(PTT_REQUEST_PIN) == 1:
+            prot2 = GPIO.input(PROTECTION_PIN_2)
+            if prot2 != self.__protection:
+                self.__add_data(Protocol.createCmd(FROM_PA_PIN_2_PROTECTION_STATE, prot2))
+                self.__protection = prot2
+
+            if not self.__bandpath:
                 ptt_req = GPIO.input(PTT_REQUEST_PIN)
-                if ptt_req and not self.__protection:
-                    self.change_ptt(True)
-                else:
-                    self.change_ptt(False)
+                if ptt_req != self.__ptt_req:
+                    self.__ptt_req = ptt_req
+                    self.change_ptt(ptt_req)
             else:
-                self.change_ptt(False)
+                if self.__ptt_out:
+                    self.change_ptt(False)
 
     def change_pwr(self):
         self.__pwr = not self.__pwr
@@ -138,21 +120,29 @@ class Pins(Thread):
         d = Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__pwr))
         self.__add_data(d)
 
+    def change_bandpath(self):
+        self.__bandpath = not self.__bandpath
+        d = Protocol.createCmd(FROM_PA_BANDPASS, int(self.__bandpath))
+        self.__add_data(d)
+
     def change_ptt(self, state):
+        if self.__protection or self.__protection2:
+            if not self.__pwr:
+                return
+            GPIO.output(PTT_PIN, 0)
+            self.__pwr = False
+            return
         if self.__ptt_out == state:
             return
-        if state == 1 and (self.__protection or self.__protection2):
-            return
-
         self.__ptt_out = state
         if RASPBERRY:
-            GPIO.output(PTT_PIN, self.__pwr)
+            GPIO.output(PTT_PIN, self.__ptt_out)
 
     def reset_protection(self):
         if RASPBERRY:
             log.debug('Start reset protection PIN')
             GPIO.output(PROTECTION_PIN, True)
-            time.sleep(1)
+            time.sleep(0.200)
             GPIO.output(PROTECTION_PIN, False)
             log.debug('End reset protection PIN')
 
@@ -183,7 +173,9 @@ class Pins(Thread):
         d = Protocol.createCmd(FROM_PA_PIN_PWR_STATE, int(self.__pwr))
         d += Protocol.createCmd(FROM_PA_PTT_STATE, int(self.__ptt_out))
         d += Protocol.createCmd(FROM_PA_PIN_PROTECTION_STATE, int(self.__protection))
+        d += Protocol.createCmd(FROM_PA_PIN_2_PROTECTION_STATE, int(self.__protection2))
         d += Protocol.createCmd(FROM_PA_RELAY_NUM, self.__relay_num)
+        d += Protocol.createCmd(FROM_PA_BANDPASS, int(self.__bandpath))
         self.__add_data(d)
 
     def set_terminate(self):

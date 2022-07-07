@@ -46,14 +46,14 @@ class Mechaduino(Thread):
         while not self.__terminate:
             try:
                 time.sleep(1)
-                log.info('Probe open port ' + self.__port)
+                # log.info('Probe open port ' + self.__port)
                 self.__serial_port = serial.Serial(port=self.__port, baudrate=115200, parity=serial.PARITY_NONE,
                                                    timeout=0.1, bytesize=serial.EIGHTBITS,
                                                    stopbits=serial.STOPBITS_ONE, xonxoff=True, rtscts=False,
                                                    dsrdtr=False)
                 log.info('Mechaduino port opened ' + str(self.__port))
             except serial.SerialException as err:
-                log.error('connection to Mechaduino is failed ' + err.strerror)
+                # log.error('connection to Mechaduino is failed ' + err.strerror)
                 continue
             self.__serial_port.write(b'xy')
             while not self.__terminate:

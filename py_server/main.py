@@ -13,6 +13,7 @@ from py_server.settings import Settings
 
 PORT = 6994
 
+
 def init_log():
     log_name = '/var/log/rta/remote_tube_pa.log'
     directory = os.path.dirname(log_name)
@@ -30,12 +31,16 @@ def init_log():
     log.propagate = True
     log.info('**********Started**********')
 
+
 serv = None
 pins = None
+
+
 def handler(signum, frame):
     print('set terminate is True')
     if serv:
         serv.set_terminate()
+
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, handler)

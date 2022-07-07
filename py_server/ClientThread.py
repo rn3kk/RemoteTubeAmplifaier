@@ -11,11 +11,12 @@ import re
 from threading import Thread
 
 from common.common import *
+from py_server import states
+from py_server.TRX_State_TCP_Client import TRX_State_TCP_Client
 
 log = logging.getLogger('root')
 
 PORT_AUDIO = 6992
-
 
 
 class ClientThread(Thread):
@@ -35,10 +36,12 @@ class ClientThread(Thread):
         self.__mech2 = mech1
         self.__pins = pins
         self.__edit_mode = 0
-
+        self.__last_sended_radio_found = -1
+        self.__last_sended_radio_freq = -1
+        self.__trx_state_informer = TRX_State_TCP_Client.getInstance()
 
     def __del__(self):
-        log.debug('~ClientControlThread()')
+        print('~ClientControlThread()')
 
     def run(self):
         log.debug('ClientControlThread is run')
@@ -83,13 +86,14 @@ class ClientThread(Thread):
                                 self.__pins.set_relay_number(int(cmd[VALUE]))
                             elif c == CMD_RESET_PROTECTION:
                                 self.__pins.reset_protection()
+                            elif c == CMD_CHANGE_BANDPATH:
+                                self.__pins.change_bandpath()
                             elif c == CMD_EDIT_MODE:
                                 self.__edit_mode = int(not self.__edit_mode)
                                 d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
                                 self.__conn.send(d)
                                 if self.__edit_mode == 0:
                                     self.__mech1.disable_manual_mode()
-
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
@@ -97,7 +101,6 @@ class ClientThread(Thread):
                             log.info('client autorisation OK')
                         else:
                             log.warning('Unknown command ' + data.decode())
-
                     except:
                         print('error in data', data)
                     finally:
@@ -117,14 +120,18 @@ class ClientThread(Thread):
                 if self.__autorised:
                     pins_d = self.__pins.get_data()
                     if pins_d:
-                        print('Send_pins',pins_d)
+                        print('Send_pins', pins_d)
                         self.__conn.send(pins_d)
+                    trx_state = self.__trx_state_informer.get_data()
+                    if trx_state:
+                        print('Send_trx_states', trx_state)
+                        self.__conn.send(trx_state)
                     mech1_d = self.__mech1.get_data()
                     if mech1_d:
                         print('Send_mech', mech1_d)
                         self.__conn.send(mech1_d)
-
-
+            except socket.timeout:
+                pass
             except socket.error as e:
                 log.error('socket.error' + str(e))
                 if e.errno == errno.ECONNRESET:
@@ -135,8 +142,6 @@ class ClientThread(Thread):
                     break
                 else:
                     raise
-            except socket.timeout:
-                pass
         if self.__conn:
             self.__conn.close()
 
@@ -144,13 +149,13 @@ class ClientThread(Thread):
 
     def __cleint_autorised(self):
         addr = self.__addr
-        log.info('input connection from  ' + addr[0]+ ' autorised')
+        log.info('input connection from  ' + addr[0] + ' autorised')
         self.__autorised = True
         self.__pins.client_connected()
         self.__mech1.client_connected()
+        self.__trx_state_informer.send_current_state()
         d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
         self.__conn.send(d)
-
 
     def __client_disconnected(self):
         addr = self.__addr
@@ -165,7 +170,4 @@ class ClientThread(Thread):
 
     def set_terminate(self):
         self.__terminate = True
-
-
-
 
