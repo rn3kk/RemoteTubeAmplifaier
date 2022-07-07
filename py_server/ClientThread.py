@@ -61,7 +61,6 @@ class ClientThread(Thread):
                     self.__conn.close()
                     self.__client_disconnected()
                     break
-                print('receive', data)
                 s = re.compile(b"{.*?}")
                 m = s.search(data)
                 while m:
@@ -120,11 +119,9 @@ class ClientThread(Thread):
                 if self.__autorised:
                     pins_d = self.__pins.get_data()
                     if pins_d:
-                        print('Send_pins', pins_d)
                         self.__conn.send(pins_d)
                     trx_state = self.__trx_state_informer.get_data()
                     if trx_state:
-                        print('Send_trx_states', trx_state)
                         self.__conn.send(trx_state)
                     mech1_d = self.__mech1.get_data()
                     if mech1_d:

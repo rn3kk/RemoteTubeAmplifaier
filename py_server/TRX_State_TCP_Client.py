@@ -35,6 +35,8 @@ class TRX_State_TCP_Client(Thread):
 
     def __init__(self):
         Thread.__init__(self)
+        self.__mech1 = None
+        self.__mech2 = None
 
     def __del__(self):
         pass
@@ -94,6 +96,7 @@ class TRX_State_TCP_Client(Thread):
                                     elif cmd == RADIO_EVENT_FREQ_CHANGED:
                                         self.__trx_freq = int(value)
                                         states.radio_freq = int(value)
+                                        self.__trx_freq_changed()
                                         self.__add_data_to_client(
                                             Protocol.createCmd(FROM_PA_TRX_FREQ, self.__trx_freq))
                             except Exception as ee:
@@ -144,3 +147,12 @@ class TRX_State_TCP_Client(Thread):
         d = Protocol.createCmd(FROM_PA_TRX_FOUND, self.__trx_found)
         d += Protocol.createCmd(FROM_PA_TRX_FREQ, self.__trx_freq)
         self.__add_data_to_client(d)
+
+    def add_mechaduino(self, mech1, mech2=None):
+        self.__mech1 = mech1
+        self.__mech2 = mech2
+
+    def __trx_freq_changed(self):
+        if self.__trx_found:
+            if self.__mech1:
+                self.__mech1.changed_frequency(self.__trx_freq)

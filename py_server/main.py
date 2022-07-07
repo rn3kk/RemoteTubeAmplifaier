@@ -40,6 +40,18 @@ def handler(signum, frame):
     print('set terminate is True')
     if serv:
         serv.set_terminate()
+#  int freq;
+#   int begin = newFreq/100; // отбрасываем последние два числа
+#   begin *= 100;
+#   int end = newFreq % 100; //остаток от деления есть два последних числа частоты
+#   if(end >= 0 && end < 25)
+#     freq = begin;
+#   else if(end >= 25 && end < 50)
+#     freq = begin + 25;
+#   else if(end >= 50 && end < 75)
+#     freq = begin + 50;
+#   else if(end >= 75 && end <100)
+#     freq = begin + 75;
 
 
 if __name__ == '__main__':
@@ -56,7 +68,7 @@ if __name__ == '__main__':
     serv.start()
 
     trx_state = TRX_State_TCP_Client().getInstance()
-
+    trx_state.add_mechaduino(mech1=m1)
     serv.join()
 
     trx_state.resetInstance()
