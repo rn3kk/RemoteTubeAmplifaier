@@ -34,12 +34,13 @@ class TRX_State_TCP_Client(Thread):
     __trx_freq = 0
 
     def __init__(self):
+        print('~TRX_State_TCP_Client()')
         Thread.__init__(self)
         self.__mech1 = None
         self.__mech2 = None
 
     def __del__(self):
-        pass
+        print('~TRX_State_TCP_Client()')
 
     @classmethod
     def getInstance(cls):
@@ -107,6 +108,8 @@ class TRX_State_TCP_Client(Thread):
                     except BlockingIOError:
                         pass
                     time.sleep(0.1)
+            except socket.timeout:
+                continue
             except Exception as e:
                 self.__disconnected()
                 log.exception(e)

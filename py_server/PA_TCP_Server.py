@@ -59,4 +59,5 @@ class PA_TCP_Server(Thread):
         log.debug('PA_TCP_Server loop is end')
 
     def set_terminate(self):
+        print('PA_TCP_Server set_terminate')
         self.__terminate = True

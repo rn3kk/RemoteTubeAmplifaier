@@ -15,7 +15,7 @@ PORT = 6994
 
 
 def init_log():
-    log_name = '/var/log/rta/remote_tube_pa.log'
+    log_name = '/var/log/bi4pa/bi4pa.log'
     directory = os.path.dirname(log_name)
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -37,24 +37,14 @@ pins = None
 
 
 def handler(signum, frame):
+    global serv
     print('set terminate is True')
     if serv:
         serv.set_terminate()
-#  int freq;
-#   int begin = newFreq/100; // отбрасываем последние два числа
-#   begin *= 100;
-#   int end = newFreq % 100; //остаток от деления есть два последних числа частоты
-#   if(end >= 0 && end < 25)
-#     freq = begin;
-#   else if(end >= 25 && end < 50)
-#     freq = begin + 25;
-#   else if(end >= 50 && end < 75)
-#     freq = begin + 50;
-#   else if(end >= 75 && end <100)
-#     freq = begin + 75;
 
 
-if __name__ == '__main__':
+def main():
+    global serv
     signal.signal(signal.SIGINT, handler)
     init_log()
 
@@ -77,4 +67,6 @@ if __name__ == '__main__':
     pins.set_terminate()
     pins.join()
 
-    quit(0)
+
+if __name__ == '__main__':
+    main()

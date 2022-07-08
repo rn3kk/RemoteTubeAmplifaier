@@ -11,21 +11,22 @@ if RASPBERRY:
 
 PWR_PIN = 4
 PTT_PIN = 17
-CLIENT_CONNECTED = 21
+CLIENT_CONNECTED = 27
 PTT_REQUEST_PIN = 22
+
 PROTECTION_PIN = 10  # этот пин идицируется если сработала защита
 PROTECTION_PIN_2 = 9  # этот пин говорит что птт не включится, т.к. например крутится мотор БМЗ
 PROTECTION_RESET_PIN = 11
 
 # fo Rp pi1 b
-RELAY1 = 7
-RELAY2 = 8
-RELAY3 = 25
-RELAY4 = 24
-RELAY5 = 23
-RELAY6 = 18
-RELAY7 = 15
-RELAY8 = 14
+RELAY1 = 21
+RELAY2 = 20
+RELAY3 = 16
+RELAY4 = 12
+RELAY5 = 25
+RELAY6 = 24
+RELAY7 = 23
+RELAY8 = 18
 
 log = logging.getLogger('root')
 
@@ -68,8 +69,9 @@ class Pins(Thread):
             GPIO.setup(PROTECTION_PIN_2, GPIO.IN)
             GPIO.setup(CLIENT_CONNECTED, GPIO.OUT)
             GPIO.setup(PROTECTION_RESET_PIN, GPIO.OUT)
+            GPIO.setup(PTT_REQUEST_PIN, GPIO.IN)
             for i in range(1, 8):
-                GPIO.setup(i, GPIO.OUT)
+                GPIO.setup(self.__relay[i], GPIO.OUT)
 
             GPIO.output(PWR_PIN, 0)
             GPIO.output(PTT_PIN, 0)
@@ -179,6 +181,7 @@ class Pins(Thread):
         self.__add_data(d)
 
     def set_terminate(self):
+        print('PA_TCP_Server set_terminate')
         self.__terminate = True
 
     def set_relay_number(self, num):
@@ -195,4 +198,8 @@ class Pins(Thread):
         if not RASPBERRY:
             return
         for i in range(1, 8):
-            GPIO.output(self.__relay[i], 0)
+            try:
+                GPIO.output(self.__relay[i], 0)
+            except Exception as e:
+                log.exception(e)
+                print('cant reset pin', self.__relay[i])
