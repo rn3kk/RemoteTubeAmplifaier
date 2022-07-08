@@ -120,6 +120,7 @@ class Mechaduino(Thread):
             self.__send_to_com_port(b'y')
         d = Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
         self.__add_data(d)
+        log.debug(f'Set manual mode for mechaduino {self.__name} Manual mode is {self.__manual}')
 
     def disable_manual_mode(self):
         if self.__manual is True:
@@ -127,6 +128,7 @@ class Mechaduino(Thread):
             self.__manual = False
             d = Protocol.createCmd(FROM_PA_MECH1_MANUAL_MODE, int(self.__manual))
             self.__add_data(d)
+        log.debug(f'Disable manual mode for mechaduino {self.__name} Manual mode is {self.__manual}')
 
     def __request_angle_if_manual(self):
         if self.__manual and \

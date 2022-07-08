@@ -124,6 +124,7 @@ class Pins(Thread):
 
     def change_bandpath(self):
         self.__bandpath = not self.__bandpath
+        log.debug(f'Bandpass is {self.__bandpath}')
         d = Protocol.createCmd(FROM_PA_BANDPASS, int(self.__bandpath))
         self.__add_data(d)
 
@@ -143,9 +144,9 @@ class Pins(Thread):
     def reset_protection(self):
         if RASPBERRY:
             log.debug('Start reset protection PIN')
-            GPIO.output(PROTECTION_PIN, True)
-            time.sleep(0.200)
-            GPIO.output(PROTECTION_PIN, False)
+            GPIO.output(PROTECTION_RESET_PIN, True)
+            time.sleep(0.2)
+            GPIO.output(PROTECTION_RESET_PIN, False)
             log.debug('End reset protection PIN')
 
     def client_connected(self):
