@@ -51,8 +51,9 @@ class PA_Client(Thread):
                 conn.settimeout(1)
                 # sett = Settings.getInstance()
                 # conn.connect((sett.server_address, sett.control_port))
-                # conn.connect(('127.0.0.1', 6994))
-                conn.connect(('192.168.0.104', 6994))
+                conn.connect(('127.0.0.1', 6994))
+                #conn.connect(('192.168.88.100', 6994))
+                # conn.connect(('192.168.0.104', 6994))
                 conn.setblocking(False)
                 self.__set_keep_alive(conn)
                 print('connected')
@@ -187,3 +188,10 @@ class PA_Client(Thread):
         return self.__pa_pin_pwr, self.__pa_pin_ptt, self.__mech1_angle, self.__mech1_manual_mode, \
                self.__relay_num, self.__edit_mode, self.__trx_found, self.__trx_freq, self.__bandpass
 
+    def change_freq_to_up(self):
+         d = Protocol.createCmd(CMD_FREQ_UP, 0)
+         self.send_to_server(d)
+
+    def change_freq_to_down(self):
+         d = Protocol.createCmd(CMD_FREQ_DOWN, 0)
+         self.send_to_server(d)

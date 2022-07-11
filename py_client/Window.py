@@ -68,10 +68,18 @@ class Window(wx.Frame):
         s2.Add(self.__check2)
         s2.Add(self.__relay_combox)
 
+        freq_box  = wx.BoxSizer(wx.HORIZONTAL)
+        self.__down_freq = wx.Button(self, wx.NewId(), label="<", size=(20, -1))
+        self.__up_freq = wx.Button(self, wx.NewId(), label=">", size=(20, -1))
+        self.__freq_radio = wx.StaticText(self, wx.NewId(), label="freq 14.150.00", size=(110, -1), style=wx.TE_CENTER)
+        self.__down_freq.Bind(wx.EVT_BUTTON, self.__freq_down)
+        self.__up_freq.Bind(wx.EVT_BUTTON, self.__freq_up)
+        freq_box.Add(self.__down_freq)
+        freq_box.Add(self.__freq_radio)
+        freq_box.Add(self.__up_freq)
         m = wx.BoxSizer(wx.VERTICAL)
-        self.__freq_radio = wx.StaticText(self, wx.NewId(), label="freq 14.150.00", size=(150, -1), style=wx.TE_CENTER)
         self.__ptt_state_label = wx.StaticText(self, wx.NewId(), label="none", size=(150, -1), style=wx.TE_CENTER)
-        m.Add(self.__freq_radio)
+        m.Add(freq_box)
         m.Add(self.__ptt_state_label)
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -205,4 +213,10 @@ class Window(wx.Frame):
             self.__angle2.Enable(b)
             self.__relay_label.Enable(b)
             self.__relay_combox.Enable(b)
+
+    def __freq_down(self, event):
+        self.__pa_client.change_freq_to_down()
+
+    def __freq_up(self, event):
+        self.__pa_client.change_freq_to_up()
 

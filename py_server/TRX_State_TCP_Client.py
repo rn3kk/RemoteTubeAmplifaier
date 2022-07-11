@@ -11,6 +11,7 @@ from sys import platform
 from common.common import Protocol, FROM_PA_TRX_FOUND, FROM_PA_TRX_FREQ
 from py_server import states
 from py_server.settings import Settings
+
 log = logging.getLogger('root')
 
 DIRECTION = "d"
@@ -23,11 +24,13 @@ RADIO_EVENT_POWER_STATE = 1
 
 TO_EXTERNAL_EXCHANGE = 6
 
+
 class TRX_State_TCP_Client(Thread):
     __instance = None
     __terminate = False
 
     __to_client_queue = collections.deque(maxlen=15)
+    __to_radio_server_queue = collections.deque(maxlen=15)
     __mutex = threading.Lock()
 
     __trx_found = False
@@ -69,6 +72,13 @@ class TRX_State_TCP_Client(Thread):
                 self.__set_keep_alive(conn)
                 conn.settimeout(1)
                 while not self.__terminate:
+                    time.sleep(0.05)
+
+                    if len(self.__to_radio_server_queue) > 0:
+                        self.__mutex.acquire()
+                        d = self.__to_radio_server_queue.popleft()
+                        self.__mutex.release()
+                        conn.send(d)
                     try:
                         data = conn.recv(1024)
                         if not data:
@@ -159,3 +169,11 @@ class TRX_State_TCP_Client(Thread):
         if self.__trx_found:
             if self.__mech1:
                 self.__mech1.changed_frequency(self.__trx_freq)
+
+    CMD_CHANGE_FREQ = 1
+
+    def set_trx_freq(self, freq):
+        d = Protocol.createCmd(self.CMD_CHANGE_FREQ, freq)
+        self.__mutex.acquire()
+        self.__to_radio_server_queue.append(d)
+        self.__mutex.release()

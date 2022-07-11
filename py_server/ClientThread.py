@@ -36,8 +36,6 @@ class ClientThread(Thread):
         self.__mech2 = mech1
         self.__pins = pins
         self.__edit_mode = 0
-        self.__last_sended_radio_found = -1
-        self.__last_sended_radio_freq = -1
         self.__trx_state_informer = TRX_State_TCP_Client.getInstance()
 
     def __del__(self):
@@ -93,6 +91,12 @@ class ClientThread(Thread):
                                 self.__conn.send(d)
                                 if self.__edit_mode == 0:
                                     self.__mech1.disable_manual_mode()
+                            elif c == CMD_FREQ_UP:
+
+                                self.__trx_state_informer.set_trx_freq()
+                            elif c == CMD_FREQ_DOWN:
+
+                                pass
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
