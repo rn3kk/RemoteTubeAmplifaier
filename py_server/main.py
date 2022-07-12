@@ -57,11 +57,11 @@ def main():
     serv = PA_TCP_Server(PORT, m1, pins)
     serv.start()
 
-    trx_state = TRX_State_TCP_Client().getInstance()
-    trx_state.add_mechaduino(mech1=m1)
+    # trx_state = TRX_State_TCP_Client().getInstance()
+    # trx_state.add_mechaduino(mech1=m1)
     serv.join()
 
-    trx_state.resetInstance()
+    # trx_state.resetInstance()
     m1.set_terminate()
     m1.join()
     pins.set_terminate()

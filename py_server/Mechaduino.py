@@ -33,6 +33,7 @@ class Mechaduino(Thread):
         self.__angle = -1
         self.__manual_mode = False
         self.__id = id
+        self.__connected = False
 
     def __del__(self):
         print('~Mechaduino()', self.__name)
@@ -55,6 +56,7 @@ class Mechaduino(Thread):
                 # log.error('connection to Mechaduino is failed ' + err.strerror)
                 continue
             log.debug(f'Mechaduino {self.__name} is found at {str(self.__port)}')
+            self.__connected = True
             self.__serial_port.write(b'xy')
             while not self.__terminate:
                 try:
@@ -70,6 +72,7 @@ class Mechaduino(Thread):
                     print('IO error ' + err.__str__())
                     break
             log.debug(f'Mechaduino {self.__name} disconected')
+            self.__connected = False
         if self.__serial_port and self.__serial_port.isOpen():
             self.__serial_port.close()
         print(self.__name, 'is end loop')
@@ -164,20 +167,10 @@ class Mechaduino(Thread):
         self.__mutex.release()
         return d
 
-    def changed_frequency(self, freq):
-        newFreq = int(freq / 1000)
-        print('new freq ', newFreq)
-
-        begin = int(newFreq / 100.0) * 100
-        end = int(newFreq % 100)
-        if end > 0 and end < 25:
-            freq = begin
-        elif end >= 25 and end < 50:
-            freq = begin + 25
-        elif end >= 50 and end < 75:
-            freq = begin + 50
-        elif end >= 75 and end < 100:
-            freq = begin + 75
+    def changed_frequency(self, f):
+        if not self.__connected:
+            return
+        freq = round_freq(f)
         angle = self.__freq_points[freq]
         if angle != self.__angle:
             self.set_angle(angle)

@@ -37,7 +37,7 @@ class TRX_State_TCP_Client(Thread):
     __trx_freq = 0
 
     def __init__(self):
-        print('~TRX_State_TCP_Client()')
+        print('TRX_State_TCP_Client()')
         Thread.__init__(self)
         self.__mech1 = None
         self.__mech2 = None
@@ -98,15 +98,12 @@ class TRX_State_TCP_Client(Thread):
                                     if cmd == RADIO_EVENT_POWER_STATE:
                                         if value.lower() == 'true':
                                             self.__trx_found = True
-                                            states.radio_found = True
                                         else:
                                             self.__trx_found = False
-                                            states.radio_found = False
                                         self.__add_data_to_client(
                                             Protocol.createCmd(FROM_PA_TRX_FOUND, self.__trx_found))
                                     elif cmd == RADIO_EVENT_FREQ_CHANGED:
                                         self.__trx_freq = int(value)
-                                        states.radio_freq = int(value)
                                         self.__trx_freq_changed()
                                         self.__add_data_to_client(
                                             Protocol.createCmd(FROM_PA_TRX_FREQ, self.__trx_freq))
@@ -136,7 +133,7 @@ class TRX_State_TCP_Client(Thread):
 
     def __disconnected(self):
         log.debug('Disconnected from TRX server')
-        self.__radio_state = False
+        self.__trx_found= False
         self.__radio_freq = 0
 
     def __connected(self):
@@ -170,9 +167,19 @@ class TRX_State_TCP_Client(Thread):
             if self.__mech1:
                 self.__mech1.changed_frequency(self.__trx_freq)
 
+    @property
+    def trx_found(self):
+        return self.__trx_found
+
+    @property
+    def freq(self):
+        return self.__trx_freq
+
     CMD_CHANGE_FREQ = 1
 
     def set_trx_freq(self, freq):
+        if not self.__trx_found:
+            return
         d = Protocol.createCmd(self.CMD_CHANGE_FREQ, freq)
         self.__mutex.acquire()
         self.__to_radio_server_queue.append(d)

@@ -86,17 +86,32 @@ class ClientThread(Thread):
                             elif c == CMD_CHANGE_BANDPATH:
                                 self.__pins.change_bandpath()
                             elif c == CMD_EDIT_MODE:
-                                self.__edit_mode = int(not self.__edit_mode)
-                                d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
+                                if self.__trx_state_informer.trx_found == 0:
+                                    self.__edit_mode = 0
+                                    d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
+                                else:
+                                    self.__edit_mode = int(not self.__edit_mode)
+                                    log.debug(f'edit mode is {self.__edit_mode}')
+                                    d = Protocol.createCmd(FROM_PA_EDIT_MODE, self.__edit_mode)
                                 self.__conn.send(d)
                                 if self.__edit_mode == 0:
                                     self.__mech1.disable_manual_mode()
+                                else:
+                                    freq = round_freq(self.__trx_state_informer.freq)
+                                    self.__trx_state_informer.set_trx_freq(freq)
                             elif c == CMD_FREQ_UP:
-
-                                self.__trx_state_informer.set_trx_freq()
+                                if self.__edit_mode == 1:
+                                    freq = self.__trx_state_informer.freq
+                                    print('freq_trx = ', freq)
+                                    freq = round_freq(self.__trx_state_informer.freq) + TUNE_STEP
+                                    print('freq_round = ', freq)
+                                    self.__trx_state_informer.set_trx_freq(freq)
                             elif c == CMD_FREQ_DOWN:
-
-                                pass
+                                if self.__edit_mode == 1:
+                                    freq = round_freq(self.__trx_state_informer.freq) - TUNE_STEP
+                                    if freq < 0:
+                                        freq = 0
+                                    self.__trx_state_informer.set_trx_freq(freq)
                         elif cmd[COMMAND] == CMD_AUTORISATION_TOKEN:
                             print('to server autoorised')
                             self.__autorisation_token = cmd[VALUE]
@@ -145,7 +160,7 @@ class ClientThread(Thread):
                     raise
         if self.__conn:
             self.__conn.close()
-
+        self.__trx_state_informer.resetInstance()
         print('ClientControlThread loop is end')
 
     def __cleint_autorised(self):

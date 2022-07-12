@@ -1,6 +1,7 @@
 import io
 import json
 
+
 def is_raspberrypi():
     try:
         with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
@@ -29,7 +30,6 @@ CMD_CHANGE_BANDPATH = 11
 CMD_FREQ_UP = 12
 CMD_FREQ_DOWN = 13
 
-
 FROM_PA_MANUAL_MODE = 1
 FROM_PA_ANGLE_MECH1 = 2
 FROM_PA_ANGLE_MECH2 = 3
@@ -44,6 +44,7 @@ FROM_PA_EDIT_MODE = 11
 FROM_PA_TRX_FOUND = 12
 FROM_PA_TRX_FREQ = 13
 FROM_PA_BANDPASS = 14
+
 
 class Protocol:
 
@@ -62,3 +63,18 @@ class Protocol:
         data = {COMMAND: cmd, VALUE: str(value)}
         return json.dumps(data).encode()
 
+TUNE_STEP = 25000 #khz
+
+def round_freq(freq):
+    freq = int(freq / 1000)
+    begin = int(freq / 100.0) * 100
+    end = int(freq % 100)
+    if end > 0 and end < 25:
+        freq = begin
+    elif end >= 25 and end < 50:
+        freq = begin + 25
+    elif end >= 50 and end < 75:
+        freq = begin + 50
+    elif end >= 75 and end < 100:
+        freq = begin + 75
+    return freq * 1000
