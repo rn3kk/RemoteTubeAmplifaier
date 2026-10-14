@@ -39,13 +39,35 @@ const uint16_t SERVO_SPEED = 1500;  // шагов/с, 0 - максимальна
 const uint8_t SERVO_ACC = 50;       // x100 шагов/с^2, 0 - максимальное
 const int SERVO_POS_MAX = 4095;     // 4096 шагов на оборот
 
-// Переключатель БМЗ: положение выбирается замыканием одного из контактов блока БМЗ.
-// На каждое положение своё реле (модуль реле с опторазвязкой), включено всегда не больше одного.
-// Положения нумеруются с 1 в порядке пинов, 0 - положение не задано, все контакты разомкнуты
-const int SWITCH_PINS[] = {9, 10, 11, 12, 13};
+// Основной модуль на 8 реле с опторазвязкой и второй модуль на 4 реле.
+// Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе
+const int RELAY_ACTIVE_LEVEL = LOW;
+const int RELAY_POWER_PIN = 9;       // реле 1: включение усилителя
+const int RELAY_SOFTSTART_PIN = 10;  // реле 2: замыкание плавного пуска
+const int RELAY_PTT_PIN = 48;        // реле 8: разрешение PTT
+const int RELAY_ANODE_PIN = 40;      // второй модуль, реле 1: анодное напряжение
+
+// Переключатель БМЗ: реле 3..7, положение выбирается замыканием одного из контактов блока БМЗ.
+// Включено всегда не больше одного реле. Положения нумеруются с 1 в порядке пинов,
+// 0 - положение не задано, все контакты разомкнуты
+const int SWITCH_PINS[] = {11, 12, 13, 14, 15};
 const int SWITCH_POSITIONS = sizeof(SWITCH_PINS) / sizeof(SWITCH_PINS[0]);
-const int SWITCH_ACTIVE_LEVEL = LOW;   // уровень на входе модуля, при котором реле включено
-const int SWITCH_PAUSE_MS = 20;        // пауза между размыканием старого и замыканием нового
+const int SWITCH_PAUSE_MS = 20;  // пауза между размыканием старого и замыканием нового
+const int PTT_RELEASE_MS = 30;   // пауза между снятием разрешения PTT и переключением БМЗ (и после)
+
+// Входы от усилителя, активный уровень INPUT_ACTIVE_LEVEL (замыкание на GND или выход оптрона)
+const int INPUT_PROTECTION_PIN = 41;  // сработала защита
+const int INPUT_ANODE_PIN = 46;       // анодное напряжение есть
+const int INPUT_ACTIVE_LEVEL = LOW;
+const uint32_t INPUT_DEBOUNCE_MS = 50;
+
+// Последовательность включения: питание -> через SOFTSTART_MS замыкание плавного пуска ->
+// прогрев WARMUP_MS (управление заблокировано) -> анодное -> разрешение PTT
+const uint32_t SOFTSTART_MS = 5000;
+const uint32_t WARMUP_MS = 180000;
+const uint32_t ANODE_WAIT_MS = 5000;  // сколько ждать появления анодного после включения реле
+
+const uint32_t SERVO_POLL_MS = 1000;  // как часто опрашивать сервоприводы
 
 const int TUNE_STEP_KHZ = 25;
 
@@ -119,6 +141,31 @@ int currentVario = -1;
 int currentSwitch = 0;  // 0 - положение БМЗ ещё не задавалось
 bool tuningMode = false;
 
+enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY };
+AmpState ampState = AMP_OFF;
+uint32_t ampStateSince = 0;
+bool relayPower = false;
+bool relaySoftstart = false;
+bool relayAnode = false;
+bool relayPtt = false;
+bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
+bool switchingBmz = false;
+
+// Вход с подавлением дребезга
+struct Input {
+  int pin;
+  bool active;
+  bool raw;
+  uint32_t since;
+};
+Input protectionInput = {INPUT_PROTECTION_PIN, false, false, 0};
+Input anodeInput = {INPUT_ANODE_PIN, false, false, 0};
+
+// Положения, прочитанные с сервоприводов; -1 - привод не отвечает
+int servoCapPos = -1;
+int servoVarioPos = -1;
+uint32_t lastServoPoll = 0;
+
 const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -126,86 +173,153 @@ const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tube Amplifier</title>
 <style>
-  body { font-family: sans-serif; margin: 16px; background: #1b1d21; color: #e6e6e6; }
-  h1 { font-size: 20px; margin: 0 0 8px; }
-  #state { margin-bottom: 12px; font-size: 16px; }
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; margin: 0; background: #1b1d21; color: #e6e6e6; }
+  .layout { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+            grid-template-columns: 1fr; grid-template-areas: "title" "amp" "table" "tune" "extra"; }
+  .layout > * { min-width: 0; }
+  h1 { grid-area: title; font-size: 20px; margin: 0; }
+  .area-amp { grid-area: amp; }
+  .area-tune { grid-area: tune; }
+  .area-table { grid-area: table; }
+  .area-extra { grid-area: extra; }
+  /* компьютер: слева состояние и настройка, справа таблица частот */
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: minmax(360px, 440px) 1fr; align-items: start;
+              grid-template-areas: "title title" "amp table" "tune extra"; }
+  }
+  #state { margin-top: 12px; font-size: 16px; line-height: 1.5; }
   b { color: #ffb347; }
-  button { padding: 8px 10px; border: 1px solid #4a4e57; border-radius: 4px;
-           background: #2d3038; color: inherit; font-size: 14px; cursor: pointer; }
+  button { min-height: 40px; padding: 8px 12px; border: 1px solid #4a4e57; border-radius: 6px;
+           background: #2d3038; color: inherit; font-size: 15px; cursor: pointer; touch-action: manipulation; }
   button:hover:enabled { background: #3a3e48; }
   button:disabled { opacity: .4; cursor: default; }
-  label.mode { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer; }
-  label.mode input { width: 18px; height: 18px; }
-  #panel { border: 1px solid #ffb347; border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+  label.mode { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-size: 16px; }
+  label.mode input { width: 22px; height: 22px; accent-color: #ffb347; }
+  #panel { border: 1px solid #ffb347; border-radius: 8px; padding: 12px; }
   #panel[hidden] { display: none; }
   .hint { color: #9aa0aa; margin-bottom: 8px; }
-  .servo { margin-bottom: 14px; }
+  .servo { margin-bottom: 16px; }
   .servo .title { margin-bottom: 4px; }
-  .servo input[type=range] { width: 100%; margin: 6px 0; }
-  .steps { display: flex; flex-wrap: wrap; gap: 4px; }
-  .steps button { min-width: 52px; }
+  .servo input[type=range] { width: 100%; height: 36px; margin: 4px 0; accent-color: #ffb347; }
+  .steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .steps button { padding: 8px 0; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #switch { grid-template-columns: repeat(5, 1fr); }
   #switch button.active { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
   #save { background: #2f6b3a; border-color: #2f6b3a; }
   #save:hover:enabled { background: #3a8448; }
   #unsaved { color: #ffb347; }
-  #bands { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-  #bands button { min-width: 56px; }
+  #bands { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-bottom: 8px; }
   #bands button.shown { border-color: #ffb347; color: #ffb347; }
   #bands button.current { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
-  .band { display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid #3a3d44; padding: 6px; }
+  .band { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px;
+          border: 1px solid #3a3d44; border-radius: 8px; padding: 8px; }
   .band[hidden] { display: none; }
-  .band button { min-width: 64px; padding: 8px 4px; }
+  .band button { padding: 8px 2px; }
   .band button.saved { border-color: #4caf50; box-shadow: inset 0 -3px 0 #4caf50; }
   .band button.active { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
   .legend { color: #9aa0aa; margin-top: 8px; font-size: 13px; }
   #error { color: #ff6b6b; }
-  #service { margin-top: 24px; border-top: 1px solid #3a3d44; padding-top: 12px; }
-  #service summary { cursor: pointer; color: #9aa0aa; }
-  #service .actions { margin-top: 10px; }
-  #service input { width: 64px; padding: 6px; background: #2d3038; color: inherit;
-                   border: 1px solid #4a4e57; border-radius: 4px; font-size: 14px; }
-  #servicemsg { margin-top: 10px; white-space: pre-line; }
-  #files { margin-top: 12px; }
+  #amp { border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; }
+  #amp .head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  #ampstate { font-size: 18px; font-weight: bold; margin-right: auto; }
+  #power { min-width: 120px; font-weight: bold; }
+  #power.on { background: #7a2b2b; border-color: #7a2b2b; }
+  #power.off { background: #2f6b3a; border-color: #2f6b3a; }
+  #resetprot[hidden] { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 5px 10px; border-radius: 14px; font-size: 13px; background: #2d3038; color: #9aa0aa; }
+  .chip.on { background: #24502c; color: #b9f0c2; }
+  .chip.wait { background: #5a4a1f; color: #ffd98a; }
+  .chip.bad { background: #5c2424; color: #ffb3b3; }
+  #ampnote { margin-top: 8px; color: #ffb347; }
+  #ampnote:empty { display: none; }
+  #files { margin-bottom: 16px; }
   #files[hidden] { display: none; }
+  #service { border-top: 1px solid #3a3d44; padding-top: 12px; }
+  #service summary { cursor: pointer; color: #9aa0aa; padding: 6px 0; }
+  #service .actions { margin-top: 10px; }
+  #service input { width: 72px; min-height: 40px; padding: 6px; background: #2d3038; color: inherit;
+                   border: 1px solid #4a4e57; border-radius: 6px; font-size: 15px; }
+  #servicemsg { margin-top: 10px; white-space: pre-line; }
+  /* телефон */
+  @media (max-width: 600px) {
+    .layout { padding: 12px; gap: 12px; }
+    h1 { font-size: 18px; }
+    #ampstate { font-size: 16px; flex-basis: 100%; order: 2; }
+    #power { flex: 1; order: 1; }
+    #resetprot { flex: 1; order: 1; }
+    #state { font-size: 15px; }
+    .steps { grid-template-columns: repeat(3, 1fr); }
+    #switch { grid-template-columns: repeat(5, 1fr); }
+    .band { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+  }
 </style>
 </head>
 <body>
+<div class="layout">
 <h1>Ламповый усилитель</h1>
-<div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
-  <span id="error"></span></div>
-<label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
-<div id="panel" hidden>
-  <div class="hint" id="hint"></div>
-  <div id="servos"></div>
-  <div class="servo">
-    <div class="title">Переключатель БМЗ: <b id="swlabel">-</b></div>
-    <div class="steps" id="switch"></div>
+<div class="area-amp">
+  <div id="amp">
+    <div class="head">
+      <button id="power">Включить</button>
+      <span id="ampstate">-</span>
+      <button id="resetprot" hidden>Сбросить защиту</button>
+    </div>
+    <div class="chips">
+      <span class="chip" id="c-power">Питание</span>
+      <span class="chip" id="c-soft">Плавный пуск</span>
+      <span class="chip" id="c-anode">Анодное</span>
+      <span class="chip" id="c-ptt">PTT</span>
+      <span class="chip" id="c-prot">Защита</span>
+      <span class="chip" id="c-cap">КПЕ</span>
+      <span class="chip" id="c-vario">Вариометр</span>
+    </div>
+    <div id="ampnote"></div>
   </div>
-  <div class="actions">
-    <button id="save">Сохранить</button>
-    <button id="reset">Сбросить точку</button>
-    <span id="unsaved"></span>
+  <div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
+    <span id="error"></span></div>
+</div>
+<div class="area-tune">
+  <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
+  <div id="panel" hidden>
+    <div class="hint" id="hint"></div>
+    <div id="servos"></div>
+    <div class="servo">
+      <div class="title">Переключатель БМЗ: <b id="swlabel">-</b></div>
+      <div class="steps" id="switch"></div>
+    </div>
+    <div class="actions">
+      <button id="save">Сохранить</button>
+      <button id="reset">Сбросить точку</button>
+      <span id="unsaved"></span>
+    </div>
   </div>
 </div>
-<div id="bands"></div>
-<div id="table"></div>
-<div class="legend">Зелёная полоска - частота настроена и сохранена.</div>
-<div class="actions" id="files" hidden>
-  Таблица настроек:
-  <button id="export">Скачать</button>
-  <button id="import">Загрузить</button>
-  <input type="file" id="importfile" accept=".csv,text/csv,text/plain" hidden>
+<div class="area-table">
+  <div id="bands"></div>
+  <div id="table"></div>
+  <div class="legend">Зелёная полоска - частота настроена и сохранена.</div>
 </div>
-<details id="service">
-  <summary>Сервис: ID сервоприводов</summary>
-  <div class="hint">Прошивка управляет КПЕ по ID 1, вариометром по ID 2. С завода у приводов ID 1:
-    перед сменой ID подключите к шине только тот привод, который меняете.</div>
-  <div class="actions"><button id="scan">Найти приводы</button></div>
-  <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
-    на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
-  <div id="servicemsg"></div>
-</details>
+<div class="area-extra">
+  <div class="actions" id="files" hidden>
+    Таблица настроек:
+    <button id="export">Скачать</button>
+    <button id="import">Загрузить</button>
+    <input type="file" id="importfile" accept=".csv,text/csv,text/plain" hidden>
+  </div>
+  <details id="service">
+    <summary>Сервис: ID сервоприводов</summary>
+    <div class="hint">Прошивка управляет КПЕ по ID 1, вариометром по ID 2. С завода у приводов ID 1:
+      перед сменой ID подключите к шине только тот привод, который меняете.</div>
+    <div class="actions"><button id="scan">Найти приводы</button></div>
+    <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
+      на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
+    <div id="servicemsg"></div>
+  </details>
+</div>
+</div>
 <script>
 const POS_MAX = 4095;
 const STEPS = [-100, -10, -1, 1, 10, 100];
@@ -223,6 +337,7 @@ let state = null;
 let lastInput = 0;
 let dirty = false;
 let sending = false;
+let remainUntil = 0;  // момент окончания текущего этапа включения
 
 const $ = id => document.getElementById(id);
 
@@ -263,7 +378,47 @@ function showBand(index) {
   });
 }
 
+const AMP_NAMES = {off: 'Усилитель выключен', softstart: 'Плавный пуск', warmup: 'Прогрев ламп', ready: 'Усилитель включён'};
+
+function chip(id, cls, text) {
+  $(id).className = 'chip' + (cls ? ' ' + cls : '');
+  $(id).textContent = text;
+}
+
+function locked() {
+  return state && (state.amp === 'softstart' || state.amp === 'warmup');
+}
+
+function showAmpState() {
+  if (!state) return;
+  let text = AMP_NAMES[state.amp] || state.amp;
+  if (locked()) {
+    const left = Math.max(0, Math.ceil((remainUntil - Date.now()) / 1000));
+    text += ': ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+  }
+  $('ampstate').textContent = text;
+}
+
+function showAmp(s) {
+  remainUntil = Date.now() + s.remain * 1000;
+  showAmpState();
+  chip('c-power', s.power ? 'on' : '', 'Питание: ' + (s.power ? 'вкл' : 'выкл'));
+  chip('c-soft', s.soft ? 'on' : s.amp === 'softstart' ? 'wait' : '', 'Плавный пуск: ' + (s.soft ? 'замкнут' : 'нет'));
+  chip('c-anode', s.anodeOk ? (s.anode ? 'on' : 'bad') : s.anode ? 'bad' : '',
+    'Анодное: ' + (s.anode ? 'вкл' : 'выкл') + ', ' + (s.anodeOk ? 'есть' : 'нет'));
+  chip('c-ptt', s.ptt ? 'on' : '', 'PTT: ' + (s.ptt ? 'разрешён' : 'запрещён'));
+  chip('c-prot', s.protectLatched || s.protect ? 'bad' : 'on', 'Защита: ' + (s.protectLatched ? 'сработала' : s.protect ? 'сигнал' : 'норма'));
+  chip('c-cap', s.servoCap >= 0 ? 'on' : 'bad', 'КПЕ: ' + (s.servoCap >= 0 ? s.servoCap : 'нет связи'));
+  chip('c-vario', s.servoVario >= 0 ? 'on' : 'bad', 'Вариометр: ' + (s.servoVario >= 0 ? s.servoVario : 'нет связи'));
+  $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
+  $('power').className = s.amp === 'off' ? 'off' : 'on';
+  $('resetprot').hidden = !s.protectLatched;
+  $('ampnote').textContent = locked() ? 'Управление заблокировано до окончания прогрева.' :
+    s.amp !== 'off' && !s.ptt && s.pttReason ? 'PTT запрещён: ' + s.pttReason + '.' : '';
+}
+
 function showState(s) {
+  showAmp(s);
   // при смене частоты переходим на её диапазон
   const freqChanged = !state || state.freq !== s.freq;
   state = s;
@@ -283,7 +438,10 @@ function showState(s) {
     }
   }
   switchButtons.forEach((b, i) => b.classList.toggle('active', i + 1 === s.sw));
-  for (const f in buttons) buttons[f].classList.toggle('active', Number(f) === s.freq);
+  for (const f in buttons) {
+    buttons[f].classList.toggle('active', Number(f) === s.freq);
+    buttons[f].disabled = locked();
+  }
   if (s.freq && buttons[s.freq]) buttons[s.freq].classList.toggle('saved', s.saved);
   $('error').textContent = '';
 
@@ -292,7 +450,7 @@ function showState(s) {
   $('files').hidden = !s.tuning;
   const ready = s.freq > 0;
   $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
-  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready;
+  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || locked();
   $('save').disabled = !ready || !s.sw;
   $('reset').disabled = !ready || !s.saved;
   const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
@@ -361,6 +519,13 @@ for (const [name, title] of SERVOS) {
   box.append(head, slider, steps);
   $('servos').appendChild(box);
 }
+
+$('power').onclick = () => {
+  const on = state.amp === 'off';
+  if (confirm(on ? 'Включить усилитель?' : 'Выключить усилитель?')) command('/api/power?on=' + (on ? 1 : 0));
+};
+$('resetprot').onclick = () => command('/api/protection/reset');
+setInterval(showAmpState, 1000);
 
 $('tuning').onchange = () => command('/api/mode?tuning=' + ($('tuning').checked ? 1 : 0));
 $('save').onclick = () => command('/api/save');
@@ -434,7 +599,7 @@ fetch('/api/table').then(r => r.json()).then(bands => {
   });
   showBand(0);
   refresh();
-  setInterval(refresh, 2000);
+  setInterval(refresh, 1000);
 }).catch(showError);
 </script>
 </body>
@@ -645,25 +810,153 @@ void moveServos(int cap, int vario) {
   currentVario = vario;
 }
 
+void setRelay(int pin, bool on) {
+  digitalWrite(pin, on ? RELAY_ACTIVE_LEVEL : !RELAY_ACTIVE_LEVEL);
+}
+
 void openSwitchContacts() {
   for (int i = 0; i < SWITCH_POSITIONS; i++)
-    digitalWrite(SWITCH_PINS[i], !SWITCH_ACTIVE_LEVEL);
+    setRelay(SWITCH_PINS[i], false);
+}
+
+void updateInput(Input &in) {
+  bool value = digitalRead(in.pin) == INPUT_ACTIVE_LEVEL;
+  if (value != in.raw) {
+    in.raw = value;
+    in.since = millis();
+  } else if (value != in.active && millis() - in.since >= INPUT_DEBOUNCE_MS) {
+    in.active = value;
+    Serial.printf("input GPIO %d -> %s\n", in.pin, value ? "active" : "inactive");
+  }
+}
+
+// Почему PTT сейчас запрещён; nullptr - разрешён
+const char *pttBlockReason() {
+  if (ampState == AMP_OFF)
+    return "усилитель выключен";
+  if (ampState != AMP_READY)
+    return "идёт прогрев";
+  if (protectionLatched)
+    return "сработала защита";
+  if (!anodeInput.active)
+    return millis() - ampStateSince < ANODE_WAIT_MS ? "ожидание анодного напряжения" : "нет анодного напряжения";
+  if (switchingBmz)
+    return "переключение БМЗ";
+  return nullptr;
+}
+
+void updatePtt() {
+  bool allow = pttBlockReason() == nullptr;
+  if (allow == relayPtt)
+    return;
+  relayPtt = allow;
+  setRelay(RELAY_PTT_PIN, allow);
+  Serial.printf("PTT %s\n", allow ? "allowed" : "blocked");
 }
 
 // Ставит переключатель БМЗ в положение 1..SWITCH_POSITIONS; 0 - положение не задано,
-// все контакты размыкаются
+// все контакты размыкаются. На время переключения PTT запрещается
 void setSwitch(int position) {
   if (position < 0 || position > SWITCH_POSITIONS || position == currentSwitch)
     return;
+  bool pttWasOn = relayPtt;
+  switchingBmz = true;
+  updatePtt();
+  if (pttWasOn)
+    delay(PTT_RELEASE_MS);
   openSwitchContacts();
   currentSwitch = position;
-  if (position == 0) {
+  if (position > 0) {
+    delay(SWITCH_PAUSE_MS);
+    setRelay(SWITCH_PINS[position - 1], true);
+    Serial.printf("BMZ switch -> %d (GPIO %d)\n", currentSwitch, SWITCH_PINS[position - 1]);
+  } else {
     Serial.println("BMZ switch -> not set, all contacts open");
-    return;
   }
-  delay(SWITCH_PAUSE_MS);
-  digitalWrite(SWITCH_PINS[position - 1], SWITCH_ACTIVE_LEVEL);
-  Serial.printf("BMZ switch -> %d (GPIO %d)\n", currentSwitch, SWITCH_PINS[position - 1]);
+  if (pttWasOn)
+    delay(PTT_RELEASE_MS);
+  switchingBmz = false;
+  updatePtt();
+}
+
+void setAmpState(AmpState next) {
+  ampState = next;
+  ampStateSince = millis();
+}
+
+void ampPowerOn() {
+  if (ampState != AMP_OFF)
+    return;
+  protectionLatched = false;
+  relayPower = true;
+  setRelay(RELAY_POWER_PIN, true);
+  setAmpState(AMP_SOFTSTART);
+  Serial.println("amp: power on, soft start");
+}
+
+void ampPowerOff() {
+  setAmpState(AMP_OFF);
+  updatePtt();
+  relayAnode = false;
+  setRelay(RELAY_ANODE_PIN, false);
+  delay(PTT_RELEASE_MS);
+  relaySoftstart = false;
+  setRelay(RELAY_SOFTSTART_PIN, false);
+  relayPower = false;
+  setRelay(RELAY_POWER_PIN, false);
+  Serial.println("amp: power off");
+}
+
+// Последовательность включения, защита и разрешение PTT
+void updateAmp() {
+  updateInput(protectionInput);
+  updateInput(anodeInput);
+  uint32_t elapsed = millis() - ampStateSince;
+  if (ampState == AMP_SOFTSTART && elapsed >= SOFTSTART_MS) {
+    relaySoftstart = true;
+    setRelay(RELAY_SOFTSTART_PIN, true);
+    setAmpState(AMP_WARMUP);
+    Serial.println("amp: soft start closed, warming up");
+  } else if (ampState == AMP_WARMUP && elapsed >= WARMUP_MS) {
+    relayAnode = true;
+    setRelay(RELAY_ANODE_PIN, true);
+    setAmpState(AMP_READY);
+    Serial.println("amp: warm-up done, anode on");
+  }
+  if (ampState != AMP_OFF && protectionInput.active && !protectionLatched) {
+    protectionLatched = true;
+    Serial.println("amp: protection tripped");
+  }
+  updatePtt();
+}
+
+// Во время плавного пуска и прогрева управление заблокировано
+bool controlsLocked() {
+  return ampState == AMP_SOFTSTART || ampState == AMP_WARMUP;
+}
+
+const char *ampStateName() {
+  switch (ampState) {
+    case AMP_SOFTSTART: return "softstart";
+    case AMP_WARMUP: return "warmup";
+    case AMP_READY: return "ready";
+    default: return "off";
+  }
+}
+
+// Сколько секунд осталось до конца текущего этапа включения
+int ampRemainSeconds() {
+  uint32_t duration = ampState == AMP_SOFTSTART ? SOFTSTART_MS : ampState == AMP_WARMUP ? WARMUP_MS : 0;
+  uint32_t elapsed = millis() - ampStateSince;
+  return duration > elapsed ? (duration - elapsed + 999) / 1000 : 0;
+}
+
+void pollServos() {
+  if (millis() - lastServoPoll < SERVO_POLL_MS)
+    return;
+  lastServoPoll = millis();
+  servoCapPos = stsReadPosition(SERVO_ID_CAP);
+  servoVarioPos = stsReadPosition(SERVO_ID_VARIO);
 }
 
 // pcap/pvario/psw - положения из таблицы для текущей частоты
@@ -674,7 +967,15 @@ void sendState() {
                 ",\"swmax\":" + String(SWITCH_POSITIONS) + ",\"tuning\":" + (tuningMode ? "true" : "false") +
                 ",\"saved\":" + (p && p->saved ? "true" : "false") +
                 ",\"pcap\":" + String(p ? p->cap : -1) + ",\"pvario\":" + String(p ? p->vario : -1) +
-                ",\"psw\":" + String(p ? p->sw : 0) + "}";
+                ",\"psw\":" + String(p ? p->sw : 0);
+  auto flag = [](bool v) { return v ? "true" : "false"; };
+  const char *reason = pttBlockReason();
+  json += String(",\"amp\":\"") + ampStateName() + "\",\"remain\":" + String(ampRemainSeconds()) +
+          ",\"power\":" + flag(relayPower) + ",\"soft\":" + flag(relaySoftstart) +
+          ",\"anode\":" + flag(relayAnode) + ",\"anodeOk\":" + flag(anodeInput.active) +
+          ",\"protect\":" + flag(protectionInput.active) + ",\"protectLatched\":" + flag(protectionLatched) +
+          ",\"ptt\":" + flag(relayPtt) + ",\"pttReason\":\"" + (reason ? reason : "") + "\"" +
+          ",\"servoCap\":" + String(servoCapPos) + ",\"servoVario\":" + String(servoVarioPos) + "}";
   server.send(200, "application/json", json);
 }
 
@@ -708,6 +1009,10 @@ void handleTable() {
 }
 
 void handleSelect() {
+  if (controlsLocked()) {
+    sendError(409, "идёт включение усилителя, управление заблокировано");
+    return;
+  }
   int freq = server.arg("freq").toInt();
   const Point *p = findPoint(freq);
   if (!p) {
@@ -729,6 +1034,10 @@ void handleMode() {
 
 // Ручное перемещение сервоприводов и переключение БМЗ в режиме настройки
 void handleMove() {
+  if (controlsLocked()) {
+    sendError(409, "идёт включение усилителя, управление заблокировано");
+    return;
+  }
   if (!tuningMode) {
     sendError(409, "режим настройки выключен");
     return;
@@ -842,6 +1151,25 @@ void handleImport() {
   server.send(200, "application/json", "{\"loaded\":" + String(loaded) + "}");
 }
 
+void handlePower() {
+  if (server.arg("on").toInt() != 0)
+    ampPowerOn();
+  else
+    ampPowerOff();
+  sendState();
+}
+
+void handleProtectionReset() {
+  if (protectionInput.active) {
+    sendError(409, "сигнал защиты ещё активен");
+    return;
+  }
+  protectionLatched = false;
+  Serial.println("amp: protection reset");
+  updatePtt();
+  sendState();
+}
+
 // Сервис: опрашивает все ID на шине и возвращает найденные приводы с их положением
 void handleServoScan() {
   String json = "{\"servos\":[";
@@ -953,11 +1281,21 @@ void setup() {
 #endif
   Serial1.begin(SERVO_BAUD, SERIAL_8N1, SERVO_RX_PIN, SERVO_TX_PIN);
 
-  // уровень выставляем до включения выходов, чтобы контакты не дёрнулись при старте
+  // уровень выставляем до включения выходов, чтобы реле не дёрнулись при старте
+  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN};
+  for (int pin : relayPins) {
+    setRelay(pin, false);
+    pinMode(pin, OUTPUT);
+    setRelay(pin, false);
+  }
   openSwitchContacts();
   for (int i = 0; i < SWITCH_POSITIONS; i++)
     pinMode(SWITCH_PINS[i], OUTPUT);
   openSwitchContacts();
+  for (Input *in : {&protectionInput, &anodeInput}) {
+    pinMode(in->pin, INPUT_PULLUP);
+    in->raw = in->active = digitalRead(in->pin) == INPUT_ACTIVE_LEVEL;
+  }
 
   prefs.begin(PREFS_NAMESPACE, false);
   buildPoints();
@@ -975,11 +1313,15 @@ void setup() {
   server.on("/api/reset", HTTP_POST, handleReset);
   server.on("/api/points.csv", HTTP_GET, handleExport);
   server.on("/api/points.csv", HTTP_POST, handleImport);
+  server.on("/api/power", HTTP_POST, handlePower);
+  server.on("/api/protection/reset", HTTP_POST, handleProtectionReset);
   server.on("/api/servo/scan", HTTP_POST, handleServoScan);
   server.on("/api/servo/id", HTTP_POST, handleServoId);
   server.begin();
 }
 
 void loop() {
+  updateAmp();
+  pollServos();
   server.handleClient();
 }
