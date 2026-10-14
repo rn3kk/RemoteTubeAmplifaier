@@ -7,7 +7,6 @@
 #include <WiFi.h>
 #endif
 #include <Preferences.h>
-#include <SD.h>
 #include <SPI.h>
 #include <WebServer.h>
 
@@ -48,16 +47,6 @@ const int SWITCH_POSITIONS = sizeof(SWITCH_PINS) / sizeof(SWITCH_PINS[0]);
 const int SWITCH_ACTIVE_LEVEL = LOW;   // уровень на входе модуля, при котором реле включено
 const int SWITCH_PAUSE_MS = 20;        // пауза между размыканием старого и замыканием нового
 
-// Карта microSD (слот TF Card), на ней хранятся все настройки. Своя шина SPI
-const int SD_CS_PIN = 39;
-const int SD_SCK_PIN = 41;
-const int SD_MOSI_PIN = 40;
-const int SD_MISO_PIN = 42;
-const char *SETTINGS_DIR = "/tubeamp";
-const char *POINTS_FILE = "/tubeamp/points.csv";
-const char *POINTS_TMP_FILE = "/tubeamp/points.tmp";
-const uint32_t CARD_RETRY_MS = 10000;  // как часто искать карту, если её нет
-
 const int TUNE_STEP_KHZ = 25;
 
 // Диапазоны. Пока точка не настроена и не сохранена, положения сервоприводов
@@ -91,28 +80,34 @@ struct Point {
   uint16_t cap;
   uint16_t vario;
   uint8_t sw;  // положение переключателя БМЗ, 0 - не задано
-  bool saved;  // настроена вручную и записана на карту
+  bool saved;  // настроена вручную и записана во flash-память
 };
 
-// Запись о точке в энергонезависимой памяти платы (старое хранилище, только для переноса на карту)
-struct SavedPoint {
+// Запись о сохранённой точке во flash-памяти (NVS)
+struct StoredPoint {
   uint16_t freqKhz;
   uint16_t cap;
   uint16_t vario;
+  uint8_t sw;
 };
 
 const int MAX_POINTS = 256;
 const char *PREFS_NAMESPACE = "tubeamp";
-const char *PREFS_KEY_POINTS = "points";
+const char *PREFS_KEY_POINTS = "pts";
 
 // Протокол Feetech SCS/STS
+const uint8_t STS_INST_PING = 0x01;
+const uint8_t STS_INST_READ = 0x02;
 const uint8_t STS_INST_WRITE = 0x03;
-const uint8_t STS_REG_ACC = 41;  // далее подряд: положение, время, скорость
+const uint8_t STS_REG_ID = 5;
+const uint8_t STS_REG_ACC = 41;       // далее подряд: положение, время, скорость
+const uint8_t STS_REG_LOCK = 55;      // 0 - запись в EEPROM привода разрешена, 1 - запрещена
+const uint8_t STS_REG_POSITION = 56;  // текущее положение, 2 байта
+const int STS_MAX_ID = 253;
+const uint32_t STS_REPLY_TIMEOUT_MS = 5;
 
 WebServer server(80);
-SPIClass sdSpi(HSPI);
-bool cardMounted = false;
-uint32_t lastCardTry = 0;
+Preferences prefs;
 
 Point points[MAX_POINTS];
 int pointsCount = 0;
@@ -165,15 +160,20 @@ const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
   .band button.active { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
   .legend { color: #9aa0aa; margin-top: 8px; font-size: 13px; }
   #error { color: #ff6b6b; }
-  #nocard { color: #ff6b6b; margin-bottom: 12px; }
-  #nocard[hidden] { display: none; }
+  #service { margin-top: 24px; border-top: 1px solid #3a3d44; padding-top: 12px; }
+  #service summary { cursor: pointer; color: #9aa0aa; }
+  #service .actions { margin-top: 10px; }
+  #service input { width: 64px; padding: 6px; background: #2d3038; color: inherit;
+                   border: 1px solid #4a4e57; border-radius: 4px; font-size: 14px; }
+  #servicemsg { margin-top: 10px; white-space: pre-line; }
+  #files { margin-top: 12px; }
+  #files[hidden] { display: none; }
 </style>
 </head>
 <body>
 <h1>Ламповый усилитель</h1>
 <div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
   <span id="error"></span></div>
-<div id="nocard" hidden>Карта памяти не найдена: сохранённых настроек нет, сохранение недоступно.</div>
 <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
 <div id="panel" hidden>
   <div class="hint" id="hint"></div>
@@ -190,7 +190,22 @@ const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 </div>
 <div id="bands"></div>
 <div id="table"></div>
-<div class="legend">Зелёная полоска - частота настроена и сохранена на карту памяти.</div>
+<div class="legend">Зелёная полоска - частота настроена и сохранена.</div>
+<div class="actions" id="files" hidden>
+  Таблица настроек:
+  <button id="export">Скачать</button>
+  <button id="import">Загрузить</button>
+  <input type="file" id="importfile" accept=".csv,text/csv,text/plain" hidden>
+</div>
+<details id="service">
+  <summary>Сервис: ID сервоприводов</summary>
+  <div class="hint">Прошивка управляет КПЕ по ID 1, вариометром по ID 2. С завода у приводов ID 1:
+    перед сменой ID подключите к шине только тот привод, который меняете.</div>
+  <div class="actions"><button id="scan">Найти приводы</button></div>
+  <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
+    на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
+  <div id="servicemsg"></div>
+</details>
 <script>
 const POS_MAX = 4095;
 const STEPS = [-100, -10, -1, 1, 10, 100];
@@ -249,12 +264,6 @@ function showBand(index) {
 }
 
 function showState(s) {
-  // карту вставили или вынули - таблица точек на контроллере сменилась
-  if (state && state.card !== s.card) {
-    location.reload();
-    return;
-  }
-  $('nocard').hidden = s.card;
   // при смене частоты переходим на её диапазон
   const freqChanged = !state || state.freq !== s.freq;
   state = s;
@@ -280,11 +289,12 @@ function showState(s) {
 
   $('tuning').checked = s.tuning;
   $('panel').hidden = !s.tuning;
+  $('files').hidden = !s.tuning;
   const ready = s.freq > 0;
   $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
   for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready;
-  $('save').disabled = !ready || !s.card || !s.sw;
-  $('reset').disabled = !ready || !s.saved || !s.card;
+  $('save').disabled = !ready || !s.sw;
+  $('reset').disabled = !ready || !s.saved;
   const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
   $('unsaved').textContent = !ready ? '' : !s.saved ? 'точка не настроена' : changed ? 'положение не сохранено' : 'сохранено';
 
@@ -356,6 +366,49 @@ $('tuning').onchange = () => command('/api/mode?tuning=' + ($('tuning').checked 
 $('save').onclick = () => command('/api/save');
 $('reset').onclick = () => {
   if (confirm('Сбросить сохранённую настройку для ' + state.freq + ' кГц?')) command('/api/reset');
+};
+
+const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр'};
+
+function serviceMessage(text) {
+  $('servicemsg').textContent = text;
+}
+
+function serviceError(e) {
+  serviceMessage(e instanceof TypeError ? 'нет связи с контроллером' : e.message);
+}
+
+$('scan').onclick = () => {
+  serviceMessage('Поиск приводов...');
+  post('/api/servo/scan').then(r => {
+    if (!r.servos.length) {
+      serviceMessage('Приводы не найдены: проверьте питание и подключение шины.');
+      return;
+    }
+    serviceMessage(r.servos.map(s => 'ID ' + s.id + (SERVO_NAMES[s.id] ? ' (' + SERVO_NAMES[s.id] + ')' : '') +
+      ': положение ' + (s.pos < 0 ? 'не прочитано' : s.pos)).join('\n'));
+  }).catch(serviceError);
+};
+
+$('setid').onclick = () => {
+  const from = $('idfrom').value, to = $('idto').value;
+  if (!confirm('Сменить ID привода ' + from + ' на ' + to + '? На шине должен быть только этот привод.')) return;
+  post('/api/servo/id?from=' + from + '&to=' + to)
+    .then(r => serviceMessage('Готово: привод отвечает на ID ' + r.id + '.')).catch(serviceError);
+};
+
+$('export').onclick = () => location.href = '/api/points.csv';
+$('import').onclick = () => $('importfile').click();
+$('importfile').onchange = () => {
+  const file = $('importfile').files[0];
+  $('importfile').value = '';
+  if (!file || !confirm('Заменить все сохранённые настройки содержимым файла ' + file.name + '?')) return;
+  file.text().then(text => fetch('/api/points.csv', {method: 'POST', headers: {'Content-Type': 'text/plain'}, body: text}))
+    .then(r => r.json().then(j => {
+      if (!r.ok) throw new Error(j.error || ('ошибка ' + r.status));
+      alert('Загружено точек: ' + j.loaded);
+      location.reload();
+    })).catch(showError);
 };
 
 fetch('/api/table').then(r => r.json()).then(bands => {
@@ -431,145 +484,154 @@ void buildPoints() {
   }
 }
 
-// Читает сохранённые точки из файла вида "частота;КПЕ;вариометр;БМЗ" в каждой строке.
-// Положение БМЗ может отсутствовать (файлы старого формата) - тогда оно не задано
-bool readPointsFile(const char *path) {
-  File file = SD.open(path, FILE_READ);
-  if (!file)
+// Разбирает строку "частота;КПЕ;вариометр;БМЗ"; БМЗ может отсутствовать - тогда не задано
+bool parsePointLine(String line) {
+  line.replace(',', ';');
+  line.replace('\t', ';');
+  int freq, cap, vario, sw = 0;
+  if (sscanf(line.c_str(), "%d;%d;%d;%d", &freq, &cap, &vario, &sw) < 3)
     return false;
-  int count = 0;
-  while (file.available()) {
-    String line = file.readStringUntil('\n');
-    line.replace(',', ';');
-    line.replace('\t', ';');
-    int freq, cap, vario, sw = 0;
-    if (sscanf(line.c_str(), "%d;%d;%d;%d", &freq, &cap, &vario, &sw) < 3)
-      continue;
-    Point *p = findPoint(freq);
-    if (!p)
-      continue;
-    p->cap = constrain(cap, 0, SERVO_POS_MAX);
-    p->vario = constrain(vario, 0, SERVO_POS_MAX);
-    p->sw = sw >= 1 && sw <= SWITCH_POSITIONS ? sw : 0;
-    p->saved = true;
-    count++;
-  }
-  file.close();
-  Serial.printf("Loaded %d points from %s\n", count, path);
+  Point *p = findPoint(freq);
+  if (!p)
+    return false;
+  p->cap = constrain(cap, 0, SERVO_POS_MAX);
+  p->vario = constrain(vario, 0, SERVO_POS_MAX);
+  p->sw = sw >= 1 && sw <= SWITCH_POSITIONS ? sw : 0;
+  p->saved = true;
   return true;
 }
 
-// Пишет во временный файл и подменяет им основной, чтобы сбой питания не испортил таблицу
-bool writePointsFile() {
-  if (!SD.exists(SETTINGS_DIR) && !SD.mkdir(SETTINGS_DIR))
-    return false;
-  SD.remove(POINTS_TMP_FILE);
-  File file = SD.open(POINTS_TMP_FILE, FILE_WRITE);
-  if (!file)
-    return false;
-  file.println("# частота кГц;КПЕ;вариометр;БМЗ (КПЕ и вариометр - положения сервоприводов 0..4095, БМЗ - номер положения)");
+String pointsCsv() {
+  String csv = "# частота кГц;КПЕ;вариометр;БМЗ (КПЕ и вариометр - положения сервоприводов 0..4095, БМЗ - номер положения)\n";
   for (int i = 0; i < pointsCount; i++) {
-    if (points[i].saved)
-      file.printf("%u;%u;%u;%u\n", points[i].freqKhz, points[i].cap, points[i].vario, points[i].sw);
+    const Point &p = points[i];
+    if (p.saved)
+      csv += String(p.freqKhz) + ";" + String(p.cap) + ";" + String(p.vario) + ";" + String(p.sw) + "\n";
   }
-  file.close();
-  SD.remove(POINTS_FILE);
-  if (!SD.rename(POINTS_TMP_FILE, POINTS_FILE))
-    return false;
-  File check = SD.open(POINTS_FILE, FILE_READ);
-  bool ok = check && check.size() > 0;
-  check.close();
-  return ok;
+  return csv;
 }
 
-void unmountCard() {
-  SD.end();
-  cardMounted = false;
-  Serial.println("SD card lost");
+void loadSavedPoints() {
+  static StoredPoint stored[MAX_POINTS];
+  size_t len = prefs.getBytesLength(PREFS_KEY_POINTS);
+  if (len == 0 || len > sizeof(stored) || len % sizeof(StoredPoint) != 0)
+    return;
+  prefs.getBytes(PREFS_KEY_POINTS, stored, len);
+  int count = len / sizeof(StoredPoint);
+  for (int i = 0; i < count; i++) {
+    Point *p = findPoint(stored[i].freqKhz);
+    if (!p)
+      continue;
+    p->cap = constrain(stored[i].cap, 0, SERVO_POS_MAX);
+    p->vario = constrain(stored[i].vario, 0, SERVO_POS_MAX);
+    p->sw = stored[i].sw <= SWITCH_POSITIONS ? stored[i].sw : 0;
+    p->saved = true;
+  }
+  Serial.printf("Loaded %d saved points\n", count);
 }
 
 bool storeSavedPoints() {
-  if (!cardMounted)
-    return false;
-  if (!writePointsFile()) {
-    unmountCard();
-    return false;
+  static StoredPoint stored[MAX_POINTS];
+  int count = 0;
+  for (int i = 0; i < pointsCount; i++) {
+    const Point &p = points[i];
+    if (p.saved)
+      stored[count++] = {p.freqKhz, p.cap, p.vario, p.sw};
   }
-  return true;
+  if (count == 0) {
+    prefs.remove(PREFS_KEY_POINTS);
+    return true;
+  }
+  size_t len = count * sizeof(StoredPoint);
+  return prefs.putBytes(PREFS_KEY_POINTS, stored, len) == len;
 }
 
-// Переносит на карту точки, сохранённые прошивкой до появления карты
-void migrateFromNvs() {
-  static SavedPoint saved[MAX_POINTS];
-  Preferences prefs;
-  if (!prefs.begin(PREFS_NAMESPACE, false))
-    return;
-  size_t len = prefs.getBytesLength(PREFS_KEY_POINTS);
-  if (len > 0 && len <= sizeof(saved) && len % sizeof(SavedPoint) == 0) {
-    prefs.getBytes(PREFS_KEY_POINTS, saved, len);
-    int count = 0;
-    for (size_t i = 0; i < len / sizeof(SavedPoint); i++) {
-      Point *p = findPoint(saved[i].freqKhz);
-      if (!p || p->saved)
-        continue;
-      p->cap = constrain(saved[i].cap, 0, SERVO_POS_MAX);
-      p->vario = constrain(saved[i].vario, 0, SERVO_POS_MAX);
-      p->saved = true;
-      count++;
-    }
-    if (writePointsFile()) {
-      prefs.remove(PREFS_KEY_POINTS);
-      Serial.printf("Moved %d points from flash to SD card\n", count);
-    }
-  }
-  prefs.end();
-}
+// Отправляет пакет приводу. Если нужен ответ - ждёт его и кладёт данные ответа в reply,
+// возвращает их длину или -1, если привод не ответил
+int stsTransfer(uint8_t id, uint8_t inst, const uint8_t *params, uint8_t paramsLen,
+                bool wantReply = false, uint8_t *reply = nullptr, uint8_t replyMax = 0) {
+  uint8_t packet[32];
+  uint8_t n = 0;
+  packet[n++] = 0xFF;
+  packet[n++] = 0xFF;
+  packet[n++] = id;
+  packet[n++] = paramsLen + 2;  // инструкция + параметры + контрольная сумма
+  packet[n++] = inst;
+  for (uint8_t i = 0; i < paramsLen && n < sizeof(packet) - 1; i++)
+    packet[n++] = params[i];
+  uint8_t sum = 0;
+  for (uint8_t i = 2; i < n; i++)
+    sum += packet[i];
+  packet[n++] = ~sum;
 
-// Подключает карту и заново загружает с неё таблицу точек
-bool mountCard() {
-  lastCardTry = millis();
-  if (!SD.begin(SD_CS_PIN, sdSpi) || SD.cardType() == CARD_NONE) {
-    SD.end();
-    return false;
-  }
-  cardMounted = true;
-  Serial.println("SD card mounted");
-  buildPoints();
-  if (!readPointsFile(POINTS_FILE))
-    readPointsFile(POINTS_TMP_FILE);
-  migrateFromNvs();
-  return true;
-}
-
-void stsWrite(uint8_t id, uint8_t reg, const uint8_t *data, uint8_t len) {
-  uint8_t packetLen = len + 3;  // инструкция + адрес + данные + контрольная сумма
-  uint8_t sum = id + packetLen + STS_INST_WRITE + reg;
-  Serial1.write(0xFF);
-  Serial1.write(0xFF);
-  Serial1.write(id);
-  Serial1.write(packetLen);
-  Serial1.write(STS_INST_WRITE);
-  Serial1.write(reg);
-  for (uint8_t i = 0; i < len; i++) {
-    Serial1.write(data[i]);
-    sum += data[i];
-  }
-  Serial1.write((uint8_t)~sum);
-  Serial1.flush();
-  // ответ сервопривода (и эхо своей посылки на общей линии) не разбираем
-  delay(2);
   while (Serial1.available())
     Serial1.read();
+  Serial1.write(packet, n);
+  Serial1.flush();
+  if (!wantReply) {
+    // ответ привода (и эхо своей посылки на общей линии) не разбираем
+    delay(2);
+    while (Serial1.available())
+      Serial1.read();
+    return 0;
+  }
+
+  uint8_t buf[64];
+  int got = 0;
+  uint32_t start = millis();
+  while (millis() - start < STS_REPLY_TIMEOUT_MS && got < (int)sizeof(buf)) {
+    if (Serial1.available())
+      buf[got++] = Serial1.read();
+  }
+  // при подключении через резистор на общую линию первым приходит эхо своей посылки
+  int from = got >= n && memcmp(buf, packet, n) == 0 ? n : 0;
+  // ответ: FF FF ID LEN ERR данные... CHK, где LEN = длина данных + 2
+  for (int i = from; i + 5 < got; i++) {
+    if (buf[i] != 0xFF || buf[i + 1] != 0xFF || buf[i + 2] != id)
+      continue;
+    int len = buf[i + 3];
+    if (len < 2 || i + 4 + len > got)
+      continue;
+    uint8_t check = 0;
+    for (int k = i + 2; k < i + 3 + len; k++)
+      check += buf[k];
+    if ((uint8_t)~check != buf[i + 3 + len])
+      continue;
+    int dataLen = min(len - 2, (int)replyMax);
+    if (reply)
+      memcpy(reply, &buf[i + 5], dataLen);
+    return dataLen;
+  }
+  return -1;
+}
+
+void stsWriteByte(uint8_t id, uint8_t reg, uint8_t value) {
+  uint8_t params[2] = {reg, value};
+  stsTransfer(id, STS_INST_WRITE, params, sizeof(params));
+}
+
+bool stsPing(uint8_t id) {
+  return stsTransfer(id, STS_INST_PING, nullptr, 0, true) >= 0;
+}
+
+// Текущее положение привода или -1, если он не ответил
+int stsReadPosition(uint8_t id) {
+  uint8_t params[2] = {STS_REG_POSITION, 2};
+  uint8_t data[2];
+  if (stsTransfer(id, STS_INST_READ, params, sizeof(params), true, data, sizeof(data)) != 2)
+    return -1;
+  return data[0] | (data[1] << 8);
 }
 
 void setServoPosition(uint8_t id, int position) {
-  uint8_t data[7] = {
+  uint8_t params[8] = {
+    STS_REG_ACC,
     SERVO_ACC,
     lowByte(position), highByte(position),
     0, 0,  // время не задаём - движение по скорости
     lowByte(SERVO_SPEED), highByte(SERVO_SPEED),
   };
-  stsWrite(id, STS_REG_ACC, data, sizeof(data));
+  stsTransfer(id, STS_INST_WRITE, params, sizeof(params));
 }
 
 void moveServos(int cap, int vario) {
@@ -611,7 +673,6 @@ void sendState() {
                 ",\"vario\":" + String(currentVario) + ",\"sw\":" + String(currentSwitch) +
                 ",\"swmax\":" + String(SWITCH_POSITIONS) + ",\"tuning\":" + (tuningMode ? "true" : "false") +
                 ",\"saved\":" + (p && p->saved ? "true" : "false") +
-                ",\"card\":" + (cardMounted ? "true" : "false") +
                 ",\"pcap\":" + String(p ? p->cap : -1) + ",\"pvario\":" + String(p ? p->vario : -1) +
                 ",\"psw\":" + String(p ? p->sw : 0) + "}";
   server.send(200, "application/json", json);
@@ -705,10 +766,6 @@ void handleSave() {
     sendError(409, "не выбрано положение БМЗ");
     return;
   }
-  if (!cardMounted) {
-    sendError(503, "нет карты памяти");
-    return;
-  }
   Point previous = *p;
   p->cap = currentCap;
   p->vario = currentVario;
@@ -716,7 +773,7 @@ void handleSave() {
   p->saved = true;
   if (!storeSavedPoints()) {
     *p = previous;
-    sendError(500, "не удалось записать на карту");
+    sendError(500, "не удалось записать во flash-память");
     return;
   }
   Serial.printf("saved %d kHz: cap %d, vario %d, switch %d\n", p->freqKhz, p->cap, p->vario, p->sw);
@@ -735,19 +792,101 @@ void handleReset() {
     sendError(409, "частота не выбрана");
     return;
   }
-  if (!cardMounted) {
-    sendError(503, "нет карты памяти");
-    return;
-  }
   Point previous = *p;
   setDefaults(*p, *band);
   if (!storeSavedPoints()) {
     *p = previous;
-    sendError(500, "не удалось записать на карту");
+    sendError(500, "не удалось записать во flash-память");
     return;
   }
   Serial.printf("reset %d kHz\n", p->freqKhz);
   sendState();
+}
+
+void handleExport() {
+  server.sendHeader("Content-Disposition", "attachment; filename=\"tubeamp-points.csv\"");
+  server.send(200, "text/csv; charset=utf-8", pointsCsv());
+}
+
+// Заменяет все сохранённые точки содержимым присланной таблицы
+void handleImport() {
+  if (!tuningMode) {
+    sendError(409, "режим настройки выключен");
+    return;
+  }
+  static Point previous[MAX_POINTS];
+  memcpy(previous, points, sizeof(points));
+  buildPoints();
+  String text = server.arg("plain");
+  int loaded = 0;
+  int start = 0;
+  while (start < (int)text.length()) {
+    int end = text.indexOf('\n', start);
+    if (end < 0)
+      end = text.length();
+    if (parsePointLine(text.substring(start, end)))
+      loaded++;
+    start = end + 1;
+  }
+  if (loaded == 0) {
+    memcpy(points, previous, sizeof(points));
+    sendError(400, "в файле нет ни одной точки");
+    return;
+  }
+  if (!storeSavedPoints()) {
+    memcpy(points, previous, sizeof(points));
+    sendError(500, "не удалось записать во flash-память");
+    return;
+  }
+  Serial.printf("imported %d points\n", loaded);
+  server.send(200, "application/json", "{\"loaded\":" + String(loaded) + "}");
+}
+
+// Сервис: опрашивает все ID на шине и возвращает найденные приводы с их положением
+void handleServoScan() {
+  String json = "{\"servos\":[";
+  int found = 0;
+  for (int id = 0; id <= STS_MAX_ID; id++) {
+    if (!stsPing(id))
+      continue;
+    if (found++)
+      json += ",";
+    json += "{\"id\":" + String(id) + ",\"pos\":" + String(stsReadPosition(id)) + "}";
+  }
+  json += "]}";
+  Serial.printf("servo scan: %d found\n", found);
+  server.send(200, "application/json", json);
+}
+
+// Сервис: меняет ID привода (номер хранится в EEPROM привода)
+void handleServoId() {
+  int from = server.arg("from").toInt();
+  int to = server.arg("to").toInt();
+  if (!server.hasArg("from") || !server.hasArg("to") || from < 0 || from > STS_MAX_ID || to < 0 || to > STS_MAX_ID) {
+    sendError(400, "ID должен быть от 0 до 253");
+    return;
+  }
+  if (from == to) {
+    sendError(400, "старый и новый ID совпадают");
+    return;
+  }
+  if (!stsPing(from)) {
+    sendError(409, ("привод с ID " + String(from) + " не отвечает").c_str());
+    return;
+  }
+  if (stsPing(to)) {
+    sendError(409, ("ID " + String(to) + " уже занят другим приводом").c_str());
+    return;
+  }
+  stsWriteByte(from, STS_REG_LOCK, 0);
+  stsWriteByte(from, STS_REG_ID, to);
+  stsWriteByte(to, STS_REG_LOCK, 1);
+  if (!stsPing(to)) {
+    sendError(500, ("привод не отвечает на новом ID " + String(to)).c_str());
+    return;
+  }
+  Serial.printf("servo ID %d -> %d\n", from, to);
+  server.send(200, "application/json", "{\"id\":" + String(to) + "}");
 }
 
 #if USE_ETHERNET
@@ -820,10 +959,9 @@ void setup() {
     pinMode(SWITCH_PINS[i], OUTPUT);
   openSwitchContacts();
 
+  prefs.begin(PREFS_NAMESPACE, false);
   buildPoints();
-  sdSpi.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
-  if (!mountCard())
-    Serial.println("SD card not found");
+  loadSavedPoints();
 
   setupNetwork();
 
@@ -835,11 +973,13 @@ void setup() {
   server.on("/api/move", HTTP_POST, handleMove);
   server.on("/api/save", HTTP_POST, handleSave);
   server.on("/api/reset", HTTP_POST, handleReset);
+  server.on("/api/points.csv", HTTP_GET, handleExport);
+  server.on("/api/points.csv", HTTP_POST, handleImport);
+  server.on("/api/servo/scan", HTTP_POST, handleServoScan);
+  server.on("/api/servo/id", HTTP_POST, handleServoId);
   server.begin();
 }
 
 void loop() {
-  if (!cardMounted && millis() - lastCardTry > CARD_RETRY_MS)
-    mountCard();
   server.handleClient();
 }
