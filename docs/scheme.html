@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Схема контроллера УМ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+
+<style>
+  body { margin: 0; }
+  /* Схема по центру во всю ширину, ниже текстовые разделы колонкой ~70 знаков */
+  :root {
+    --bg: #f6f7f9; --ink: #1c2330; --ink2: #465264; --muted: #6e7888; --line: #b9c1cd;
+    --panel: #ffffff; --panel2: #eef4f6; --bus: #0b7285; --warm: #b45309; --alert: #c2362b;
+    --font-body: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
+    --font-mono: 'IBM Plex Mono', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161c; --ink: #e5e9ef; --ink2: #b0b9c7; --muted: #8791a1; --line: #364051;
+      --panel: #1a2029; --panel2: #16252b; --bus: #3bbfd1; --warm: #f2a33a; --alert: #ff6f61;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161c; --ink: #e5e9ef; --ink2: #b0b9c7; --muted: #8791a1; --line: #364051;
+    --panel: #1a2029; --panel2: #16252b; --bus: #3bbfd1; --warm: #f2a33a; --alert: #ff6f61;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+  main { max-width: 1240px; margin: 0 auto; padding-block: 28px 40px;
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+         display: grid; gap: 32px; }
+  main > * { min-width: 0; }
+  .intro h1 { margin: 0 0 6px; font-size: 26px; text-wrap: balance; }
+  .intro p, footer, section > p, section > ul { max-width: 70ch; }
+  section { max-width: 900px; }
+  .intro p { margin: 0; color: var(--ink2); }
+  h2 { font-size: 18px; margin: 0 0 12px; text-wrap: balance; }
+  .fig { margin: 0; }
+  .scroll { overflow-x: auto; }
+  .fig .scheme { display: block; width: 100%; min-width: 860px; height: auto; }
+  .legend { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--ink2); font-size: 13.5px; }
+  .legend li { display: flex; align-items: center; gap: 8px; }
+  .k { display: inline-block; width: 26px; height: 0; border-top: 2.4px solid var(--bus); }
+  .k.ctl { border-top-color: var(--warm); }
+  .k.sig { border-top-color: var(--alert); }
+  .k.mech { border-top: 2px dashed var(--muted); }
+  .steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .steps li { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 2px; align-content: start; }
+  .steps span:last-child { color: var(--ink2); font-size: 14px; }
+  .steps .when { font-family: var(--font-mono); font-size: 12.5px; color: var(--warm); font-variant-numeric: tabular-nums; }
+  .note { color: var(--ink2); margin: 12px 0 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 460px; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .checks { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  footer { color: var(--muted); font-size: 13px; }
+
+.scheme text { font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; }
+.scheme .t { font-size: 13px; fill: var(--ink); }
+.scheme .ts { font-size: 11.5px; fill: var(--muted); }
+.scheme .tb { font-size: 14px; font-weight: 600; fill: var(--ink); }
+.scheme .th { font-size: 18px; font-weight: 700; fill: var(--ink); }
+.scheme .tl { font-size: 12px; font-weight: 600; letter-spacing: .04em; fill: var(--ink2); }
+.scheme .pin { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11.5px; fill: var(--ink2); }
+.scheme .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.scheme .esp { fill: var(--panel2); stroke: var(--bus); stroke-width: 2; }
+.scheme .amp { fill: none; stroke: var(--ink2); stroke-width: 1.4; stroke-dasharray: 8 4; }
+.scheme .comp { fill: var(--panel); stroke: var(--bus); stroke-width: 2; }
+.scheme .cell { fill: var(--panel); stroke: var(--warm); stroke-width: 1.4; }
+.scheme .cell.free { stroke: var(--line); }
+.scheme .bus { fill: none; stroke: var(--bus); stroke-width: 2.4; }
+.scheme .pwr { fill: none; stroke: var(--ink2); stroke-width: 1.6; }
+.scheme .gnd { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.scheme .mech { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 7 5; }
+.scheme .ctl { fill: none; stroke: var(--warm); stroke-width: 1.6; }
+.scheme .sig { fill: none; stroke: var(--alert); stroke-width: 1.6; }
+.scheme .net { fill: none; stroke: var(--ink2); stroke-width: 1.4; }
+.scheme .dot { fill: var(--bus); }
+.scheme .ah-net { fill: var(--ink2); }
+.scheme .ah-ctl { fill: var(--warm); }
+.scheme .ah-sig { fill: var(--alert); }
+.scheme .bg { fill: var(--bg); }
+
+</style>
+</head>
+<body>
+<main>
+<header class="intro">
+  <h1>Схема контроллера УМ</h1>
+  <p>Как ESP32 связан с сетью, сервоприводами П-контура, модулями реле и усилителем на базе Р-140. Выводы указаны для платы LilyGO T-Halow.</p>
+</header>
+
+<figure class="fig">
+  <div class="scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 по шине DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, плавный пуск, PTT и анодное напряжение усилителя; от усилителя получает сигналы защиты и наличия анодного." class="scheme"><defs>
+<marker id="ar-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-net"/></marker>
+<marker id="ar-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-ctl"/></marker>
+<marker id="ar-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-sig"/></marker>
+</defs><rect x="20" y="50" width="170" height="60" rx="6" class="box"/>
+<text x="105" y="76" class="tb" text-anchor="middle">Браузер</text>
+<text x="105" y="96" class="ts" text-anchor="middle">ПК или телефон</text>
+<rect x="20" y="170" width="170" height="60" rx="6" class="box"/>
+<text x="105" y="196" class="tb" text-anchor="middle">Роутер Wi-Fi</text>
+<text x="105" y="216" class="ts" text-anchor="middle">адрес по DHCP</text>
+<path d="M105 110 L105 166" class="net" marker-end="url(#ar-net)"/>
+<text x="113" y="143" class="ts" text-anchor="start">HTTP</text>
+<path d="M190 200 L246 200" class="net" marker-end="url(#ar-net)"/>
+<text x="220" y="192" class="ts" text-anchor="middle">Wi-Fi</text>
+<rect x="250" y="60" width="350" height="330" rx="8" class="esp"/>
+<text x="425" y="98" class="th" text-anchor="middle">ESP32-S3</text>
+<text x="425" y="120" class="ts" text-anchor="middle">LilyGO T-Halow</text>
+<text x="425" y="172" class="t" text-anchor="middle">веб-страница и API, порт 80</text>
+<text x="425" y="196" class="t" text-anchor="middle">таблица частот во flash</text>
+<text x="425" y="220" class="t" text-anchor="middle">включение и прогрев</text>
+<text x="425" y="244" class="t" text-anchor="middle">разрешение PTT</text>
+<text x="425" y="268" class="t" text-anchor="middle">управление приводами</text>
+<text x="590" y="114" class="pin" text-anchor="end">IO21 TX</text>
+<text x="590" y="144" class="pin" text-anchor="end">IO47 RX</text>
+<text x="560" y="78" class="pin" text-anchor="middle">GND</text>
+<text x="260" y="304" class="pin" text-anchor="start">IO41</text>
+<text x="260" y="334" class="pin" text-anchor="start">IO46</text>
+<text x="267.5" y="380" class="pin" text-anchor="middle">IO9</text>
+<text x="302.5" y="380" class="pin" text-anchor="middle">IO10</text>
+<text x="512.5" y="380" class="pin" text-anchor="middle">IO48</text>
+<text x="567.5" y="380" class="pin" text-anchor="middle">IO40</text>
+<path d="M600 110 L630 110" class="bus"/>
+<rect x="630" y="103" width="50" height="14" rx="2" class="comp"/>
+<text x="655" y="96" class="ts" text-anchor="middle">1 кОм</text>
+<path d="M680 110 L760 110" class="bus"/>
+<path d="M600 140 L720 140 L720 110" class="bus"/>
+<circle cx="720" cy="110" r="3.5" class="dot"/>
+<text x="690" y="168" class="ts" text-anchor="middle">шина DATA, 1 Мбит/с</text>
+<rect x="760" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="820" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="820" y="124" class="ts" text-anchor="middle">ID 1 · КПЕ</text>
+<rect x="900" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="960" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="960" y="124" class="ts" text-anchor="middle">ID 2 · вариометр</text>
+<rect x="1040" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="1100" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="1100" y="124" class="ts" text-anchor="middle">ID 3 · переключатель</text>
+<path d="M880 110 L900 110" class="bus"/>
+<path d="M1020 110 L1040 110" class="bus"/>
+<rect x="900" y="8" width="120" height="38" rx="6" class="box"/>
+<text x="960" y="32" class="t" text-anchor="middle">БП приводов</text>
+<path d="M960 46 L960 75" class="pwr"/>
+<text x="968" y="65" class="ts" text-anchor="start">VCC, GND</text>
+<path d="M900 27 L560 27 L560 60" class="gnd"/>
+<text x="730" y="20" class="ts" text-anchor="middle">общая GND</text>
+<path d="M820 145 L820 505" class="mech"/>
+<text x="826" y="330" class="ts" text-anchor="start">вал</text>
+<path d="M960 145 L960 505" class="mech"/>
+<text x="966" y="330" class="ts" text-anchor="start">вал</text>
+<path d="M1100 145 L1100 505" class="mech"/>
+<text x="1106" y="330" class="ts" text-anchor="start">вал</text>
+<text x="407" y="542" class="tl" text-anchor="middle">Модуль 8 реле</text>
+<rect x="250" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="267.5" y="500" class="t" text-anchor="middle">1</text>
+<rect x="285" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="302.5" y="500" class="t" text-anchor="middle">2</text>
+<rect x="320" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="337.5" y="500" class="ts" text-anchor="middle">3</text>
+<rect x="355" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="372.5" y="500" class="ts" text-anchor="middle">4</text>
+<rect x="390" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="407.5" y="500" class="ts" text-anchor="middle">5</text>
+<rect x="425" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="442.5" y="500" class="ts" text-anchor="middle">6</text>
+<rect x="460" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="477.5" y="500" class="ts" text-anchor="middle">7</text>
+<rect x="495" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="512.5" y="500" class="t" text-anchor="middle">8</text>
+<text x="637" y="542" class="tl" text-anchor="middle">Модуль 4 реле</text>
+<rect x="550" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="567.5" y="500" class="t" text-anchor="middle">1</text>
+<rect x="585" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="602.5" y="500" class="ts" text-anchor="middle">2</text>
+<rect x="620" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="637.5" y="500" class="ts" text-anchor="middle">3</text>
+<rect x="655" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="672.5" y="500" class="ts" text-anchor="middle">4</text>
+<text x="407" y="558" class="ts" text-anchor="middle">реле 3–7 свободны</text>
+<path d="M267.5 390 L267.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M302.5 390 L302.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M512.5 390 L512.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M567.5 390 L567.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<rect x="740" y="470" width="440" height="260" rx="8" class="amp"/>
+<text x="752" y="718" class="tb" text-anchor="start">Усилитель на базе Р-140</text>
+<rect x="760" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="820" y="530" class="t" text-anchor="middle">КПЕ</text>
+<rect x="900" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="960" y="530" class="t" text-anchor="middle">Вариометр</text>
+<rect x="1040" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="1100" y="522" class="t" text-anchor="middle">Переключатель</text>
+<text x="1100" y="538" class="t" text-anchor="middle">БМЗ</text>
+<text x="960" y="563" class="ts" text-anchor="middle">П-контур</text>
+<path d="M567.5 520 L567.5 586 L736 586" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="590" class="t" text-anchor="start">анодное напряжение</text>
+<path d="M512.5 520 L512.5 611 L736 611" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="615" class="t" text-anchor="start">линия PTT от трансивера</text>
+<path d="M302.5 520 L302.5 636 L736 636" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="640" class="t" text-anchor="start">плавный пуск</text>
+<path d="M267.5 520 L267.5 661 L736 661" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="665" class="t" text-anchor="start">сеть 220 В</text>
+<path d="M1000 730 L1000 748 L230 748 L230 330 L246 330" class="sig" marker-end="url(#ar-sig)"/>
+<path d="M1040 730 L1040 768 L215 768 L215 300 L246 300" class="sig" marker-end="url(#ar-sig)"/>
+<text x="620" y="743" class="ts" text-anchor="middle">анодное есть</text>
+<text x="620" y="763" class="ts" text-anchor="middle">защита сработала</text>
+<text x="1020" y="718" class="ts" text-anchor="middle">датчики</text></svg></div>
+  <figcaption>
+    <ul class="legend">
+      <li><i class="k bus"></i>шина сервоприводов: одна линия DATA, приём и передача по очереди</li>
+      <li><i class="k ctl"></i>управление реле, включаются низким уровнем</li>
+      <li><i class="k sig"></i>сигналы от усилителя, активны при замыкании на GND</li>
+      <li><i class="k mech"></i>механическая связь: вал привода</li>
+    </ul>
+  </figcaption>
+</figure>
+
+<section>
+  <h2>Последовательность включения</h2>
+  <ol class="steps">
+    <li><span class="when">0 с</span><b>Сеть</b><span>реле 1 включает усилитель</span></li>
+    <li><span class="when">5 с</span><b>Плавный пуск</b><span>реле 2 замыкается</span></li>
+    <li><span class="when">5 с – 3 мин 5 с</span><b>Прогрев ламп</b><span>управление заблокировано</span></li>
+    <li><span class="when">3 мин 5 с</span><b>Анодное</b><span>реле 1 модуля на 4 реле</span></li>
+    <li><span class="when">дальше</span><b>PTT</b><span>реле 8 разрешает передачу</span></li>
+  </ol>
+  <p class="note">PTT разрешён, только когда есть сигнал «анодное есть», защита не сработала и переключатель БМЗ встал в положение. На время поворота переключателя PTT снимается. «Выключить» в любой момент снимает PTT, анодное, плавный пуск и сеть.</p>
+</section>
+
+<section>
+  <h2>Выводы ESP32</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Вывод</th><th>Куда</th><th>Назначение</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">IO9</td><td>модуль 8 реле, реле 1</td><td>сеть усилителя</td></tr>
+      <tr><td class="mono">IO10</td><td>модуль 8 реле, реле 2</td><td>замыкание плавного пуска</td></tr>
+      <tr><td class="mono">IO48</td><td>модуль 8 реле, реле 8</td><td>разрешение PTT</td></tr>
+      <tr><td class="mono">IO40</td><td>модуль 4 реле, реле 1</td><td>анодное напряжение</td></tr>
+      <tr><td class="mono">IO41</td><td>вход от усилителя</td><td>сработала защита</td></tr>
+      <tr><td class="mono">IO46</td><td>вход от усилителя</td><td>анодное есть</td></tr>
+      <tr><td class="mono">IO21</td><td>шина приводов через 1 кОм</td><td>передача (TX)</td></tr>
+      <tr><td class="mono">IO47</td><td>шина приводов</td><td>приём (RX)</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>Перед подключением</h2>
+  <ul class="checks">
+    <li>Измерьте напряжение между DATA и GND на запитанном приводе. Выводы ESP32 рассчитаны на 3,3 В: если на линии около 5 В, нужен преобразователь уровней или адаптер шины.</li>
+    <li>Приводы питаются от своего блока (7,4 или 12 В — по наклейке, до 2–3 А на привод при заклинивании), не от ESP32. Земля блока и ESP32 общая.</li>
+    <li>С завода у приводов ID 1: подключайте их по одному и меняйте номер в сервисе на странице (вариометр — 2, переключатель — 3).</li>
+    <li>На IO41 и IO46 нельзя подавать больше 3,3 В: сигналы заводите сухим контактом или оптроном на GND.</li>
+    <li>Реле 3–7 модуля на 8 реле и реле 2–4 модуля на 4 реле свободны.</li>
+  </ul>
+</section>
+
+<footer>Выводы — для LilyGO T-Halow; на плате с Ethernet они будут другими. Приводы, реле и входы к плате пока не подключались.</footer>
+</main>
+</body>
+</html>

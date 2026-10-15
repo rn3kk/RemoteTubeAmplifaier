@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 по шине DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, плавный пуск, PTT и анодное напряжение усилителя; от усилителя получает сигналы защиты и наличия анодного." class="scheme"><style>
+.scheme text { font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; }
+.scheme .t { font-size: 13px; fill: #1c2330; }
+.scheme .ts { font-size: 11.5px; fill: #6e7888; }
+.scheme .tb { font-size: 14px; font-weight: 600; fill: #1c2330; }
+.scheme .th { font-size: 18px; font-weight: 700; fill: #1c2330; }
+.scheme .tl { font-size: 12px; font-weight: 600; letter-spacing: .04em; fill: #465264; }
+.scheme .pin { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11.5px; fill: #465264; }
+.scheme .box { fill: #ffffff; stroke: #b9c1cd; stroke-width: 1.2; }
+.scheme .esp { fill: #eef4f6; stroke: #0b7285; stroke-width: 2; }
+.scheme .amp { fill: none; stroke: #465264; stroke-width: 1.4; stroke-dasharray: 8 4; }
+.scheme .comp { fill: #ffffff; stroke: #0b7285; stroke-width: 2; }
+.scheme .cell { fill: #ffffff; stroke: #b45309; stroke-width: 1.4; }
+.scheme .cell.free { stroke: #b9c1cd; }
+.scheme .bus { fill: none; stroke: #0b7285; stroke-width: 2.4; }
+.scheme .pwr { fill: none; stroke: #465264; stroke-width: 1.6; }
+.scheme .gnd { fill: none; stroke: #6e7888; stroke-width: 1.2; stroke-dasharray: 2 3; }
+.scheme .mech { fill: none; stroke: #6e7888; stroke-width: 1.4; stroke-dasharray: 7 5; }
+.scheme .ctl { fill: none; stroke: #b45309; stroke-width: 1.6; }
+.scheme .sig { fill: none; stroke: #c2362b; stroke-width: 1.6; }
+.scheme .net { fill: none; stroke: #465264; stroke-width: 1.4; }
+.scheme .dot { fill: #0b7285; }
+.scheme .ah-net { fill: #465264; }
+.scheme .ah-ctl { fill: #b45309; }
+.scheme .ah-sig { fill: #c2362b; }
+.scheme .bg { fill: #f6f7f9; }
+</style><defs>
+<marker id="ar-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-net"/></marker>
+<marker id="ar-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-ctl"/></marker>
+<marker id="ar-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-sig"/></marker>
+</defs><rect x="0" y="0" width="1200" height="790" class="bg"/><rect x="20" y="50" width="170" height="60" rx="6" class="box"/>
+<text x="105" y="76" class="tb" text-anchor="middle">Браузер</text>
+<text x="105" y="96" class="ts" text-anchor="middle">ПК или телефон</text>
+<rect x="20" y="170" width="170" height="60" rx="6" class="box"/>
+<text x="105" y="196" class="tb" text-anchor="middle">Роутер Wi-Fi</text>
+<text x="105" y="216" class="ts" text-anchor="middle">адрес по DHCP</text>
+<path d="M105 110 L105 166" class="net" marker-end="url(#ar-net)"/>
+<text x="113" y="143" class="ts" text-anchor="start">HTTP</text>
+<path d="M190 200 L246 200" class="net" marker-end="url(#ar-net)"/>
+<text x="220" y="192" class="ts" text-anchor="middle">Wi-Fi</text>
+<rect x="250" y="60" width="350" height="330" rx="8" class="esp"/>
+<text x="425" y="98" class="th" text-anchor="middle">ESP32-S3</text>
+<text x="425" y="120" class="ts" text-anchor="middle">LilyGO T-Halow</text>
+<text x="425" y="172" class="t" text-anchor="middle">веб-страница и API, порт 80</text>
+<text x="425" y="196" class="t" text-anchor="middle">таблица частот во flash</text>
+<text x="425" y="220" class="t" text-anchor="middle">включение и прогрев</text>
+<text x="425" y="244" class="t" text-anchor="middle">разрешение PTT</text>
+<text x="425" y="268" class="t" text-anchor="middle">управление приводами</text>
+<text x="590" y="114" class="pin" text-anchor="end">IO21 TX</text>
+<text x="590" y="144" class="pin" text-anchor="end">IO47 RX</text>
+<text x="560" y="78" class="pin" text-anchor="middle">GND</text>
+<text x="260" y="304" class="pin" text-anchor="start">IO41</text>
+<text x="260" y="334" class="pin" text-anchor="start">IO46</text>
+<text x="267.5" y="380" class="pin" text-anchor="middle">IO9</text>
+<text x="302.5" y="380" class="pin" text-anchor="middle">IO10</text>
+<text x="512.5" y="380" class="pin" text-anchor="middle">IO48</text>
+<text x="567.5" y="380" class="pin" text-anchor="middle">IO40</text>
+<path d="M600 110 L630 110" class="bus"/>
+<rect x="630" y="103" width="50" height="14" rx="2" class="comp"/>
+<text x="655" y="96" class="ts" text-anchor="middle">1 кОм</text>
+<path d="M680 110 L760 110" class="bus"/>
+<path d="M600 140 L720 140 L720 110" class="bus"/>
+<circle cx="720" cy="110" r="3.5" class="dot"/>
+<text x="690" y="168" class="ts" text-anchor="middle">шина DATA, 1 Мбит/с</text>
+<rect x="760" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="820" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="820" y="124" class="ts" text-anchor="middle">ID 1 · КПЕ</text>
+<rect x="900" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="960" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="960" y="124" class="ts" text-anchor="middle">ID 2 · вариометр</text>
+<rect x="1040" y="75" width="120" height="70" rx="6" class="box"/>
+<text x="1100" y="104" class="tb" text-anchor="middle">STS3215</text>
+<text x="1100" y="124" class="ts" text-anchor="middle">ID 3 · переключатель</text>
+<path d="M880 110 L900 110" class="bus"/>
+<path d="M1020 110 L1040 110" class="bus"/>
+<rect x="900" y="8" width="120" height="38" rx="6" class="box"/>
+<text x="960" y="32" class="t" text-anchor="middle">БП приводов</text>
+<path d="M960 46 L960 75" class="pwr"/>
+<text x="968" y="65" class="ts" text-anchor="start">VCC, GND</text>
+<path d="M900 27 L560 27 L560 60" class="gnd"/>
+<text x="730" y="20" class="ts" text-anchor="middle">общая GND</text>
+<path d="M820 145 L820 505" class="mech"/>
+<text x="826" y="330" class="ts" text-anchor="start">вал</text>
+<path d="M960 145 L960 505" class="mech"/>
+<text x="966" y="330" class="ts" text-anchor="start">вал</text>
+<path d="M1100 145 L1100 505" class="mech"/>
+<text x="1106" y="330" class="ts" text-anchor="start">вал</text>
+<text x="407" y="542" class="tl" text-anchor="middle">Модуль 8 реле</text>
+<rect x="250" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="267.5" y="500" class="t" text-anchor="middle">1</text>
+<rect x="285" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="302.5" y="500" class="t" text-anchor="middle">2</text>
+<rect x="320" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="337.5" y="500" class="ts" text-anchor="middle">3</text>
+<rect x="355" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="372.5" y="500" class="ts" text-anchor="middle">4</text>
+<rect x="390" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="407.5" y="500" class="ts" text-anchor="middle">5</text>
+<rect x="425" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="442.5" y="500" class="ts" text-anchor="middle">6</text>
+<rect x="460" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="477.5" y="500" class="ts" text-anchor="middle">7</text>
+<rect x="495" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="512.5" y="500" class="t" text-anchor="middle">8</text>
+<text x="637" y="542" class="tl" text-anchor="middle">Модуль 4 реле</text>
+<rect x="550" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="567.5" y="500" class="t" text-anchor="middle">1</text>
+<rect x="585" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="602.5" y="500" class="ts" text-anchor="middle">2</text>
+<rect x="620" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="637.5" y="500" class="ts" text-anchor="middle">3</text>
+<rect x="655" y="470" width="35" height="50" rx="0" class="cell free"/>
+<text x="672.5" y="500" class="ts" text-anchor="middle">4</text>
+<text x="407" y="558" class="ts" text-anchor="middle">реле 3–7 свободны</text>
+<path d="M267.5 390 L267.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M302.5 390 L302.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M512.5 390 L512.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M567.5 390 L567.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<rect x="740" y="470" width="440" height="260" rx="8" class="amp"/>
+<text x="752" y="718" class="tb" text-anchor="start">Усилитель на базе Р-140</text>
+<rect x="760" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="820" y="530" class="t" text-anchor="middle">КПЕ</text>
+<rect x="900" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="960" y="530" class="t" text-anchor="middle">Вариометр</text>
+<rect x="1040" y="505" width="120" height="40" rx="6" class="box"/>
+<text x="1100" y="522" class="t" text-anchor="middle">Переключатель</text>
+<text x="1100" y="538" class="t" text-anchor="middle">БМЗ</text>
+<text x="960" y="563" class="ts" text-anchor="middle">П-контур</text>
+<path d="M567.5 520 L567.5 586 L736 586" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="590" class="t" text-anchor="start">анодное напряжение</text>
+<path d="M512.5 520 L512.5 611 L736 611" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="615" class="t" text-anchor="start">линия PTT от трансивера</text>
+<path d="M302.5 520 L302.5 636 L736 636" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="640" class="t" text-anchor="start">плавный пуск</text>
+<path d="M267.5 520 L267.5 661 L736 661" class="ctl" marker-end="url(#ar-ctl)"/>
+<text x="752" y="665" class="t" text-anchor="start">сеть 220 В</text>
+<path d="M1000 730 L1000 748 L230 748 L230 330 L246 330" class="sig" marker-end="url(#ar-sig)"/>
+<path d="M1040 730 L1040 768 L215 768 L215 300 L246 300" class="sig" marker-end="url(#ar-sig)"/>
+<text x="620" y="743" class="ts" text-anchor="middle">анодное есть</text>
+<text x="620" y="763" class="ts" text-anchor="middle">защита сработала</text>
+<text x="1020" y="718" class="ts" text-anchor="middle">датчики</text></svg>

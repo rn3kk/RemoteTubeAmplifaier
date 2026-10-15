@@ -47,13 +47,15 @@ const int RELAY_SOFTSTART_PIN = 10;  // реле 2: замыкание плав�
 const int RELAY_PTT_PIN = 48;        // реле 8: разрешение PTT
 const int RELAY_ANODE_PIN = 40;      // второй модуль, реле 1: анодное напряжение
 
-// Переключатель БМЗ: реле 3..7, положение выбирается замыканием одного из контактов блока БМЗ.
-// Включено всегда не больше одного реле. Положения нумеруются с 1 в порядке пинов,
-// 0 - положение не задано, все контакты разомкнуты
-const int SWITCH_PINS[] = {11, 12, 13, 14, 15};
-const int SWITCH_POSITIONS = sizeof(SWITCH_PINS) / sizeof(SWITCH_PINS[0]);
-const int SWITCH_PAUSE_MS = 20;  // пауза между размыканием старого и замыканием нового
-const int PTT_RELEASE_MS = 30;   // пауза между снятием разрешения PTT и переключением БМЗ (и после)
+// Переключатель БМЗ: третий сервопривод, 5 положений через 360/5 градусов, ограничителей нет.
+// Привод работает в шаговом режиме STS (относительные перемещения) и всегда едет кратчайшим путём.
+// Положения нумеруются с 1, 0 - не задано. Положению 1 соответствует шаг switchOffset (калибровка)
+const uint8_t SERVO_ID_SWITCH = 3;
+const int SWITCH_POSITIONS = 5;
+const int SWITCH_TOLERANCE = 20;          // шагов: допуск, при котором переключатель считается вставшим
+const uint32_t SWITCH_TIMEOUT_MS = 4000;  // сколько ждать окончания поворота
+const uint32_t SWITCH_CHECK_MS = 50;      // как часто проверять положение во время поворота
+const int PTT_RELEASE_MS = 30;   // пауза между снятием разрешения PTT и поворотом переключателя БМЗ
 
 // Входы от усилителя, активный уровень INPUT_ACTIVE_LEVEL (замыкание на GND или выход оптрона)
 const int INPUT_PROTECTION_PIN = 41;  // сработала защита
@@ -116,12 +118,15 @@ struct StoredPoint {
 const int MAX_POINTS = 256;
 const char *PREFS_NAMESPACE = "tubeamp";
 const char *PREFS_KEY_POINTS = "pts";
+const char *PREFS_KEY_SWITCH_OFFSET = "swofs";
 
 // Протокол Feetech SCS/STS
 const uint8_t STS_INST_PING = 0x01;
 const uint8_t STS_INST_READ = 0x02;
 const uint8_t STS_INST_WRITE = 0x03;
 const uint8_t STS_REG_ID = 5;
+const uint8_t STS_REG_MODE = 33;      // режим работы привода, EEPROM
+const uint8_t STS_MODE_STEP = 3;      // шаговый режим: цель - относительное перемещение
 const uint8_t STS_REG_ACC = 41;       // далее подряд: положение, время, скорость
 const uint8_t STS_REG_LOCK = 55;      // 0 - запись в EEPROM привода разрешена, 1 - запрещена
 const uint8_t STS_REG_POSITION = 56;  // текущее положение, 2 байта
@@ -138,7 +143,7 @@ int pointsCount = 0;
 int currentFreqKhz = 0;
 int currentCap = -1;
 int currentVario = -1;
-int currentSwitch = 0;  // 0 - положение БМЗ ещё не задавалось
+int currentSwitch = 0;  // выбранное положение переключателя БМЗ, 0 - не задано
 bool tuningMode = false;
 
 enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY };
@@ -149,7 +154,13 @@ bool relaySoftstart = false;
 bool relayAnode = false;
 bool relayPtt = false;
 bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
-bool switchingBmz = false;
+bool switchMoving = false;   // переключатель поворачивается, PTT запрещён
+bool switchFailed = false;   // переключатель не ответил или не встал в положение, PTT запрещён
+int switchTarget = 0;        // цель поворота, шаги привода 0..4095
+uint32_t switchMoveStart = 0;
+uint32_t lastSwitchCheck = 0;
+int switchOffset = 0;        // шаг привода, соответствующий положению 1
+bool switchStepModeChecked = false;
 
 // Вход с подавлением дребезга
 struct Input {
@@ -164,6 +175,7 @@ Input anodeInput = {INPUT_ANODE_PIN, false, false, 0};
 // Положения, прочитанные с сервоприводов; -1 - привод не отвечает
 int servoCapPos = -1;
 int servoVarioPos = -1;
+int servoSwitchPos = -1;
 uint32_t lastServoPoll = 0;
 
 const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
@@ -275,6 +287,7 @@ const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
       <span class="chip" id="c-prot">Защита</span>
       <span class="chip" id="c-cap">КПЕ</span>
       <span class="chip" id="c-vario">Вариометр</span>
+      <span class="chip" id="c-switch">Переключатель</span>
     </div>
     <div id="ampnote"></div>
   </div>
@@ -316,6 +329,11 @@ const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
     <div class="actions"><button id="scan">Найти приводы</button></div>
     <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
       на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
+    <div class="hint" style="margin-top:16px">Переключатель БМЗ (ID 3): кнопками поверните привод так, чтобы
+      переключатель встал точно в положение 1, и нажмите «Запомнить как положение 1».
+      Сейчас привод: <b id="swpos">-</b></div>
+    <div class="steps" id="swjog"></div>
+    <div class="actions"><button id="swcal">Запомнить как положение 1</button></div>
     <div id="servicemsg"></div>
   </details>
 </div>
@@ -409,6 +427,9 @@ function showAmp(s) {
   chip('c-ptt', s.ptt ? 'on' : '', 'PTT: ' + (s.ptt ? 'разрешён' : 'запрещён'));
   chip('c-prot', s.protectLatched || s.protect ? 'bad' : 'on', 'Защита: ' + (s.protectLatched ? 'сработала' : s.protect ? 'сигнал' : 'норма'));
   chip('c-cap', s.servoCap >= 0 ? 'on' : 'bad', 'КПЕ: ' + (s.servoCap >= 0 ? s.servoCap : 'нет связи'));
+  chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
+    (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
+  $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : s.servoSwitch;
   chip('c-vario', s.servoVario >= 0 ? 'on' : 'bad', 'Вариометр: ' + (s.servoVario >= 0 ? s.servoVario : 'нет связи'));
   $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
   $('power').className = s.amp === 'off' ? 'off' : 'on';
@@ -533,7 +554,21 @@ $('reset').onclick = () => {
   if (confirm('Сбросить сохранённую настройку для ' + state.freq + ' кГц?')) command('/api/reset');
 };
 
-const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр'};
+const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр', 3: 'переключатель БМЗ'};
+
+for (const step of STEPS) {
+  const b = document.createElement('button');
+  b.textContent = (step > 0 ? '+' : '') + step;
+  b.onclick = () => post('/api/switch/jog?steps=' + step).then(showState).catch(serviceError);
+  $('swjog').appendChild(b);
+}
+$('swcal').onclick = () => {
+  if (!confirm('Запомнить текущее положение привода как положение 1 переключателя?')) return;
+  post('/api/switch/calibrate').then(s => {
+    showState(s);
+    serviceMessage('Положение 1 запомнено: шаг привода ' + s.swOffset + '.');
+  }).catch(serviceError);
+};
 
 function serviceMessage(text) {
   $('servicemsg').textContent = text;
@@ -788,6 +823,28 @@ int stsReadPosition(uint8_t id) {
   return data[0] | (data[1] << 8);
 }
 
+// Байт из регистра привода или -1, если он не ответил
+int stsReadByte(uint8_t id, uint8_t reg) {
+  uint8_t params[2] = {reg, 1};
+  uint8_t data[1];
+  if (stsTransfer(id, STS_INST_READ, params, sizeof(params), true, data, sizeof(data)) != 1)
+    return -1;
+  return data[0];
+}
+
+// Относительное перемещение в шаговом режиме; знак передаётся 15-м битом
+void stsMoveRelative(uint8_t id, int steps) {
+  int goal = abs(steps) | (steps < 0 ? 0x8000 : 0);
+  uint8_t params[8] = {
+    STS_REG_ACC,
+    SERVO_ACC,
+    lowByte(goal), highByte(goal),
+    0, 0,
+    lowByte(SERVO_SPEED), highByte(SERVO_SPEED),
+  };
+  stsTransfer(id, STS_INST_WRITE, params, sizeof(params));
+}
+
 void setServoPosition(uint8_t id, int position) {
   uint8_t params[8] = {
     STS_REG_ACC,
@@ -814,11 +871,6 @@ void setRelay(int pin, bool on) {
   digitalWrite(pin, on ? RELAY_ACTIVE_LEVEL : !RELAY_ACTIVE_LEVEL);
 }
 
-void openSwitchContacts() {
-  for (int i = 0; i < SWITCH_POSITIONS; i++)
-    setRelay(SWITCH_PINS[i], false);
-}
-
 void updateInput(Input &in) {
   bool value = digitalRead(in.pin) == INPUT_ACTIVE_LEVEL;
   if (value != in.raw) {
@@ -840,8 +892,10 @@ const char *pttBlockReason() {
     return "сработала защита";
   if (!anodeInput.active)
     return millis() - ampStateSince < ANODE_WAIT_MS ? "ожидание анодного напряжения" : "нет анодного напряжения";
-  if (switchingBmz)
-    return "переключение БМЗ";
+  if (switchMoving)
+    return "поворот переключателя БМЗ";
+  if (switchFailed)
+    return "переключатель БМЗ не отвечает или не встал в положение";
   return nullptr;
 }
 
@@ -854,29 +908,113 @@ void updatePtt() {
   Serial.printf("PTT %s\n", allow ? "allowed" : "blocked");
 }
 
-// Ставит переключатель БМЗ в положение 1..SWITCH_POSITIONS; 0 - положение не задано,
-// все контакты размыкаются. На время переключения PTT запрещается
-void setSwitch(int position) {
-  if (position < 0 || position > SWITCH_POSITIONS || position == currentSwitch)
-    return;
-  bool pttWasOn = relayPtt;
-  switchingBmz = true;
-  updatePtt();
-  if (pttWasOn)
-    delay(PTT_RELEASE_MS);
-  openSwitchContacts();
-  currentSwitch = position;
-  if (position > 0) {
-    delay(SWITCH_PAUSE_MS);
-    setRelay(SWITCH_PINS[position - 1], true);
-    Serial.printf("BMZ switch -> %d (GPIO %d)\n", currentSwitch, SWITCH_PINS[position - 1]);
-  } else {
-    Serial.println("BMZ switch -> not set, all contacts open");
+int wrapSteps(int steps) {
+  steps %= 4096;
+  return steps < 0 ? steps + 4096 : steps;
+}
+
+// Кратчайший путь по кругу от from до to, -2047..2048 шагов
+int shortestDelta(int from, int to) {
+  int delta = wrapSteps(to - from);
+  return delta > 2048 ? delta - 4096 : delta;
+}
+
+// Положение привода переключателя в пределах оборота или -1. В шаговом режиме привод может
+// отдавать накопленное значение со знаком в 15-м бите
+int readSwitchPos() {
+  int raw = stsReadPosition(SERVO_ID_SWITCH);
+  if (raw < 0)
+    return -1;
+  int value = raw & 0x7FFF;
+  if (raw & 0x8000)
+    value = -value;
+  return wrapSteps(value);
+}
+
+int switchStepsFor(int position) {
+  return wrapSteps(switchOffset + ((position - 1) * 4096 + 2) / SWITCH_POSITIONS);
+}
+
+// Переводит привод переключателя в шаговый режим (запись в EEPROM только если режим другой)
+bool ensureSwitchStepMode() {
+  if (switchStepModeChecked)
+    return true;
+  int mode = stsReadByte(SERVO_ID_SWITCH, STS_REG_MODE);
+  if (mode < 0)
+    return false;
+  if (mode != STS_MODE_STEP) {
+    stsWriteByte(SERVO_ID_SWITCH, STS_REG_LOCK, 0);
+    stsWriteByte(SERVO_ID_SWITCH, STS_REG_MODE, STS_MODE_STEP);
+    stsWriteByte(SERVO_ID_SWITCH, STS_REG_LOCK, 1);
+    if (stsReadByte(SERVO_ID_SWITCH, STS_REG_MODE) != STS_MODE_STEP)
+      return false;
+    Serial.println("switch servo: step mode set");
   }
+  switchStepModeChecked = true;
+  return true;
+}
+
+// Начинает поворот переключателя кратчайшим путём к шагу target. PTT снимается сразу,
+// возвращается в updateSwitch(), когда привод встанет
+bool moveSwitchTo(int target) {
+  int current = readSwitchPos();
+  if (current < 0 || !ensureSwitchStepMode()) {
+    switchFailed = true;
+    updatePtt();
+    Serial.println("switch servo: no response");
+    return false;
+  }
+  bool pttWasOn = relayPtt;
+  switchMoving = true;
+  switchFailed = false;
+  updatePtt();
   if (pttWasOn)
     delay(PTT_RELEASE_MS);
-  switchingBmz = false;
-  updatePtt();
+  int delta = shortestDelta(current, target);
+  if (delta != 0)
+    stsMoveRelative(SERVO_ID_SWITCH, delta);
+  switchTarget = target;
+  switchMoveStart = millis();
+  lastSwitchCheck = 0;
+  Serial.printf("switch servo: %d -> %d (%+d)\n", current, target, delta);
+  return true;
+}
+
+// Ставит переключатель БМЗ в положение 1..SWITCH_POSITIONS; 0 - положение не задано,
+// переключатель остаётся где был
+bool setSwitch(int position) {
+  if (position < 0 || position > SWITCH_POSITIONS)
+    return false;
+  if (position == 0) {
+    currentSwitch = 0;
+    return true;
+  }
+  if (position == currentSwitch && !switchMoving && !switchFailed)
+    return true;
+  if (!moveSwitchTo(switchStepsFor(position)))
+    return false;
+  currentSwitch = position;
+  return true;
+}
+
+// Следит за поворотом переключателя
+void updateSwitch() {
+  if (!switchMoving || millis() - lastSwitchCheck < SWITCH_CHECK_MS)
+    return;
+  lastSwitchCheck = millis();
+  int current = readSwitchPos();
+  if (current >= 0)
+    servoSwitchPos = current;
+  if (current >= 0 && abs(shortestDelta(current, switchTarget)) <= SWITCH_TOLERANCE) {
+    switchMoving = false;
+    Serial.printf("switch servo: reached %d\n", current);
+    updatePtt();
+  } else if (millis() - switchMoveStart > SWITCH_TIMEOUT_MS) {
+    switchMoving = false;
+    switchFailed = true;
+    Serial.println("switch servo: timeout");
+    updatePtt();
+  }
 }
 
 void setAmpState(AmpState next) {
@@ -957,6 +1095,13 @@ void pollServos() {
   lastServoPoll = millis();
   servoCapPos = stsReadPosition(SERVO_ID_CAP);
   servoVarioPos = stsReadPosition(SERVO_ID_VARIO);
+  servoSwitchPos = readSwitchPos();
+  if (servoSwitchPos < 0)
+    switchStepModeChecked = false;  // привод могли заменить - режим проверим заново
+}
+
+const char *jsonBool(bool value) {
+  return value ? "true" : "false";
 }
 
 // pcap/pvario/psw - положения из таблицы для текущей частоты
@@ -968,14 +1113,15 @@ void sendState() {
                 ",\"saved\":" + (p && p->saved ? "true" : "false") +
                 ",\"pcap\":" + String(p ? p->cap : -1) + ",\"pvario\":" + String(p ? p->vario : -1) +
                 ",\"psw\":" + String(p ? p->sw : 0);
-  auto flag = [](bool v) { return v ? "true" : "false"; };
   const char *reason = pttBlockReason();
   json += String(",\"amp\":\"") + ampStateName() + "\",\"remain\":" + String(ampRemainSeconds()) +
-          ",\"power\":" + flag(relayPower) + ",\"soft\":" + flag(relaySoftstart) +
-          ",\"anode\":" + flag(relayAnode) + ",\"anodeOk\":" + flag(anodeInput.active) +
-          ",\"protect\":" + flag(protectionInput.active) + ",\"protectLatched\":" + flag(protectionLatched) +
-          ",\"ptt\":" + flag(relayPtt) + ",\"pttReason\":\"" + (reason ? reason : "") + "\"" +
-          ",\"servoCap\":" + String(servoCapPos) + ",\"servoVario\":" + String(servoVarioPos) + "}";
+          ",\"power\":" + jsonBool(relayPower) + ",\"soft\":" + jsonBool(relaySoftstart) +
+          ",\"anode\":" + jsonBool(relayAnode) + ",\"anodeOk\":" + jsonBool(anodeInput.active) +
+          ",\"protect\":" + jsonBool(protectionInput.active) + ",\"protectLatched\":" + jsonBool(protectionLatched) +
+          ",\"ptt\":" + jsonBool(relayPtt) + ",\"pttReason\":\"" + (reason ? reason : "") + "\"" +
+          ",\"servoCap\":" + String(servoCapPos) + ",\"servoVario\":" + String(servoVarioPos) +
+          ",\"servoSwitch\":" + String(servoSwitchPos) + ",\"swMoving\":" + jsonBool(switchMoving) +
+          ",\"swFailed\":" + jsonBool(switchFailed) + ",\"swOffset\":" + String(switchOffset) + "}";
   server.send(200, "application/json", json);
 }
 
@@ -1054,7 +1200,10 @@ void handleMove() {
       sendError(400, "нет такого положения БМЗ");
       return;
     }
-    setSwitch(sw);
+    if (!setSwitch(sw)) {
+      sendError(503, "переключатель БМЗ не отвечает");
+      return;
+    }
   }
   moveServos(cap, vario);
   sendState();
@@ -1167,6 +1316,42 @@ void handleProtectionReset() {
   protectionLatched = false;
   Serial.println("amp: protection reset");
   updatePtt();
+  sendState();
+}
+
+// Сервис: поворот переключателя на заданное число шагов (для калибровки)
+void handleSwitchJog() {
+  if (controlsLocked()) {
+    sendError(409, "идёт включение усилителя, управление заблокировано");
+    return;
+  }
+  int steps = constrain(server.arg("steps").toInt(), -1000, 1000);
+  int current = readSwitchPos();
+  if (current < 0 || !moveSwitchTo(wrapSteps(current + steps))) {
+    sendError(503, "переключатель БМЗ не отвечает");
+    return;
+  }
+  currentSwitch = 0;  // привод стоит между положениями
+  sendState();
+}
+
+// Сервис: текущее положение привода переключателя запоминается как положение 1
+void handleSwitchCalibrate() {
+  if (switchMoving) {
+    sendError(409, "переключатель ещё поворачивается");
+    return;
+  }
+  int current = readSwitchPos();
+  if (current < 0) {
+    sendError(503, "переключатель БМЗ не отвечает");
+    return;
+  }
+  switchOffset = current;
+  prefs.putInt(PREFS_KEY_SWITCH_OFFSET, switchOffset);
+  currentSwitch = 1;
+  switchFailed = false;
+  updatePtt();
+  Serial.printf("switch servo: position 1 = %d\n", switchOffset);
   sendState();
 }
 
@@ -1288,10 +1473,6 @@ void setup() {
     pinMode(pin, OUTPUT);
     setRelay(pin, false);
   }
-  openSwitchContacts();
-  for (int i = 0; i < SWITCH_POSITIONS; i++)
-    pinMode(SWITCH_PINS[i], OUTPUT);
-  openSwitchContacts();
   for (Input *in : {&protectionInput, &anodeInput}) {
     pinMode(in->pin, INPUT_PULLUP);
     in->raw = in->active = digitalRead(in->pin) == INPUT_ACTIVE_LEVEL;
@@ -1300,6 +1481,7 @@ void setup() {
   prefs.begin(PREFS_NAMESPACE, false);
   buildPoints();
   loadSavedPoints();
+  switchOffset = wrapSteps(prefs.getInt(PREFS_KEY_SWITCH_OFFSET, 0));
 
   setupNetwork();
 
@@ -1317,11 +1499,14 @@ void setup() {
   server.on("/api/protection/reset", HTTP_POST, handleProtectionReset);
   server.on("/api/servo/scan", HTTP_POST, handleServoScan);
   server.on("/api/servo/id", HTTP_POST, handleServoId);
+  server.on("/api/switch/jog", HTTP_POST, handleSwitchJog);
+  server.on("/api/switch/calibrate", HTTP_POST, handleSwitchCalibrate);
   server.begin();
 }
 
 void loop() {
   updateAmp();
   pollServos();
+  updateSwitch();
   server.handleClient();
 }
