@@ -17,6 +17,9 @@ let dirty = false;
 let sending = false;
 let remainUntil = 0;    // момент окончания текущего этапа включения
 let cooldownUntil = 0;  // момент окончания охлаждения после передачи
+let swDirty = false;     // ползунок переключателя сдвинут, команда ещё не отправлена
+let swSending = false;
+let swLastInput = 0;
 let txTimer = null;      // подтверждение передачи с веб-страницы
 let offRefused = false; // выключение отклонено из-за охлаждения - показываем принудительное
 
@@ -111,6 +114,10 @@ function showAmp(s) {
   chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
     (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
   $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : s.servoSwitch;
+  if (s.servoSwitch >= 0 && !swDirty && !swSending && Date.now() - swLastInput > 1500) {
+    $('swslider').value = s.servoSwitch;
+    $('swtarget').textContent = withDegrees(s.servoSwitch);
+  }
   chip('c-vario', s.servoVario >= 0 ? 'on' : 'bad', 'Вариометр: ' + (s.servoVario >= 0 ? s.servoVario : 'нет связи'));
   $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
   $('power').className = s.amp === 'off' ? 'off' : 'on';
@@ -199,6 +206,21 @@ function command(url) {
   post(url).then(showState).catch(showError);
 }
 
+// Колесо мыши над ползунком двигает его: 10 шагов за щелчок, с Shift - 1 шаг.
+// Значение меняется так же, как при перетаскивании (событие input)
+const WHEEL_STEP = 10;
+function addWheel(slider) {
+  slider.addEventListener('wheel', e => {
+    if (slider.disabled) return;
+    e.preventDefault();
+    const delta = e.deltaY || e.deltaX;  // с Shift браузер отдаёт прокрутку в deltaX
+    if (!delta) return;
+    const step = (e.shiftKey ? 1 : WHEEL_STEP) * (delta > 0 ? -1 : 1);
+    slider.value = Math.max(Number(slider.min), Math.min(Number(slider.max), Number(slider.value) + step));
+    slider.dispatchEvent(new Event('input'));
+  }, {passive: false});
+}
+
 function refresh() {
   fetch('/api/state').then(r => r.json()).then(showState).catch(showError);
 }
@@ -217,6 +239,7 @@ for (const [name, title] of SERVOS) {
   slider.max = POS_MAX;
   slider.oninput = () => setTarget(name, Number(slider.value));
   sliders[name] = slider;
+  addWheel(slider);
   const steps = document.createElement('div');
   steps.className = 'steps';
   for (const step of STEPS) {
@@ -280,6 +303,27 @@ for (const step of STEPS) {
   b.onclick = () => post('/api/switch/jog?steps=' + step).then(showState).catch(serviceError);
   $('swjog').appendChild(b);
 }
+// Ползунок переключателя: шлём последнее положение, пока предыдущая команда не выполнена - не копим
+function flushSwitch() {
+  if (swSending || !swDirty) return;
+  swSending = true;
+  swDirty = false;
+  post('/api/switch/move?pos=' + $('swslider').value).then(s => {
+    swSending = false;
+    if (swDirty) flushSwitch(); else showState(s);
+  }).catch(e => {
+    swSending = false;
+    serviceError(e);
+  });
+}
+addWheel($('swslider'));
+$('swslider').oninput = () => {
+  swLastInput = Date.now();
+  swDirty = true;
+  $('swtarget').textContent = withDegrees(Number($('swslider').value));
+  flushSwitch();
+};
+
 $('swcal').onclick = () => {
   if (!confirm('Запомнить текущее положение привода как положение 1 переключателя?')) return;
   post('/api/switch/calibrate').then(s => {

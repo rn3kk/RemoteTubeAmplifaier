@@ -1121,6 +1121,24 @@ void handleSwitchJog() {
   sendState();
 }
 
+// Сервис: поворот переключателя в заданное положение привода 0..4095 кратчайшим путём (для калибровки)
+void handleSwitchMove() {
+  if (controlsLocked()) {
+    sendError(409, "идёт включение усилителя, управление заблокировано");
+    return;
+  }
+  if (!server.hasArg("pos")) {
+    sendError(400, "не задано положение");
+    return;
+  }
+  if (!moveSwitchTo(wrapSteps(server.arg("pos").toInt()))) {
+    sendError(503, "переключатель БМЗ не отвечает");
+    return;
+  }
+  currentSwitch = 0;  // привод стоит между положениями
+  sendState();
+}
+
 // Сервис: текущее положение привода переключателя запоминается как положение 1
 void handleSwitchCalibrate() {
   if (switchMoving) {
@@ -1294,6 +1312,7 @@ void setup() {
   server.on("/api/servo/scan", HTTP_POST, handleServoScan);
   server.on("/api/servo/id", HTTP_POST, handleServoId);
   server.on("/api/switch/jog", HTTP_POST, handleSwitchJog);
+  server.on("/api/switch/move", HTTP_POST, handleSwitchMove);
   server.on("/api/switch/calibrate", HTTP_POST, handleSwitchCalibrate);
   server.begin();
 }

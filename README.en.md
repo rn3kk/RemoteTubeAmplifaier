@@ -121,7 +121,7 @@ warm-up and cool-down durations are `SOFTSTART_MS`, `WARMUP_MS` and `COOLDOWN_MS
 ## First start
 
 1. **Servo IDs.** All servos ship with ID 1. Connect them to the bus one at a time and change the ID in the "Service" block of the page: variometer to 2, band switch to 3. The capacitor stays at 1. "Find servos" shows which servos respond.
-2. **Band switch calibration.** In the "Service" block, turn the switch exactly to position 1 with the ±1/±10/±100 buttons and press "Remember as position 1".
+2. **Band switch calibration.** In the "Service" block, turn the switch exactly to position 1 with the slider and the ±1/±10/±100 buttons and press "Remember as position 1".
 3. **Frequency tuning.** Turn on "Tuning mode", select a frequency, adjust the capacitor, the variometer and the band switch position, press "Save". Tuned frequencies are marked with a green bar.
 4. **Backup.** In tuning mode, "Download" saves the table to `tubeamp-points.csv` (`frequency;capacitor;variometer;switch`), "Upload" restores it.
 
@@ -143,7 +143,7 @@ Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolut
 | `POST /api/tx?on=1`, `?keep=1`, `?on=0` | transmit from the web page: start, confirm (at least every 2 s), stop |
 | `POST /api/www` | upload web page files (multipart) |
 | `POST /api/servo/scan`, `POST /api/servo/id?from=&to=` | servo scan and ID change |
-| `POST /api/switch/jog?steps=`, `POST /api/switch/calibrate` | band switch calibration |
+| `POST /api/switch/move?pos=`, `POST /api/switch/jog?steps=`, `POST /api/switch/calibrate` | band switch calibration |
 
 ## Project status
 

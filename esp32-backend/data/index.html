@@ -40,6 +40,7 @@
   <div id="panel" hidden>
     <div class="hint" id="hint"></div>
     <div id="servos"></div>
+    <div class="hint">Колесо мыши над ползунком: 10 шагов за щелчок, с Shift — 1 шаг.</div>
     <div class="servo">
       <div class="title">Переключатель БМЗ: <b id="swlabel">-</b></div>
       <div class="steps" id="switch"></div>
@@ -70,10 +71,14 @@
     <div class="actions"><button id="scan">Найти приводы</button></div>
     <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
       на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
-    <div class="hint" style="margin-top:16px">Переключатель БМЗ (ID 3): кнопками поверните привод так, чтобы
+    <div class="hint" style="margin-top:16px">Переключатель БМЗ (ID 3): ползунком и кнопками поверните привод так, чтобы
       переключатель встал точно в положение 1, и нажмите «Запомнить как положение 1».
       Сейчас привод: <b id="swpos">-</b></div>
-    <div class="steps" id="swjog"></div>
+    <div class="servo">
+      <div class="title">Положение привода: <b id="swtarget">-</b></div>
+      <input type="range" id="swslider" min="0" max="4095" value="0">
+      <div class="steps" id="swjog"></div>
+    </div>
     <div class="actions"><button id="swcal">Запомнить как положение 1</button></div>
     <div class="hint" style="margin-top:16px">Файлы веб-страницы (index.html, app.js, style.css из папки esp32-backend/data):</div>
     <div class="actions"><input type="file" id="wwwfiles" multiple accept=".html,.js,.css,.svg,.ico,.png">
