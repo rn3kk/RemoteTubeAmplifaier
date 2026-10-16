@@ -96,7 +96,7 @@
 </header>
 
 <figure class="fig">
-  <div class="scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 по шине DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, плавный пуск, PTT и анодное напряжение усилителя; от усилителя получает сигналы защиты и наличия анодного." class="scheme"><defs>
+  <div class="scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 по шине DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, плавный пуск, PTT и анодное напряжение усилителя; от трансивера получает PTT, от усилителя — сигналы защиты и наличия анодного." class="scheme"><defs>
 <marker id="ar-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-net"/></marker>
 <marker id="ar-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-ctl"/></marker>
 <marker id="ar-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-sig"/></marker>
@@ -110,21 +110,28 @@
 <text x="113" y="143" class="ts" text-anchor="start">HTTP</text>
 <path d="M190 200 L246 200" class="net" marker-end="url(#ar-net)"/>
 <text x="220" y="192" class="ts" text-anchor="middle">Wi-Fi</text>
+<rect x="20" y="250" width="170" height="50" rx="6" class="box"/>
+<text x="105" y="271" class="tb" text-anchor="middle">Трансивер</text>
+<text x="105" y="289" class="ts" text-anchor="middle">выход PTT</text>
+<path d="M190 275 L246 275" class="sig" marker-end="url(#ar-sig)"/>
+<text x="218" y="268" class="ts" text-anchor="middle">PTT</text>
 <rect x="250" y="60" width="350" height="330" rx="8" class="esp"/>
 <text x="425" y="98" class="th" text-anchor="middle">ESP32-S3</text>
 <text x="425" y="120" class="ts" text-anchor="middle">LilyGO T-Halow</text>
 <text x="425" y="172" class="t" text-anchor="middle">веб-страница и API, порт 80</text>
 <text x="425" y="196" class="t" text-anchor="middle">таблица частот во flash</text>
 <text x="425" y="220" class="t" text-anchor="middle">включение и прогрев</text>
-<text x="425" y="244" class="t" text-anchor="middle">разрешение PTT</text>
+<text x="425" y="244" class="t" text-anchor="middle">PTT и охлаждение</text>
 <text x="425" y="268" class="t" text-anchor="middle">управление приводами</text>
 <text x="590" y="114" class="pin" text-anchor="end">IO21 TX</text>
 <text x="590" y="144" class="pin" text-anchor="end">IO47 RX</text>
 <text x="560" y="78" class="pin" text-anchor="middle">GND</text>
+<text x="260" y="279" class="pin" text-anchor="start">IO11</text>
 <text x="260" y="304" class="pin" text-anchor="start">IO41</text>
 <text x="260" y="334" class="pin" text-anchor="start">IO46</text>
 <text x="267.5" y="380" class="pin" text-anchor="middle">IO9</text>
 <text x="302.5" y="380" class="pin" text-anchor="middle">IO10</text>
+<text x="337.5" y="380" class="pin" text-anchor="middle">IO12</text>
 <text x="512.5" y="380" class="pin" text-anchor="middle">IO48</text>
 <text x="567.5" y="380" class="pin" text-anchor="middle">IO40</text>
 <path d="M600 110 L630 110" class="bus"/>
@@ -157,13 +164,13 @@
 <text x="966" y="330" class="ts" text-anchor="start">вал</text>
 <path d="M1100 145 L1100 505" class="mech"/>
 <text x="1106" y="330" class="ts" text-anchor="start">вал</text>
-<text x="407" y="542" class="tl" text-anchor="middle">Модуль 8 реле</text>
+<text x="422" y="542" class="tl" text-anchor="middle">Модуль 8 реле</text>
 <rect x="250" y="470" width="35" height="50" rx="0" class="cell"/>
 <text x="267.5" y="500" class="t" text-anchor="middle">1</text>
 <rect x="285" y="470" width="35" height="50" rx="0" class="cell"/>
 <text x="302.5" y="500" class="t" text-anchor="middle">2</text>
-<rect x="320" y="470" width="35" height="50" rx="0" class="cell free"/>
-<text x="337.5" y="500" class="ts" text-anchor="middle">3</text>
+<rect x="320" y="470" width="35" height="50" rx="0" class="cell"/>
+<text x="337.5" y="500" class="t" text-anchor="middle">3</text>
 <rect x="355" y="470" width="35" height="50" rx="0" class="cell free"/>
 <text x="372.5" y="500" class="ts" text-anchor="middle">4</text>
 <rect x="390" y="470" width="35" height="50" rx="0" class="cell free"/>
@@ -183,11 +190,16 @@
 <text x="637.5" y="500" class="ts" text-anchor="middle">3</text>
 <rect x="655" y="470" width="35" height="50" rx="0" class="cell free"/>
 <text x="672.5" y="500" class="ts" text-anchor="middle">4</text>
-<text x="407" y="558" class="ts" text-anchor="middle">реле 3–7 свободны</text>
+<text x="422" y="558" class="ts" text-anchor="middle">реле 4–7 свободны</text>
 <path d="M267.5 390 L267.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
 <path d="M302.5 390 L302.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M337.5 390 L337.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
 <path d="M512.5 390 L512.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
 <path d="M567.5 390 L567.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
+<path d="M337.5 520 L337.5 571" class="ctl" marker-end="url(#ar-ctl)"/>
+<rect x="318" y="575" width="150" height="34" rx="6" class="box"/>
+<text x="393" y="591" class="t" text-anchor="middle">Трансивер</text>
+<text x="393" y="604" class="ts" text-anchor="middle">вход PTT</text>
 <rect x="740" y="470" width="440" height="260" rx="8" class="amp"/>
 <text x="752" y="718" class="tb" text-anchor="start">Усилитель на базе Р-140</text>
 <rect x="760" y="505" width="120" height="40" rx="6" class="box"/>
@@ -201,7 +213,7 @@
 <path d="M567.5 520 L567.5 586 L736 586" class="ctl" marker-end="url(#ar-ctl)"/>
 <text x="752" y="590" class="t" text-anchor="start">анодное напряжение</text>
 <path d="M512.5 520 L512.5 611 L736 611" class="ctl" marker-end="url(#ar-ctl)"/>
-<text x="752" y="615" class="t" text-anchor="start">линия PTT от трансивера</text>
+<text x="752" y="615" class="t" text-anchor="start">PTT усилителя</text>
 <path d="M302.5 520 L302.5 636 L736 636" class="ctl" marker-end="url(#ar-ctl)"/>
 <text x="752" y="640" class="t" text-anchor="start">плавный пуск</text>
 <path d="M267.5 520 L267.5 661 L736 661" class="ctl" marker-end="url(#ar-ctl)"/>
@@ -215,7 +227,7 @@
     <ul class="legend">
       <li><i class="k bus"></i>шина сервоприводов: одна линия DATA, приём и передача по очереди</li>
       <li><i class="k ctl"></i>управление реле, включаются низким уровнем</li>
-      <li><i class="k sig"></i>сигналы от усилителя, активны при замыкании на GND</li>
+      <li><i class="k sig"></i>входные сигналы от трансивера и усилителя, активны при замыкании на GND</li>
       <li><i class="k mech"></i>механическая связь: вал привода</li>
     </ul>
   </figcaption>
@@ -228,9 +240,9 @@
     <li><span class="when">5 с</span><b>Плавный пуск</b><span>реле 2 замыкается</span></li>
     <li><span class="when">5 с – 3 мин 5 с</span><b>Прогрев ламп</b><span>управление заблокировано</span></li>
     <li><span class="when">3 мин 5 с</span><b>Анодное</b><span>реле 1 модуля на 4 реле</span></li>
-    <li><span class="when">дальше</span><b>PTT</b><span>реле 8 разрешает передачу</span></li>
+    <li><span class="when">дальше</span><b>PTT</b><span>реле 8 замыкается, пока трансивер даёт PTT</span></li>
   </ol>
-  <p class="note">PTT разрешён, только когда есть сигнал «анодное есть», защита не сработала и переключатель БМЗ встал в положение. На время поворота переключателя PTT снимается. «Выключить» в любой момент снимает PTT, анодное, плавный пуск и сеть.</p>
+  <p class="note">PTT от трансивера проходит на усилитель, только когда есть сигнал «анодное есть», защита не сработала и переключатель БМЗ встал в положение. На время поворота переключателя PTT снимается. Если с последней передачи прошло меньше 5 минут, «Выключить» не выключает усилитель: лампы охлаждаются, а на странице появляется кнопка «Выключить без охлаждения».</p>
 </section>
 
 <section>
@@ -241,8 +253,10 @@
     <tbody>
       <tr><td class="mono">IO9</td><td>модуль 8 реле, реле 1</td><td>сеть усилителя</td></tr>
       <tr><td class="mono">IO10</td><td>модуль 8 реле, реле 2</td><td>замыкание плавного пуска</td></tr>
-      <tr><td class="mono">IO48</td><td>модуль 8 реле, реле 8</td><td>разрешение PTT</td></tr>
+      <tr><td class="mono">IO12</td><td>модуль 8 реле, реле 3</td><td>PTT трансивера: передача с веб-страницы</td></tr>
+      <tr><td class="mono">IO48</td><td>модуль 8 реле, реле 8</td><td>PTT усилителя</td></tr>
       <tr><td class="mono">IO40</td><td>модуль 4 реле, реле 1</td><td>анодное напряжение</td></tr>
+      <tr><td class="mono">IO11</td><td>вход от трансивера</td><td>PTT трансивера</td></tr>
       <tr><td class="mono">IO41</td><td>вход от усилителя</td><td>сработала защита</td></tr>
       <tr><td class="mono">IO46</td><td>вход от усилителя</td><td>анодное есть</td></tr>
       <tr><td class="mono">IO21</td><td>шина приводов через 1 кОм</td><td>передача (TX)</td></tr>
@@ -258,8 +272,8 @@
     <li>Измерьте напряжение между DATA и GND на запитанном приводе. Выводы ESP32 рассчитаны на 3,3 В: если на линии около 5 В, нужен преобразователь уровней или адаптер шины.</li>
     <li>Приводы питаются от своего блока (7,4 или 12 В — по наклейке, до 2–3 А на привод при заклинивании), не от ESP32. Земля блока и ESP32 общая.</li>
     <li>С завода у приводов ID 1: подключайте их по одному и меняйте номер в сервисе на странице (вариометр — 2, переключатель — 3).</li>
-    <li>На IO41 и IO46 нельзя подавать больше 3,3 В: сигналы заводите сухим контактом или оптроном на GND.</li>
-    <li>Реле 3–7 модуля на 8 реле и реле 2–4 модуля на 4 реле свободны.</li>
+    <li>На IO11, IO41 и IO46 нельзя подавать больше 3,3 В: PTT трансивера и сигналы усилителя заводите сухим контактом или оптроном на GND.</li>
+    <li>Реле 4–7 модуля на 8 реле и реле 2–4 модуля на 4 реле свободны.</li>
   </ul>
 </section>
 

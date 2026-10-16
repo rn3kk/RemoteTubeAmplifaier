@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tube Amplifier</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<h1>Ламповый усилитель</h1>
+<div class="area-amp">
+  <div id="version" hidden>Файлы страницы и прошивка разных версий: обновите файлы страницы (сервис внизу) или прошивку.</div>
+  <div id="amp">
+    <div class="head">
+      <button id="power">Включить</button>
+      <button id="txbtn">Передача</button>
+      <span id="ampstate">-</span>
+      <button id="resetprot" hidden>Сбросить защиту</button>
+      <button id="forceoff" hidden>Выключить без охлаждения</button>
+    </div>
+    <div class="chips">
+      <span class="chip" id="c-power">Питание</span>
+      <span class="chip" id="c-soft">Плавный пуск</span>
+      <span class="chip" id="c-anode">Анодное</span>
+      <span class="chip" id="c-ptt">PTT</span>
+      <span class="chip" id="c-tx">Передача</span>
+      <span class="chip" id="c-prot">Защита</span>
+      <span class="chip" id="c-cap">КПЕ</span>
+      <span class="chip" id="c-vario">Вариометр</span>
+      <span class="chip" id="c-switch">Переключатель</span>
+    </div>
+    <div id="ampnote"></div>
+  </div>
+  <div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
+    <span id="error"></span></div>
+</div>
+<div class="area-tune">
+  <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
+  <div id="panel" hidden>
+    <div class="hint" id="hint"></div>
+    <div id="servos"></div>
+    <div class="servo">
+      <div class="title">Переключатель БМЗ: <b id="swlabel">-</b></div>
+      <div class="steps" id="switch"></div>
+    </div>
+    <div class="actions">
+      <button id="save">Сохранить</button>
+      <button id="reset">Сбросить точку</button>
+      <span id="unsaved"></span>
+    </div>
+  </div>
+</div>
+<div class="area-table">
+  <div id="bands"></div>
+  <div id="table"></div>
+  <div class="legend">Зелёная полоска - частота настроена и сохранена.</div>
+</div>
+<div class="area-extra">
+  <div class="actions" id="files" hidden>
+    Таблица настроек:
+    <button id="export">Скачать</button>
+    <button id="import">Загрузить</button>
+    <input type="file" id="importfile" accept=".csv,text/csv,text/plain" hidden>
+  </div>
+  <details id="service">
+    <summary>Сервис: ID сервоприводов</summary>
+    <div class="hint">Прошивка управляет КПЕ по ID 1, вариометром по ID 2. С завода у приводов ID 1:
+      перед сменой ID подключите к шине только тот привод, который меняете.</div>
+    <div class="actions"><button id="scan">Найти приводы</button></div>
+    <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
+      на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
+    <div class="hint" style="margin-top:16px">Переключатель БМЗ (ID 3): кнопками поверните привод так, чтобы
+      переключатель встал точно в положение 1, и нажмите «Запомнить как положение 1».
+      Сейчас привод: <b id="swpos">-</b></div>
+    <div class="steps" id="swjog"></div>
+    <div class="actions"><button id="swcal">Запомнить как положение 1</button></div>
+    <div class="hint" style="margin-top:16px">Файлы веб-страницы (index.html, app.js, style.css из папки esp32-backend/data):</div>
+    <div class="actions"><input type="file" id="wwwfiles" multiple accept=".html,.js,.css,.svg,.ico,.png">
+      <button id="wwwupload">Загрузить файлы</button></div>
+    <div id="servicemsg"></div>
+  </details>
+</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -16,13 +16,15 @@ controller itself.
 
 ## Features
 
-- **Frequency table** in 25 kHz steps across the 160–10 m amateur bands; one band is shown at a time.
+- **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 100 m band (2900–3200 kHz); one band is shown at a time.
 - **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: mains on → soft start bypass after 5 s → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable.
-- **PTT enable** only after warm-up, with anode voltage present and no protection trip; PTT is dropped while the band switch is rotating.
+- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up, with anode voltage present and no protection trip; PTT is dropped while the band switch is rotating.
+- **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3); the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
+- **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
-- **Status on the page**: power-up stage with countdown, mains, soft start, anode, PTT and the reason it is blocked, protection, link to each servo.
+- **Status on the page**: power-up stage with countdown, mains, soft start, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
 - **Service**: servo bus scan, servo ID change, band switch position 1 calibration.
 - **Settings storage** in the ESP32 flash; the table can be downloaded to a file and uploaded back (to move it to another board).
 - Layout for desktop and phone.
@@ -48,14 +50,16 @@ Pins for the T-Halow. All relays are switched on by a **low** level at the modul
 |---|---|
 | IO9 | relay 1 (8-relay module): amplifier mains |
 | IO10 | relay 2: soft start bypass |
-| IO48 | relay 8: PTT enable |
+| IO12 | relay 3: transceiver PTT (transmit from the web page) |
+| IO48 | relay 8: amplifier PTT |
 | IO40 | relay 1 (4-relay module): anode voltage |
+| IO11 | input: transceiver PTT (active when pulled to GND) |
 | IO41 | input "protection tripped" (active when pulled to GND) |
 | IO46 | input "anode voltage present" (active when pulled to GND) |
 | IO21 | servo bus, transmit (through a 1 kΩ resistor) |
 | IO47 | servo bus, receive |
 
-Relays 3–7 of the 8-relay module are currently free. Pins are set by constants at the top of the sketch.
+Relays 4–7 of the 8-relay module and 2–4 of the 4-relay module are currently free. Pins are set by constants at the top of the sketch.
 
 ### Servo bus
 
@@ -76,7 +80,7 @@ ESP32 GND ───────────────────────�
 ### Relays and inputs
 
 - "Arduino" relay modules are designed for 5 V. If the relays do not switch reliably from 3.3 V, power the optocoupler side (VCC) from 3.3 V and the coils (JD-VCC) from 5 V with the jumper removed.
-- Never apply more than 3.3 V to IO41/IO46: bring the amplifier signals in through a dry contact or an optocoupler to GND.
+- Never apply more than 3.3 V to IO11/IO41/IO46: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
 
 ## Build and flash
 
@@ -99,12 +103,23 @@ core 3.x (`esp32:esp32`). No third-party libraries are required.
    arduino-cli upload -p /dev/ttyACM0 --fqbn $FQBN esp32-backend
    ```
 
-3. Open the serial monitor (`arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
+3. Upload the web page files (`esp32-backend/data`: `index.html`, `app.js`, `style.css`) to the flash file partition:
+
+   ```bash
+   tools/upload-www.sh /dev/ttyACM0
+   ```
+
+   Later the files can be updated without a cable: "Service" block on the page → "Upload files". If the files are missing (for example, after a full flash erase), the board serves a fallback page with an upload form.
+
+4. Open the serial monitor (`arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
 
 For a board with Ethernet (W5500), set `#define USE_ETHERNET 1` at the top of the sketch and set the `ETH_*` pins.
 
-Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; soft start and
-warm-up durations are `SOFTSTART_MS` and `WARMUP_MS`.
+Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; soft start,
+warm-up and cool-down durations are `SOFTSTART_MS`, `WARMUP_MS` and `COOLDOWN_MS`.
+
+> For debugging, warm-up and cool-down are currently shortened to 10 s (`WARMUP_MS`, `COOLDOWN_MS`, marked "ОТЛАДКА").
+> Set them back to 180000 and 300000 before running the amplifier.
 
 ## First start
 
@@ -126,8 +141,10 @@ Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolut
 | `POST /api/move?cap=&vario=&sw=` | manual control (tuning mode only) |
 | `POST /api/save`, `POST /api/reset` | save or reset the setting for the current frequency |
 | `GET /api/points.csv`, `POST /api/points.csv` | table download and upload |
-| `POST /api/power?on=0\|1` | switch the amplifier on or off |
+| `POST /api/power?on=0\|1[&force=1]` | switch the amplifier on or off; within 5 minutes after a transmission, switching off needs `force=1` |
 | `POST /api/protection/reset` | reset a latched protection trip |
+| `POST /api/tx?on=1`, `?keep=1`, `?on=0` | transmit from the web page: start, confirm (at least every 2 s), stop |
+| `POST /api/www` | upload web page files (multipart) |
 | `POST /api/servo/scan`, `POST /api/servo/id?from=&to=` | servo scan and ID change |
 | `POST /api/switch/jog?steps=`, `POST /api/switch/calibrate` | band switch calibration |
 
@@ -138,7 +155,7 @@ the power-up sequence and PTT blocking logic.
 
 Not yet tested on hardware:
 - the STS3215 servos (the protocol is implemented from the Feetech documentation), including the band switch step mode;
-- the relays and the protection and anode inputs;
+- the relays and the PTT, protection and anode inputs;
 - the Ethernet build.
 
 Not implemented: reading the frequency from the transceiver over CAT.

@@ -8,6 +8,7 @@
 #endif
 #include <Preferences.h>
 #include <SPI.h>
+#include <LittleFS.h>
 #include <WebServer.h>
 
 // ---------- Настройки ----------
@@ -44,8 +45,17 @@ const int SERVO_POS_MAX = 4095;     // 4096 шагов на оборот
 const int RELAY_ACTIVE_LEVEL = LOW;
 const int RELAY_POWER_PIN = 9;       // реле 1: включение усилителя
 const int RELAY_SOFTSTART_PIN = 10;  // реле 2: замыкание плавного пуска
-const int RELAY_PTT_PIN = 48;        // реле 8: разрешение PTT
+const int RELAY_PTT_PIN = 48;        // реле 8: PTT усилителя
 const int RELAY_ANODE_PIN = 40;      // второй модуль, реле 1: анодное напряжение
+const int RELAY_TRX_PTT_PIN = 12;    // реле 3: PTT трансивера (передача с веб-страницы)
+
+// Передача с веб-страницы: страница подтверждает её не реже WEB_TX_KEEPALIVE_MS,
+// иначе передача снимается (закрыли страницу, пропала связь); дольше WEB_TX_MAX_MS не держится
+const uint32_t WEB_TX_KEEPALIVE_MS = 2000;
+const uint32_t WEB_TX_MAX_MS = 60000;
+
+// Версия API для файлов веб-страницы: страница сверяет её со своей и предупреждает о расхождении
+const int WWW_API_VERSION = 1;
 
 // Переключатель БМЗ: третий сервопривод, 5 положений через 360/5 градусов, ограничителей нет.
 // Привод работает в шаговом режиме STS (относительные перемещения) и всегда едет кратчайшим путём.
@@ -61,12 +71,17 @@ const int PTT_RELEASE_MS = 30;   // пауза между снятием раз�
 const int INPUT_PROTECTION_PIN = 41;  // сработала защита
 const int INPUT_ANODE_PIN = 46;       // анодное напряжение есть
 const int INPUT_ACTIVE_LEVEL = LOW;
+const int INPUT_PTT_PIN = 11;         // PTT от трансивера
 const uint32_t INPUT_DEBOUNCE_MS = 50;
+const uint32_t PTT_DEBOUNCE_MS = 5;   // для PTT короче, чтобы не задерживать передачу
+
+// Выключение раньше, чем через COOLDOWN_MS после последней передачи, только принудительно
+const uint32_t COOLDOWN_MS = 10000;  // ОТЛАДКА: в усилителе 300000 (5 мин)
 
 // Последовательность включения: питание -> через SOFTSTART_MS замыкание плавного пуска ->
 // прогрев WARMUP_MS (управление заблокировано) -> анодное -> разрешение PTT
 const uint32_t SOFTSTART_MS = 5000;
-const uint32_t WARMUP_MS = 180000;
+const uint32_t WARMUP_MS = 10000;    // ОТЛАДКА: в усилителе 180000 (3 мин)
 const uint32_t ANODE_WAIT_MS = 5000;  // сколько ждать появления анодного после включения реле
 
 const uint32_t SERVO_POLL_MS = 1000;  // как часто опрашивать сервоприводы
@@ -87,6 +102,7 @@ struct Band {
 
 const Band BANDS[] = {
   {"160m", 1800, 2000, 0, 400, 0, 400},
+  {"100m", 2900, 3200, 400, 400, 400, 400},
   {"80m", 3500, 3800, 400, 900, 400, 900},
   {"40m", 7000, 7200, 900, 1400, 900, 1400},
   {"30m", 10100, 10150, 1400, 1600, 1400, 1600},
@@ -165,12 +181,27 @@ bool switchStepModeChecked = false;
 // Вход с подавлением дребезга
 struct Input {
   int pin;
+  uint32_t debounceMs;
   bool active;
   bool raw;
   uint32_t since;
 };
-Input protectionInput = {INPUT_PROTECTION_PIN, false, false, 0};
-Input anodeInput = {INPUT_ANODE_PIN, false, false, 0};
+Input protectionInput = {INPUT_PROTECTION_PIN, INPUT_DEBOUNCE_MS, false, false, 0};
+Input anodeInput = {INPUT_ANODE_PIN, INPUT_DEBOUNCE_MS, false, false, 0};
+Input pttInput = {INPUT_PTT_PIN, PTT_DEBOUNCE_MS, false, false, 0};
+
+bool txHappened = false;  // с момента запуска ESP32 усилитель работал на передачу
+uint32_t lastTxMs = 0;    // когда реле PTT усилителя было замкнуто в последний раз
+
+bool webTx = false;       // трансивер переведён на передачу с веб-страницы
+uint32_t webTxStart = 0;
+uint32_t webTxLastPing = 0;
+
+// Загрузка файлов веб-страницы через /api/www
+File uploadFile;
+String uploadName;
+String uploadError;
+int uploadCount = 0;
 
 // Положения, прочитанные с сервоприводов; -1 - привод не отвечает
 int servoCapPos = -1;
@@ -178,464 +209,40 @@ int servoVarioPos = -1;
 int servoSwitchPos = -1;
 uint32_t lastServoPoll = 0;
 
-const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
+// Запасная страница: отдаётся, если файлов веб-страницы во flash нет
+const char FALLBACK_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tube Amplifier</title>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: sans-serif; margin: 0; background: #1b1d21; color: #e6e6e6; }
-  .layout { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
-            grid-template-columns: 1fr; grid-template-areas: "title" "amp" "table" "tune" "extra"; }
-  .layout > * { min-width: 0; }
-  h1 { grid-area: title; font-size: 20px; margin: 0; }
-  .area-amp { grid-area: amp; }
-  .area-tune { grid-area: tune; }
-  .area-table { grid-area: table; }
-  .area-extra { grid-area: extra; }
-  /* компьютер: слева состояние и настройка, справа таблица частот */
-  @media (min-width: 900px) {
-    .layout { grid-template-columns: minmax(360px, 440px) 1fr; align-items: start;
-              grid-template-areas: "title title" "amp table" "tune extra"; }
-  }
-  #state { margin-top: 12px; font-size: 16px; line-height: 1.5; }
-  b { color: #ffb347; }
-  button { min-height: 40px; padding: 8px 12px; border: 1px solid #4a4e57; border-radius: 6px;
-           background: #2d3038; color: inherit; font-size: 15px; cursor: pointer; touch-action: manipulation; }
-  button:hover:enabled { background: #3a3e48; }
-  button:disabled { opacity: .4; cursor: default; }
-  label.mode { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-size: 16px; }
-  label.mode input { width: 22px; height: 22px; accent-color: #ffb347; }
-  #panel { border: 1px solid #ffb347; border-radius: 8px; padding: 12px; }
-  #panel[hidden] { display: none; }
-  .hint { color: #9aa0aa; margin-bottom: 8px; }
-  .servo { margin-bottom: 16px; }
-  .servo .title { margin-bottom: 4px; }
-  .servo input[type=range] { width: 100%; height: 36px; margin: 4px 0; accent-color: #ffb347; }
-  .steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-  .steps button { padding: 8px 0; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  #switch { grid-template-columns: repeat(5, 1fr); }
-  #switch button.active { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
-  #save { background: #2f6b3a; border-color: #2f6b3a; }
-  #save:hover:enabled { background: #3a8448; }
-  #unsaved { color: #ffb347; }
-  #bands { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-bottom: 8px; }
-  #bands button.shown { border-color: #ffb347; color: #ffb347; }
-  #bands button.current { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
-  .band { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px;
-          border: 1px solid #3a3d44; border-radius: 8px; padding: 8px; }
-  .band[hidden] { display: none; }
-  .band button { padding: 8px 2px; }
-  .band button.saved { border-color: #4caf50; box-shadow: inset 0 -3px 0 #4caf50; }
-  .band button.active { background: #ffb347; border-color: #ffb347; color: #1b1d21; font-weight: bold; }
-  .legend { color: #9aa0aa; margin-top: 8px; font-size: 13px; }
-  #error { color: #ff6b6b; }
-  #amp { border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; }
-  #amp .head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
-  #ampstate { font-size: 18px; font-weight: bold; margin-right: auto; }
-  #power { min-width: 120px; font-weight: bold; }
-  #power.on { background: #7a2b2b; border-color: #7a2b2b; }
-  #power.off { background: #2f6b3a; border-color: #2f6b3a; }
-  #resetprot[hidden] { display: none; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { padding: 5px 10px; border-radius: 14px; font-size: 13px; background: #2d3038; color: #9aa0aa; }
-  .chip.on { background: #24502c; color: #b9f0c2; }
-  .chip.wait { background: #5a4a1f; color: #ffd98a; }
-  .chip.bad { background: #5c2424; color: #ffb3b3; }
-  #ampnote { margin-top: 8px; color: #ffb347; }
-  #ampnote:empty { display: none; }
-  #files { margin-bottom: 16px; }
-  #files[hidden] { display: none; }
-  #service { border-top: 1px solid #3a3d44; padding-top: 12px; }
-  #service summary { cursor: pointer; color: #9aa0aa; padding: 6px 0; }
-  #service .actions { margin-top: 10px; }
-  #service input { width: 72px; min-height: 40px; padding: 6px; background: #2d3038; color: inherit;
-                   border: 1px solid #4a4e57; border-radius: 6px; font-size: 15px; }
-  #servicemsg { margin-top: 10px; white-space: pre-line; }
-  /* телефон */
-  @media (max-width: 600px) {
-    .layout { padding: 12px; gap: 12px; }
-    h1 { font-size: 18px; }
-    #ampstate { font-size: 16px; flex-basis: 100%; order: 2; }
-    #power { flex: 1; order: 1; }
-    #resetprot { flex: 1; order: 1; }
-    #state { font-size: 15px; }
-    .steps { grid-template-columns: repeat(3, 1fr); }
-    #switch { grid-template-columns: repeat(5, 1fr); }
-    .band { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
-  }
+  body { font-family: sans-serif; margin: 16px; background: #1b1d21; color: #e6e6e6; max-width: 640px; }
+  button, input { font-size: 15px; margin: 8px 0; }
+  #msg { margin-top: 12px; }
 </style>
 </head>
 <body>
-<div class="layout">
-<h1>Ламповый усилитель</h1>
-<div class="area-amp">
-  <div id="amp">
-    <div class="head">
-      <button id="power">Включить</button>
-      <span id="ampstate">-</span>
-      <button id="resetprot" hidden>Сбросить защиту</button>
-    </div>
-    <div class="chips">
-      <span class="chip" id="c-power">Питание</span>
-      <span class="chip" id="c-soft">Плавный пуск</span>
-      <span class="chip" id="c-anode">Анодное</span>
-      <span class="chip" id="c-ptt">PTT</span>
-      <span class="chip" id="c-prot">Защита</span>
-      <span class="chip" id="c-cap">КПЕ</span>
-      <span class="chip" id="c-vario">Вариометр</span>
-      <span class="chip" id="c-switch">Переключатель</span>
-    </div>
-    <div id="ampnote"></div>
-  </div>
-  <div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
-    <span id="error"></span></div>
-</div>
-<div class="area-tune">
-  <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
-  <div id="panel" hidden>
-    <div class="hint" id="hint"></div>
-    <div id="servos"></div>
-    <div class="servo">
-      <div class="title">Переключатель БМЗ: <b id="swlabel">-</b></div>
-      <div class="steps" id="switch"></div>
-    </div>
-    <div class="actions">
-      <button id="save">Сохранить</button>
-      <button id="reset">Сбросить точку</button>
-      <span id="unsaved"></span>
-    </div>
-  </div>
-</div>
-<div class="area-table">
-  <div id="bands"></div>
-  <div id="table"></div>
-  <div class="legend">Зелёная полоска - частота настроена и сохранена.</div>
-</div>
-<div class="area-extra">
-  <div class="actions" id="files" hidden>
-    Таблица настроек:
-    <button id="export">Скачать</button>
-    <button id="import">Загрузить</button>
-    <input type="file" id="importfile" accept=".csv,text/csv,text/plain" hidden>
-  </div>
-  <details id="service">
-    <summary>Сервис: ID сервоприводов</summary>
-    <div class="hint">Прошивка управляет КПЕ по ID 1, вариометром по ID 2. С завода у приводов ID 1:
-      перед сменой ID подключите к шине только тот привод, который меняете.</div>
-    <div class="actions"><button id="scan">Найти приводы</button></div>
-    <div class="actions">Сменить ID: с <input type="number" id="idfrom" min="0" max="253" value="1">
-      на <input type="number" id="idto" min="0" max="253" value="2"> <button id="setid">Сменить</button></div>
-    <div class="hint" style="margin-top:16px">Переключатель БМЗ (ID 3): кнопками поверните привод так, чтобы
-      переключатель встал точно в положение 1, и нажмите «Запомнить как положение 1».
-      Сейчас привод: <b id="swpos">-</b></div>
-    <div class="steps" id="swjog"></div>
-    <div class="actions"><button id="swcal">Запомнить как положение 1</button></div>
-    <div id="servicemsg"></div>
-  </details>
-</div>
-</div>
+<h1>Файлы веб-страницы не загружены</h1>
+<p>Загрузите файлы из папки <b>esp32-backend/data</b> проекта (index.html, app.js, style.css)
+  или залейте их скриптом <b>tools/upload-www.sh</b>.</p>
+<input type="file" id="files" multiple accept=".html,.js,.css,.svg,.ico,.png">
+<br><button id="upload">Загрузить</button>
+<div id="msg"></div>
 <script>
-const POS_MAX = 4095;
-const STEPS = [-100, -10, -1, 1, 10, 100];
-const SERVOS = [['cap', 'КПЕ'], ['vario', 'Вариометр']];
-const buttons = {};
-const bandOf = {};      // частота -> номер диапазона
-const bandTabs = [];
-const bandBoxes = [];
-let shownBand = 0;
-const switchButtons = [];
-const sliders = {};
-const labels = {};
-const target = {cap: 0, vario: 0};
-let state = null;
-let lastInput = 0;
-let dirty = false;
-let sending = false;
-let remainUntil = 0;  // момент окончания текущего этапа включения
-
-const $ = id => document.getElementById(id);
-
-function pos(v) {
-  return v < 0 ? '-' : v;
-}
-
-function withDegrees(v) {
-  return v + ' (' + (v * 360 / 4096).toFixed(1) + '°)';
-}
-
-function post(url) {
-  return fetch(url, {method: 'POST'}).then(r => r.json().then(j => {
-    if (!r.ok) throw new Error(j.error || ('ошибка ' + r.status));
-    return j;
-  }));
-}
-
-function showError(e) {
-  $('error').textContent = e instanceof TypeError ? 'нет связи с контроллером' : e.message;
-}
-
-function showTarget() {
-  for (const [name] of SERVOS) {
-    sliders[name].value = target[name];
-    labels[name].textContent = withDegrees(target[name]);
-  }
-}
-
-// На странице видны частоты только одного диапазона
-function showBand(index) {
-  shownBand = index;
-  const current = state && state.freq in bandOf ? bandOf[state.freq] : -1;
-  bandBoxes.forEach((box, i) => box.hidden = i !== index);
-  bandTabs.forEach((tab, i) => {
-    tab.classList.toggle('shown', i === index);
-    tab.classList.toggle('current', i === current);
-  });
-}
-
-const AMP_NAMES = {off: 'Усилитель выключен', softstart: 'Плавный пуск', warmup: 'Прогрев ламп', ready: 'Усилитель включён'};
-
-function chip(id, cls, text) {
-  $(id).className = 'chip' + (cls ? ' ' + cls : '');
-  $(id).textContent = text;
-}
-
-function locked() {
-  return state && (state.amp === 'softstart' || state.amp === 'warmup');
-}
-
-function showAmpState() {
-  if (!state) return;
-  let text = AMP_NAMES[state.amp] || state.amp;
-  if (locked()) {
-    const left = Math.max(0, Math.ceil((remainUntil - Date.now()) / 1000));
-    text += ': ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
-  }
-  $('ampstate').textContent = text;
-}
-
-function showAmp(s) {
-  remainUntil = Date.now() + s.remain * 1000;
-  showAmpState();
-  chip('c-power', s.power ? 'on' : '', 'Питание: ' + (s.power ? 'вкл' : 'выкл'));
-  chip('c-soft', s.soft ? 'on' : s.amp === 'softstart' ? 'wait' : '', 'Плавный пуск: ' + (s.soft ? 'замкнут' : 'нет'));
-  chip('c-anode', s.anodeOk ? (s.anode ? 'on' : 'bad') : s.anode ? 'bad' : '',
-    'Анодное: ' + (s.anode ? 'вкл' : 'выкл') + ', ' + (s.anodeOk ? 'есть' : 'нет'));
-  chip('c-ptt', s.ptt ? 'on' : '', 'PTT: ' + (s.ptt ? 'разрешён' : 'запрещён'));
-  chip('c-prot', s.protectLatched || s.protect ? 'bad' : 'on', 'Защита: ' + (s.protectLatched ? 'сработала' : s.protect ? 'сигнал' : 'норма'));
-  chip('c-cap', s.servoCap >= 0 ? 'on' : 'bad', 'КПЕ: ' + (s.servoCap >= 0 ? s.servoCap : 'нет связи'));
-  chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
-    (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
-  $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : s.servoSwitch;
-  chip('c-vario', s.servoVario >= 0 ? 'on' : 'bad', 'Вариометр: ' + (s.servoVario >= 0 ? s.servoVario : 'нет связи'));
-  $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
-  $('power').className = s.amp === 'off' ? 'off' : 'on';
-  $('resetprot').hidden = !s.protectLatched;
-  $('ampnote').textContent = locked() ? 'Управление заблокировано до окончания прогрева.' :
-    s.amp !== 'off' && !s.ptt && s.pttReason ? 'PTT запрещён: ' + s.pttReason + '.' : '';
-}
-
-function showState(s) {
-  showAmp(s);
-  // при смене частоты переходим на её диапазон
-  const freqChanged = !state || state.freq !== s.freq;
-  state = s;
-  showBand(freqChanged && s.freq in bandOf ? bandOf[s.freq] : shownBand);
-  $('freq').textContent = s.freq || '-';
-  $('cap').textContent = pos(s.cap);
-  $('vario').textContent = pos(s.vario);
-  $('sw').textContent = s.sw || '-';
-  $('swlabel').textContent = s.sw || 'не выбрано';
-  if (!switchButtons.length) {
-    for (let n = 1; n <= s.swmax; n++) {
-      const b = document.createElement('button');
-      b.textContent = n;
-      b.onclick = () => command('/api/move?sw=' + n);
-      $('switch').appendChild(b);
-      switchButtons.push(b);
-    }
-  }
-  switchButtons.forEach((b, i) => b.classList.toggle('active', i + 1 === s.sw));
-  for (const f in buttons) {
-    buttons[f].classList.toggle('active', Number(f) === s.freq);
-    buttons[f].disabled = locked();
-  }
-  if (s.freq && buttons[s.freq]) buttons[s.freq].classList.toggle('saved', s.saved);
-  $('error').textContent = '';
-
-  $('tuning').checked = s.tuning;
-  $('panel').hidden = !s.tuning;
-  $('files').hidden = !s.tuning;
-  const ready = s.freq > 0;
-  $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
-  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || locked();
-  $('save').disabled = !ready || !s.sw;
-  $('reset').disabled = !ready || !s.saved;
-  const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
-  $('unsaved').textContent = !ready ? '' : !s.saved ? 'точка не настроена' : changed ? 'положение не сохранено' : 'сохранено';
-
-  // пока пользователь крутит ручки, не перебиваем их значениями с контроллера
-  if (ready && !dirty && !sending && Date.now() - lastInput > 1500) {
-    target.cap = s.cap;
-    target.vario = s.vario;
-    showTarget();
-  }
-}
-
-function flush() {
-  if (sending || !dirty) return;
-  sending = true;
-  dirty = false;
-  post('/api/move?cap=' + target.cap + '&vario=' + target.vario).then(s => {
-    sending = false;
-    if (dirty) flush(); else showState(s);
-  }).catch(e => {
-    sending = false;
-    showError(e);
-  });
-}
-
-function setTarget(name, value) {
-  target[name] = Math.max(0, Math.min(POS_MAX, Math.round(value)));
-  lastInput = Date.now();
-  dirty = true;
-  showTarget();
-  flush();
-}
-
-function command(url) {
-  lastInput = 0;
-  post(url).then(showState).catch(showError);
-}
-
-function refresh() {
-  fetch('/api/state').then(r => r.json()).then(showState).catch(showError);
-}
-
-for (const [name, title] of SERVOS) {
-  const box = document.createElement('div');
-  box.className = 'servo';
-  const head = document.createElement('div');
-  head.className = 'title';
-  head.append(title + ': ');
-  labels[name] = document.createElement('b');
-  head.appendChild(labels[name]);
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = 0;
-  slider.max = POS_MAX;
-  slider.oninput = () => setTarget(name, Number(slider.value));
-  sliders[name] = slider;
-  const steps = document.createElement('div');
-  steps.className = 'steps';
-  for (const step of STEPS) {
-    const b = document.createElement('button');
-    b.textContent = (step > 0 ? '+' : '') + step;
-    b.onclick = () => setTarget(name, target[name] + step);
-    steps.appendChild(b);
-  }
-  box.append(head, slider, steps);
-  $('servos').appendChild(box);
-}
-
-$('power').onclick = () => {
-  const on = state.amp === 'off';
-  if (confirm(on ? 'Включить усилитель?' : 'Выключить усилитель?')) command('/api/power?on=' + (on ? 1 : 0));
-};
-$('resetprot').onclick = () => command('/api/protection/reset');
-setInterval(showAmpState, 1000);
-
-$('tuning').onchange = () => command('/api/mode?tuning=' + ($('tuning').checked ? 1 : 0));
-$('save').onclick = () => command('/api/save');
-$('reset').onclick = () => {
-  if (confirm('Сбросить сохранённую настройку для ' + state.freq + ' кГц?')) command('/api/reset');
-};
-
-const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр', 3: 'переключатель БМЗ'};
-
-for (const step of STEPS) {
-  const b = document.createElement('button');
-  b.textContent = (step > 0 ? '+' : '') + step;
-  b.onclick = () => post('/api/switch/jog?steps=' + step).then(showState).catch(serviceError);
-  $('swjog').appendChild(b);
-}
-$('swcal').onclick = () => {
-  if (!confirm('Запомнить текущее положение привода как положение 1 переключателя?')) return;
-  post('/api/switch/calibrate').then(s => {
-    showState(s);
-    serviceMessage('Положение 1 запомнено: шаг привода ' + s.swOffset + '.');
-  }).catch(serviceError);
-};
-
-function serviceMessage(text) {
-  $('servicemsg').textContent = text;
-}
-
-function serviceError(e) {
-  serviceMessage(e instanceof TypeError ? 'нет связи с контроллером' : e.message);
-}
-
-$('scan').onclick = () => {
-  serviceMessage('Поиск приводов...');
-  post('/api/servo/scan').then(r => {
-    if (!r.servos.length) {
-      serviceMessage('Приводы не найдены: проверьте питание и подключение шины.');
-      return;
-    }
-    serviceMessage(r.servos.map(s => 'ID ' + s.id + (SERVO_NAMES[s.id] ? ' (' + SERVO_NAMES[s.id] + ')' : '') +
-      ': положение ' + (s.pos < 0 ? 'не прочитано' : s.pos)).join('\n'));
-  }).catch(serviceError);
-};
-
-$('setid').onclick = () => {
-  const from = $('idfrom').value, to = $('idto').value;
-  if (!confirm('Сменить ID привода ' + from + ' на ' + to + '? На шине должен быть только этот привод.')) return;
-  post('/api/servo/id?from=' + from + '&to=' + to)
-    .then(r => serviceMessage('Готово: привод отвечает на ID ' + r.id + '.')).catch(serviceError);
-};
-
-$('export').onclick = () => location.href = '/api/points.csv';
-$('import').onclick = () => $('importfile').click();
-$('importfile').onchange = () => {
-  const file = $('importfile').files[0];
-  $('importfile').value = '';
-  if (!file || !confirm('Заменить все сохранённые настройки содержимым файла ' + file.name + '?')) return;
-  file.text().then(text => fetch('/api/points.csv', {method: 'POST', headers: {'Content-Type': 'text/plain'}, body: text}))
-    .then(r => r.json().then(j => {
-      if (!r.ok) throw new Error(j.error || ('ошибка ' + r.status));
-      alert('Загружено точек: ' + j.loaded);
+document.getElementById('upload').onclick = function () {
+  var files = document.getElementById('files').files;
+  if (!files.length) return;
+  var form = new FormData();
+  for (var i = 0; i < files.length; i++) form.append('file', files[i], files[i].name);
+  document.getElementById('msg').textContent = 'Загрузка...';
+  fetch('/api/www', {method: 'POST', body: form}).then(function (r) {
+    return r.json().then(function (j) {
+      if (!r.ok) throw new Error(j.error || r.status);
       location.reload();
-    })).catch(showError);
+    });
+  }).catch(function (e) { document.getElementById('msg').textContent = 'Ошибка: ' + e.message; });
 };
-
-fetch('/api/table').then(r => r.json()).then(bands => {
-  bands.forEach((band, index) => {
-    const tab = document.createElement('button');
-    tab.textContent = band.name;
-    tab.onclick = () => showBand(index);
-    $('bands').appendChild(tab);
-    bandTabs.push(tab);
-    const box = document.createElement('div');
-    box.className = 'band';
-    for (const [freq, cap, vario, saved] of band.points) {
-      const b = document.createElement('button');
-      b.textContent = freq;
-      b.classList.toggle('saved', !!saved);
-      b.onclick = () => command('/api/select?freq=' + freq);
-      box.appendChild(b);
-      buttons[freq] = b;
-      bandOf[freq] = index;
-    }
-    $('table').appendChild(box);
-    bandBoxes.push(box);
-  });
-  showBand(0);
-  refresh();
-  setInterval(refresh, 1000);
-}).catch(showError);
 </script>
 </body>
 </html>
@@ -876,7 +483,7 @@ void updateInput(Input &in) {
   if (value != in.raw) {
     in.raw = value;
     in.since = millis();
-  } else if (value != in.active && millis() - in.since >= INPUT_DEBOUNCE_MS) {
+  } else if (value != in.active && millis() - in.since >= in.debounceMs) {
     in.active = value;
     Serial.printf("input GPIO %d -> %s\n", in.pin, value ? "active" : "inactive");
   }
@@ -899,13 +506,26 @@ const char *pttBlockReason() {
   return nullptr;
 }
 
+// Реле PTT усилителя замкнуто, пока трансивер даёт PTT и передача разрешена
 void updatePtt() {
-  bool allow = pttBlockReason() == nullptr;
-  if (allow == relayPtt)
+  bool key = pttInput.active && pttBlockReason() == nullptr;
+  if (key) {
+    txHappened = true;
+    lastTxMs = millis();
+  }
+  if (key == relayPtt)
     return;
-  relayPtt = allow;
-  setRelay(RELAY_PTT_PIN, allow);
-  Serial.printf("PTT %s\n", allow ? "allowed" : "blocked");
+  relayPtt = key;
+  setRelay(RELAY_PTT_PIN, key);
+  Serial.printf("PTT %s\n", key ? "on" : "off");
+}
+
+// Сколько секунд осталось до конца охлаждения после последней передачи; 0 - можно выключать
+int cooldownSeconds() {
+  if (ampState == AMP_OFF || !txHappened)
+    return 0;
+  uint32_t elapsed = millis() - lastTxMs;
+  return elapsed < COOLDOWN_MS ? (COOLDOWN_MS - elapsed + 999) / 1000 : 0;
 }
 
 int wrapSteps(int steps) {
@@ -1032,7 +652,38 @@ void ampPowerOn() {
   Serial.println("amp: power on, soft start");
 }
 
+void setWebTx(bool on) {
+  if (on == webTx)
+    return;
+  webTx = on;
+  setRelay(RELAY_TRX_PTT_PIN, on);
+  if (on)
+    webTxStart = millis();
+  Serial.printf("web TX %s\n", on ? "on" : "off");
+}
+
+// Снимает передачу с веб-страницы, если страница перестала её подтверждать или вышло время
+void updateWebTx() {
+  if (!webTx)
+    return;
+  if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
+    Serial.println("web TX: no keepalive");
+    setWebTx(false);
+  } else if (millis() - webTxStart > WEB_TX_MAX_MS) {
+    Serial.println("web TX: time limit");
+    setWebTx(false);
+  }
+}
+
+int webTxLeftSeconds() {
+  if (!webTx)
+    return 0;
+  uint32_t elapsed = millis() - webTxStart;
+  return elapsed < WEB_TX_MAX_MS ? (WEB_TX_MAX_MS - elapsed + 999) / 1000 : 0;
+}
+
 void ampPowerOff() {
+  setWebTx(false);
   setAmpState(AMP_OFF);
   updatePtt();
   relayAnode = false;
@@ -1049,6 +700,7 @@ void ampPowerOff() {
 void updateAmp() {
   updateInput(protectionInput);
   updateInput(anodeInput);
+  updateInput(pttInput);
   uint32_t elapsed = millis() - ampStateSince;
   if (ampState == AMP_SOFTSTART && elapsed >= SOFTSTART_MS) {
     relaySoftstart = true;
@@ -1118,10 +770,15 @@ void sendState() {
           ",\"power\":" + jsonBool(relayPower) + ",\"soft\":" + jsonBool(relaySoftstart) +
           ",\"anode\":" + jsonBool(relayAnode) + ",\"anodeOk\":" + jsonBool(anodeInput.active) +
           ",\"protect\":" + jsonBool(protectionInput.active) + ",\"protectLatched\":" + jsonBool(protectionLatched) +
-          ",\"ptt\":" + jsonBool(relayPtt) + ",\"pttReason\":\"" + (reason ? reason : "") + "\"" +
+          ",\"ptt\":" + jsonBool(relayPtt) + ",\"pttAllowed\":" + jsonBool(reason == nullptr) +
+          ",\"pttReason\":\"" + (reason ? reason : "") + "\"" + ",\"txReq\":" + jsonBool(pttInput.active) +
+          ",\"lastTx\":" + String(txHappened ? (int)((millis() - lastTxMs) / 1000) : -1) +
+          ",\"cooldown\":" + String(cooldownSeconds()) +
           ",\"servoCap\":" + String(servoCapPos) + ",\"servoVario\":" + String(servoVarioPos) +
           ",\"servoSwitch\":" + String(servoSwitchPos) + ",\"swMoving\":" + jsonBool(switchMoving) +
-          ",\"swFailed\":" + jsonBool(switchFailed) + ",\"swOffset\":" + String(switchOffset) + "}";
+          ",\"swFailed\":" + jsonBool(switchFailed) + ",\"swOffset\":" + String(switchOffset) +
+          ",\"webTx\":" + jsonBool(webTx) + ",\"webTxLeft\":" + String(webTxLeftSeconds()) +
+          ",\"api\":" + String(WWW_API_VERSION) + "}";
   server.send(200, "application/json", json);
 }
 
@@ -1129,8 +786,120 @@ void sendError(int code, const char *message) {
   server.send(code, "application/json", String("{\"error\":\"") + message + "\"}");
 }
 
+const char *contentTypeFor(const String &name) {
+  if (name.endsWith(".html"))
+    return "text/html; charset=utf-8";
+  if (name.endsWith(".js"))
+    return "application/javascript; charset=utf-8";
+  if (name.endsWith(".css"))
+    return "text/css; charset=utf-8";
+  if (name.endsWith(".svg"))
+    return "image/svg+xml";
+  if (name.endsWith(".png"))
+    return "image/png";
+  if (name.endsWith(".ico"))
+    return "image/x-icon";
+  return "";
+}
+
+// Имя файла веб-страницы: без каталогов, только латиница, цифры, точка, дефис, подчёркивание
+bool validWwwName(const String &name) {
+  if (name.length() == 0 || name.length() > 31 || contentTypeFor(name)[0] == '\0')
+    return false;
+  for (size_t i = 0; i < name.length(); i++) {
+    char c = name[i];
+    if (!isalnum((unsigned char)c) && c != '.' && c != '-' && c != '_')
+      return false;
+  }
+  return name[0] != '.';
+}
+
+bool streamWwwFile(const String &name) {
+  File file = LittleFS.open("/" + name, "r");
+  if (!file)
+    return false;
+  server.sendHeader("Cache-Control", "no-cache");
+  server.streamFile(file, contentTypeFor(name));
+  file.close();
+  return true;
+}
+
 void handleRoot() {
-  server.send_P(200, "text/html; charset=utf-8", INDEX_HTML);
+  if (!streamWwwFile("index.html"))
+    server.send_P(200, "text/html; charset=utf-8", FALLBACK_HTML);
+}
+
+// Файлы веб-страницы из LittleFS; неизвестные адреса API - ошибка в JSON
+void handleNotFound() {
+  String uri = server.uri();
+  if (uri.startsWith("/api/")) {
+    sendError(404, "нет такого метода");
+    return;
+  }
+  String name = uri.substring(1);
+  if (!validWwwName(name) || !streamWwwFile(name))
+    server.send(404, "text/plain; charset=utf-8", "Не найдено");
+}
+
+// Загрузка файлов веб-страницы: каждый пишется во временный файл и подменяет старый
+void handleWwwUpload() {
+  HTTPUpload &upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    uploadName = upload.filename;
+    if (!validWwwName(uploadName)) {
+      uploadError = "недопустимое имя файла: " + uploadName;
+      return;
+    }
+    uploadFile = LittleFS.open("/" + uploadName + ".tmp", "w");
+    if (!uploadFile)
+      uploadError = "не удалось создать файл " + uploadName;
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (uploadFile && uploadFile.write(upload.buf, upload.currentSize) != upload.currentSize)
+      uploadError = "не хватило места для " + uploadName;
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (!uploadFile)
+      return;
+    uploadFile.close();
+    if (uploadError.length() == 0) {
+      LittleFS.remove("/" + uploadName);
+      if (LittleFS.rename("/" + uploadName + ".tmp", "/" + uploadName))
+        uploadCount++;
+      else
+        uploadError = "не удалось записать " + uploadName;
+    }
+    LittleFS.remove("/" + uploadName + ".tmp");
+  } else if (upload.status == UPLOAD_FILE_ABORTED) {
+    if (uploadFile)
+      uploadFile.close();
+    LittleFS.remove("/" + uploadName + ".tmp");
+    uploadError = "загрузка прервана";
+  }
+}
+
+void handleWwwDone() {
+  if (uploadError.length() > 0)
+    sendError(400, uploadError.c_str());
+  else if (uploadCount == 0)
+    sendError(400, "файлы не получены");
+  else
+    server.send(200, "application/json", "{\"files\":" + String(uploadCount) + "}");
+  Serial.printf("www upload: %d files %s\n", uploadCount, uploadError.c_str());
+  uploadError = "";
+  uploadCount = 0;
+}
+
+// on=1 - начать передачу, keep=1 - подтверждение от страницы, on=0 - закончить
+void handleTx() {
+  if (server.hasArg("on") && server.arg("on").toInt() != 0) {
+    webTxLastPing = millis();
+    setWebTx(true);
+  } else if (server.hasArg("keep")) {
+    if (webTx)
+      webTxLastPing = millis();
+  } else {
+    setWebTx(false);
+  }
+  sendState();
 }
 
 void handleTable() {
@@ -1300,11 +1069,18 @@ void handleImport() {
   server.send(200, "application/json", "{\"loaded\":" + String(loaded) + "}");
 }
 
+// force=1 выключает, не дожидаясь охлаждения после передачи
 void handlePower() {
-  if (server.arg("on").toInt() != 0)
+  if (server.arg("on").toInt() != 0) {
     ampPowerOn();
-  else
+  } else {
+    int cooldown = cooldownSeconds();
+    if (cooldown > 0 && server.arg("force").toInt() == 0) {
+      sendError(409, ("идёт охлаждение после передачи, осталось " + String(cooldown) + " с").c_str());
+      return;
+    }
     ampPowerOff();
+  }
   sendState();
 }
 
@@ -1467,13 +1243,13 @@ void setup() {
   Serial1.begin(SERVO_BAUD, SERIAL_8N1, SERVO_RX_PIN, SERVO_TX_PIN);
 
   // уровень выставляем до включения выходов, чтобы реле не дёрнулись при старте
-  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN};
+  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN, RELAY_TRX_PTT_PIN};
   for (int pin : relayPins) {
     setRelay(pin, false);
     pinMode(pin, OUTPUT);
     setRelay(pin, false);
   }
-  for (Input *in : {&protectionInput, &anodeInput}) {
+  for (Input *in : {&protectionInput, &anodeInput, &pttInput}) {
     pinMode(in->pin, INPUT_PULLUP);
     in->raw = in->active = digitalRead(in->pin) == INPUT_ACTIVE_LEVEL;
   }
@@ -1485,7 +1261,15 @@ void setup() {
 
   setupNetwork();
 
+  if (LittleFS.begin(true))
+    Serial.printf("LittleFS: %u of %u bytes used\n", (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
+  else
+    Serial.println("LittleFS mount failed");
+
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/api/tx", HTTP_POST, handleTx);
+  server.on("/api/www", HTTP_POST, handleWwwDone, handleWwwUpload);
+  server.onNotFound(handleNotFound);
   server.on("/api/table", HTTP_GET, handleTable);
   server.on("/api/state", HTTP_GET, sendState);
   server.on("/api/select", HTTP_POST, handleSelect);
@@ -1508,5 +1292,6 @@ void loop() {
   updateAmp();
   pollServos();
   updateSwitch();
+  updateWebTx();
   server.handleClient();
 }
