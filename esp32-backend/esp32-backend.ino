@@ -506,10 +506,11 @@ const char *pttBlockReason() {
   return nullptr;
 }
 
-// Реле PTT усилителя замкнуто, пока трансивер даёт PTT и передача разрешена
+// Реле PTT усилителя замкнуто, пока трансивер даёт PTT и передача разрешена.
+// Передача с веб-страницы тоже считается передачей для охлаждения ламп
 void updatePtt() {
   bool key = pttInput.active && pttBlockReason() == nullptr;
-  if (key) {
+  if (key || webTx) {
     txHappened = true;
     lastTxMs = millis();
   }
@@ -662,11 +663,15 @@ void setWebTx(bool on) {
   Serial.printf("web TX %s\n", on ? "on" : "off");
 }
 
-// Снимает передачу с веб-страницы, если страница перестала её подтверждать или вышло время
+// Снимает передачу с веб-страницы, если усилитель не готов, страница перестала её
+// подтверждать или вышло время
 void updateWebTx() {
   if (!webTx)
     return;
-  if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
+  if (ampState != AMP_READY) {
+    Serial.println("web TX: amp not ready");
+    setWebTx(false);
+  } else if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
     Serial.println("web TX: no keepalive");
     setWebTx(false);
   } else if (millis() - webTxStart > WEB_TX_MAX_MS) {
@@ -888,9 +893,14 @@ void handleWwwDone() {
   uploadCount = 0;
 }
 
-// on=1 - начать передачу, keep=1 - подтверждение от страницы, on=0 - закончить
+// on=1 - начать передачу (только при включённом и прогретом усилителе),
+// keep=1 - подтверждение от страницы, on=0 - закончить
 void handleTx() {
   if (server.hasArg("on") && server.arg("on").toInt() != 0) {
+    if (ampState != AMP_READY) {
+      sendError(409, ampState == AMP_OFF ? "усилитель выключен" : "идёт прогрев");
+      return;
+    }
     webTxLastPing = millis();
     setWebTx(true);
   } else if (server.hasArg("keep")) {

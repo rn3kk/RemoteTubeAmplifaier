@@ -21,7 +21,7 @@ controller itself.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: mains on → soft start bypass after 5 s → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable.
 - **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up, with anode voltage present and no protection trip; PTT is dropped while the band switch is rotating.
-- **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3); the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
+- **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3), only when the amplifier is on and warmed up; the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
 - **Status on the page**: power-up stage with countdown, mains, soft start, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
@@ -95,23 +95,20 @@ core 3.x (`esp32:esp32`). No third-party libraries are required.
    const char *WIFI_PASS = "password";
    ```
 
-2. Build and flash:
+2. Build the firmware and upload it together with the web page files (`esp32-backend/data`) with one command:
 
    ```bash
-   FQBN=esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,CDCOnBoot=cdc
-   arduino-cli compile --fqbn $FQBN esp32-backend
-   arduino-cli upload -p /dev/ttyACM0 --fqbn $FQBN esp32-backend
+   tools/flash.sh               # build, upload firmware and page files
+   tools/flash.sh build         # build only
+   tools/flash.sh firmware      # build and upload the firmware only
+   tools/flash.sh www           # upload the page files only
+   tools/flash.sh monitor       # serial monitor
+   tools/flash.sh -p /dev/ttyACM1 all   # another port
    ```
 
-3. Upload the web page files (`esp32-backend/data`: `index.html`, `app.js`, `style.css`) to the flash file partition:
+   Close the serial monitor before uploading. Later the files can be updated without a cable: "Service" block on the page → "Upload files". If the files are missing (for example, after a full flash erase), the board serves a fallback page with an upload form.
 
-   ```bash
-   tools/upload-www.sh /dev/ttyACM0
-   ```
-
-   Later the files can be updated without a cable: "Service" block on the page → "Upload files". If the files are missing (for example, after a full flash erase), the board serves a fallback page with an upload form.
-
-4. Open the serial monitor (`arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
+3. Open the serial monitor (`tools/flash.sh monitor`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
 
 For a board with Ethernet (W5500), set `#define USE_ETHERNET 1` at the top of the sketch and set the `ETH_*` pins.
 

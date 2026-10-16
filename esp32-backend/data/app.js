@@ -117,6 +117,7 @@ function showAmp(s) {
   $('resetprot').hidden = !s.protectLatched;
   $('version').hidden = s.api === API_VERSION;
   $('txbtn').classList.toggle('on', s.webTx);
+  $('txbtn').disabled = s.amp !== 'ready' && !s.webTx;
   $('txbtn').textContent = s.webTx ? 'Передача ' + Math.floor(s.webTxLeft / 60) + ':' + String(s.webTxLeft % 60).padStart(2, '0') : 'Передача';
   if (!s.webTx && txTimer) {
     clearInterval(txTimer);
