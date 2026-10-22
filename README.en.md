@@ -16,15 +16,15 @@ controller itself.
 
 ## Features
 
-- **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 100 m band (2900–3200 kHz); one band is shown at a time.
+- **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 190 m (1600–1775 kHz) and 100 m (2900–3200 kHz) bands; one band is shown at a time.
 - **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
-- **Power-up sequence**: mains on → soft start bypass after 5 s → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable.
-- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up, with anode voltage present and no protection trip; PTT is dropped while the band switch is rotating.
+- **Power-up sequence**: mains on → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable. The amplifier's soft start is self-contained; the controller does not drive it.
+- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while the band switch is rotating.
 - **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3), only when the amplifier is on and warmed up; the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
-- **Status on the page**: power-up stage with countdown, mains, soft start, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
+- **Status on the page**: power-up stage with countdown, mains, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
 - **Service**: servo bus scan, servo ID change, band switch position 1 calibration.
 - **Settings storage** in the ESP32 flash; the table can be downloaded to a file and uploaded back (to move it to another board).
 - Layout for desktop and phone.
@@ -49,13 +49,11 @@ Pins for the T-Halow. All relays are switched on by a **low** level at the modul
 | ESP32 pin | Function |
 |---|---|
 | IO9 | relay 1 (8-relay module): amplifier mains |
-| IO10 | relay 2: soft start bypass |
 | IO12 | relay 3: transceiver PTT (transmit from the web page) |
 | IO48 | relay 8: amplifier PTT |
 | IO40 | relay 1 (4-relay module): anode voltage |
 | IO11 | input: transceiver PTT (active when pulled to GND) |
 | IO41 | input "protection tripped" (active when pulled to GND) |
-| IO46 | input "anode voltage present" (active when pulled to GND) |
 | IO21 | servo bus, transmit (through a 1 kΩ resistor) |
 | IO47 | servo bus, receive |
 
@@ -80,7 +78,7 @@ ESP32 GND ───────────────────────�
 ### Relays and inputs
 
 - "Arduino" relay modules are designed for 5 V. If the relays do not switch reliably from 3.3 V, power the optocoupler side (VCC) from 3.3 V and the coils (JD-VCC) from 5 V with the jumper removed.
-- Never apply more than 3.3 V to IO11/IO41/IO46: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
+- Never apply more than 3.3 V to IO11/IO41: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
 
 ## Build and flash
 
@@ -112,8 +110,8 @@ core 3.x (`esp32:esp32`). No third-party libraries are required.
 
 For a board with Ethernet (W5500), set `#define USE_ETHERNET 1` at the top of the sketch and set the `ETH_*` pins.
 
-Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; soft start,
-warm-up and cool-down durations are `SOFTSTART_MS`, `WARMUP_MS` and `COOLDOWN_MS`.
+Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; warm-up
+and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 
 > For debugging, warm-up and cool-down are currently shortened to 10 s (`WARMUP_MS`, `COOLDOWN_MS`, marked "ОТЛАДКА").
 > Set them back to 180000 and 300000 before running the amplifier.
@@ -152,7 +150,7 @@ the power-up sequence and PTT blocking logic.
 
 Not yet tested on hardware:
 - the STS3215 servos (the protocol is implemented from the Feetech documentation), including the band switch step mode;
-- the relays and the PTT, protection and anode inputs;
+- the relays and the PTT and protection inputs;
 - the Ethernet build.
 
 Not implemented: reading the frequency from the transceiver over CAT.

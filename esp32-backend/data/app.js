@@ -1,4 +1,4 @@
-const API_VERSION = 1;  // должна совпадать с WWW_API_VERSION в прошивке
+const API_VERSION = 2;  // должна совпадать с WWW_API_VERSION в прошивке
 const POS_MAX = 4095;
 const STEPS = [-100, -10, -1, 1, 10, 100];
 const SERVOS = [['cap', 'КПЕ'], ['vario', 'Вариометр']];
@@ -62,7 +62,7 @@ function showBand(index) {
   });
 }
 
-const AMP_NAMES = {off: 'Усилитель выключен', softstart: 'Плавный пуск', warmup: 'Прогрев ламп', ready: 'Усилитель включён'};
+const AMP_NAMES = {off: 'Усилитель выключен', warmup: 'Прогрев ламп', ready: 'Усилитель включён'};
 
 function chip(id, cls, text) {
   $(id).className = 'chip' + (cls ? ' ' + cls : '');
@@ -70,7 +70,7 @@ function chip(id, cls, text) {
 }
 
 function locked() {
-  return state && (state.amp === 'softstart' || state.amp === 'warmup');
+  return state && state.amp === 'warmup';
 }
 
 function mmss(until) {
@@ -103,9 +103,7 @@ function showAmp(s) {
   if (s.amp === 'off' || s.cooldown === 0) offRefused = false;
   $('forceoff').hidden = !offRefused;
   chip('c-power', s.power ? 'on' : '', 'Питание: ' + (s.power ? 'вкл' : 'выкл'));
-  chip('c-soft', s.soft ? 'on' : s.amp === 'softstart' ? 'wait' : '', 'Плавный пуск: ' + (s.soft ? 'замкнут' : 'нет'));
-  chip('c-anode', s.anodeOk ? (s.anode ? 'on' : 'bad') : s.anode ? 'bad' : '',
-    'Анодное: ' + (s.anode ? 'вкл' : 'выкл') + ', ' + (s.anodeOk ? 'есть' : 'нет'));
+  chip('c-anode', s.anode ? 'on' : '', 'Анодное: ' + (s.anode ? 'вкл' : 'выкл'));
   chip('c-ptt', s.ptt ? 'wait' : s.pttAllowed ? 'on' : '', 'PTT: ' + (s.ptt ? 'передача' : s.pttAllowed ? 'готов' : 'запрещён'));
   chip('c-tx', '', s.lastTx < 0 ? 'Передачи не было' : 'Последняя передача: ' +
     (s.lastTx < 60 ? s.lastTx + ' с' : Math.floor(s.lastTx / 60) + ' мин') + ' назад');
