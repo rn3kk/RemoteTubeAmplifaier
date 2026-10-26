@@ -10,6 +10,7 @@ let shownBand = 0;
 const switchButtons = [];
 const sliders = {};
 const labels = {};
+const servoBoxes = {};  // блоки ручек КПЕ и вариометра
 const target = {cap: 0, vario: 0};
 let state = null;
 let lastInput = 0;
@@ -73,6 +74,11 @@ function locked() {
   return state && state.amp === 'warmup';
 }
 
+// Выбор частоты и ручная перестройка - только при включённом и прогретом усилителе
+function canTune() {
+  return state && state.amp === 'ready';
+}
+
 function mmss(until) {
   const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
   return Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
@@ -90,11 +96,20 @@ function showAmpNote() {
   const s = state;
   let note = '';
   if (locked()) note = 'Управление заблокировано до окончания прогрева.';
+  else if (s.amp === 'off') note = 'Выбор частоты и настройка доступны после включения усилителя.';
   else if (s.txReq && !s.ptt && s.pttReason) note = 'PTT от трансивера не проходит: ' + s.pttReason + '.';
-  else if (s.amp === 'ready' && !s.pttAllowed && s.pttReason) note = 'Передача невозможна: ' + s.pttReason + '.';
   if (s.cooldown > 0 && cooldownUntil > Date.now())
     note += (note ? ' ' : '') + 'Охлаждение после передачи: ' + mmss(cooldownUntil) + '.';
   $('ampnote').textContent = note;
+}
+
+// Индикатор привода КПЕ или вариометра: положение, перестройка, не встал, нет связи
+function servoChipClass(position, moving, failed) {
+  return position < 0 || failed ? 'bad' : moving ? 'wait' : 'on';
+}
+
+function servoChipText(position, moving, failed) {
+  return position < 0 ? 'нет связи' : moving ? 'перестройка' : failed ? 'не встал' : position;
 }
 
 function showAmp(s) {
@@ -108,7 +123,10 @@ function showAmp(s) {
   chip('c-tx', '', s.lastTx < 0 ? 'Передачи не было' : 'Последняя передача: ' +
     (s.lastTx < 60 ? s.lastTx + ' с' : Math.floor(s.lastTx / 60) + ' мин') + ' назад');
   chip('c-prot', s.protectLatched || s.protect ? 'bad' : 'on', 'Защита: ' + (s.protectLatched ? 'сработала' : s.protect ? 'сигнал' : 'норма'));
-  chip('c-cap', s.servoCap >= 0 ? 'on' : 'bad', 'КПЕ: ' + (s.servoCap >= 0 ? s.servoCap : 'нет связи'));
+  $('txallow').className = s.ptt ? 'tx' : s.pttAllowed ? 'ok' : '';
+  $('txallow').textContent = s.ptt ? 'Идёт передача' : s.pttAllowed ? 'Передача разрешена' :
+    'Передача запрещена: ' + s.pttReason;
+  chip('c-cap', servoChipClass(s.servoCap, s.capMoving, s.capFailed), 'КПЕ: ' + servoChipText(s.servoCap, s.capMoving, s.capFailed));
   chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
     (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
   $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : s.servoSwitch;
@@ -116,7 +134,8 @@ function showAmp(s) {
     $('swslider').value = s.servoSwitch;
     $('swtarget').textContent = withDegrees(s.servoSwitch);
   }
-  chip('c-vario', s.servoVario >= 0 ? 'on' : 'bad', 'Вариометр: ' + (s.servoVario >= 0 ? s.servoVario : 'нет связи'));
+  chip('c-vario', servoChipClass(s.servoVario, s.varioMoving, s.varioFailed),
+    'Вариометр: ' + servoChipText(s.servoVario, s.varioMoving, s.varioFailed));
   $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
   $('power').className = s.amp === 'off' ? 'off' : 'on';
   $('resetprot').hidden = !s.protectLatched;
@@ -129,6 +148,13 @@ function showAmp(s) {
     txTimer = null;
   }
   showAmpState();
+}
+
+// Отключает ручки внутри блока панели настройки; включать обратно не нужно -
+// showState каждый раз сначала выставляет все ручки панели заново
+function freeze(box, off) {
+  if (!off) return;
+  for (const el of box.querySelectorAll('button, input')) el.disabled = true;
 }
 
 function showState(s) {
@@ -154,7 +180,7 @@ function showState(s) {
   switchButtons.forEach((b, i) => b.classList.toggle('active', i + 1 === s.sw));
   for (const f in buttons) {
     buttons[f].classList.toggle('active', Number(f) === s.freq);
-    buttons[f].disabled = locked();
+    buttons[f].disabled = !canTune();
   }
   if (s.freq && buttons[s.freq]) buttons[s.freq].classList.toggle('saved', s.saved);
   $('error').textContent = '';
@@ -164,9 +190,14 @@ function showState(s) {
   $('files').hidden = !s.tuning;
   const ready = s.freq > 0;
   $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
-  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || locked();
-  $('save').disabled = !ready || (!s.sw && s.servoSwitch >= 0);
-  $('reset').disabled = !ready || !s.saved;
+  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || !canTune();
+  // без связи с приводом его ручки неактивны
+  freeze(servoBoxes.cap, s.servoCap < 0);
+  freeze(servoBoxes.vario, s.servoVario < 0);
+  freeze($('switch'), s.servoSwitch < 0);
+  for (const el of $('swcalib').querySelectorAll('button, input')) el.disabled = s.servoSwitch < 0;
+  $('save').disabled = !ready || !canTune() || (!s.sw && s.servoSwitch >= 0);
+  $('reset').disabled = !ready || !canTune() || !s.saved;
   const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
   $('unsaved').textContent = !ready ? '' : !s.saved ? 'точка не настроена' : changed ? 'положение не сохранено' : 'сохранено';
 
@@ -247,6 +278,7 @@ for (const [name, title] of SERVOS) {
     steps.appendChild(b);
   }
   box.append(head, slider, steps);
+  servoBoxes[name] = box;
   $('servos').appendChild(box);
 }
 

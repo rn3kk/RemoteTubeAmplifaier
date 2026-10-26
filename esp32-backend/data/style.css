@@ -62,6 +62,11 @@ label.mode input { width: 22px; height: 22px; accent-color: #ffb347; }
 .chip.on { background: #24502c; color: #b9f0c2; }
 .chip.wait { background: #5a4a1f; color: #ffd98a; }
 .chip.bad { background: #5c2424; color: #ffb3b3; }
+#txallow { margin: 10px 0; padding: 10px 12px; border-radius: 8px; font-size: 17px; font-weight: bold;
+           background: #5c2424; color: #ffb3b3; }
+#txallow.ok { background: #24502c; color: #b9f0c2; }
+#txallow.tx { background: #5a4a1f; color: #ffd98a; }
+input[type=range]:disabled { opacity: .4; }
 #ampnote { margin-top: 8px; color: #ffb347; }
 #ampnote:empty { display: none; }
 #files { margin-bottom: 16px; }

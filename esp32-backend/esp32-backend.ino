@@ -40,6 +40,12 @@ const uint16_t SERVO_SPEED = 1500;  // шагов/с, 0 - максимальна
 const uint8_t SERVO_ACC = 50;       // x100 шагов/с^2, 0 - максимальное
 const int SERVO_POS_MAX = 4095;     // 4096 шагов на оборот
 
+// Перестройка КПЕ и вариометра по выбору частоты: PTT запрещён, пока приводы не встанут.
+// Ручное движение в режиме настройки PTT не снимает - настройка идёт под несущей
+const int SERVO_TOLERANCE = 20;               // шагов: допуск, при котором привод считается вставшим
+const uint32_t SERVO_MOVE_TIMEOUT_MS = 5000;  // сколько ждать окончания перестройки
+const uint32_t SERVO_CHECK_MS = 50;           // как часто проверять положение во время перестройки
+
 // Основной модуль на 8 реле с опторазвязкой и второй модуль на 4 реле.
 // Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе
 const int RELAY_ACTIVE_LEVEL = LOW;
@@ -173,6 +179,19 @@ uint32_t switchMoveStart = 0;
 uint32_t lastSwitchCheck = 0;
 int switchOffset = 0;        // шаг привода, соответствующий положению 1
 bool switchStepModeChecked = false;
+
+// Перестройка привода КПЕ или вариометра в положение выбранной частоты
+struct Retune {
+  uint8_t id;
+  const char *name;  // для лога
+  bool moving;       // едет в положение, PTT запрещён
+  bool failed;       // не встал за SERVO_MOVE_TIMEOUT_MS, PTT запрещён до следующей перестройки
+  int target;
+};
+Retune capRetune = {SERVO_ID_CAP, "cap", false, false, 0};
+Retune varioRetune = {SERVO_ID_VARIO, "vario", false, false, 0};
+uint32_t retuneStart = 0;
+uint32_t lastRetuneCheck = 0;
 
 // Вход с подавлением дребезга
 struct Input {
@@ -492,6 +511,16 @@ const char *pttBlockReason() {
     return "идёт прогрев";
   if (protectionLatched)
     return "сработала защита";
+  if (capRetune.moving || varioRetune.moving)
+    return "перестройка КПЕ и вариометра";
+  if (servoCapPos < 0)
+    return "нет связи с приводом КПЕ";
+  if (servoVarioPos < 0)
+    return "нет связи с приводом вариометра";
+  if (capRetune.failed)
+    return "КПЕ не встал в положение";
+  if (varioRetune.failed)
+    return "вариометр не встал в положение";
   if (switchMoving)
     return "поворот переключателя БМЗ";
   if (switchFailed)
@@ -512,6 +541,58 @@ void updatePtt() {
   relayPtt = key;
   setRelay(RELAY_PTT_PIN, key);
   Serial.printf("PTT %s\n", key ? "on" : "off");
+}
+
+// Начинает перестройку КПЕ и вариометра в положения новой частоты. PTT снимается сразу,
+// возвращается в updateRetune(), когда оба привода встанут
+void retuneServos(int cap, int vario) {
+  bool pttWasOn = relayPtt;
+  capRetune.moving = true;
+  capRetune.failed = false;
+  varioRetune.moving = true;
+  varioRetune.failed = false;
+  updatePtt();
+  if (pttWasOn)
+    delay(PTT_RELEASE_MS);
+  moveServos(cap, vario);
+  capRetune.target = currentCap;
+  varioRetune.target = currentVario;
+  retuneStart = millis();
+  lastRetuneCheck = 0;
+}
+
+// Ручное движение в режиме настройки: перестройку по частоте больше не отслеживаем
+void cancelRetune() {
+  capRetune.moving = false;
+  capRetune.failed = false;
+  varioRetune.moving = false;
+  varioRetune.failed = false;
+  updatePtt();
+}
+
+void checkRetune(Retune &r) {
+  if (!r.moving)
+    return;
+  int current = stsReadPosition(r.id);
+  if (current >= 0 && abs(current - r.target) <= SERVO_TOLERANCE) {
+    r.moving = false;
+    Serial.printf("%s servo: reached %d\n", r.name, current);
+  } else if (millis() - retuneStart > SERVO_MOVE_TIMEOUT_MS) {
+    r.moving = false;
+    r.failed = true;
+    Serial.printf("%s servo: timeout\n", r.name);
+  }
+}
+
+void updateRetune() {
+  if (!capRetune.moving && !varioRetune.moving)
+    return;
+  if (millis() - lastRetuneCheck < SERVO_CHECK_MS)
+    return;
+  lastRetuneCheck = millis();
+  checkRetune(capRetune);
+  checkRetune(varioRetune);
+  updatePtt();
 }
 
 // Сколько секунд осталось до конца охлаждения после последней передачи; 0 - можно выключать
@@ -739,6 +820,7 @@ void pollServos() {
   servoSwitchPos = readSwitchPos();
   if (servoSwitchPos < 0)
     switchStepModeChecked = false;  // привод могли заменить - режим проверим заново
+  updatePtt();  // связь с приводами влияет на разрешение PTT
 }
 
 const char *jsonBool(bool value) {
@@ -765,6 +847,8 @@ void sendState() {
           ",\"servoCap\":" + String(servoCapPos) + ",\"servoVario\":" + String(servoVarioPos) +
           ",\"servoSwitch\":" + String(servoSwitchPos) + ",\"swMoving\":" + jsonBool(switchMoving) +
           ",\"swFailed\":" + jsonBool(switchFailed) + ",\"swOffset\":" + String(switchOffset) +
+          ",\"capMoving\":" + jsonBool(capRetune.moving) + ",\"capFailed\":" + jsonBool(capRetune.failed) +
+          ",\"varioMoving\":" + jsonBool(varioRetune.moving) + ",\"varioFailed\":" + jsonBool(varioRetune.failed) +
           ",\"webTx\":" + jsonBool(webTx) + ",\"webTxLeft\":" + String(webTxLeftSeconds()) +
           ",\"api\":" + String(WWW_API_VERSION) + "}";
   server.send(200, "application/json", json);
@@ -917,6 +1001,10 @@ void handleTable() {
 }
 
 void handleSelect() {
+  if (ampState == AMP_OFF) {
+    sendError(409, "усилитель выключен");
+    return;
+  }
   if (controlsLocked()) {
     sendError(409, "идёт включение усилителя, управление заблокировано");
     return;
@@ -928,7 +1016,7 @@ void handleSelect() {
     return;
   }
   currentFreqKhz = freq;
-  moveServos(p->cap, p->vario);
+  retuneServos(p->cap, p->vario);
   setSwitch(p->sw);
   Serial.printf("freq %d kHz -> cap %d, vario %d, switch %d\n", currentFreqKhz, currentCap, currentVario, currentSwitch);
   sendState();
@@ -942,6 +1030,10 @@ void handleMode() {
 
 // Ручное перемещение сервоприводов и переключение БМЗ в режиме настройки
 void handleMove() {
+  if (ampState == AMP_OFF) {
+    sendError(409, "усилитель выключен");
+    return;
+  }
   if (controlsLocked()) {
     sendError(409, "идёт включение усилителя, управление заблокировано");
     return;
@@ -967,6 +1059,8 @@ void handleMove() {
       return;
     }
   }
+  if (server.hasArg("cap") || server.hasArg("vario"))
+    cancelRetune();
   moveServos(cap, vario);
   sendState();
 }
@@ -1305,6 +1399,7 @@ void loop() {
   updateAmp();
   pollServos();
   updateSwitch();
+  updateRetune();
   updateWebTx();
   server.handleClient();
 }

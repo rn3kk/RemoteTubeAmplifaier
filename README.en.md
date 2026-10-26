@@ -17,10 +17,10 @@ controller itself.
 ## Features
 
 - **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 190 m (1600–1775 kHz) and 100 m (2900–3200 kHz) bands; one band is shown at a time.
-- **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it.
+- **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it. Frequency selection and tuning work only with the amplifier on and warmed up.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: mains on → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable. The amplifier's soft start is self-contained; the controller does not drive it.
-- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while the band switch is rotating.
+- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while retuning after a frequency change (variable capacitor, variometer, band switch) and while any servo is not responding; manual turning of the capacitor and variometer in tuning mode does not drop PTT (tuning under carrier). The page always shows whether transmission is allowed and why not.
 - **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3), only when the amplifier is on and warmed up; the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
