@@ -96,7 +96,7 @@
 </header>
 
 <figure class="fig">
-  <div class="scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 по шине DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, PTT и анодное напряжение усилителя; от трансивера получает PTT, от усилителя — сигнал защиты." class="scheme"><defs>
+  <div class="scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер через роутер Wi-Fi обращается к ESP32; ESP32 через адаптер шины по линии DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть, PTT и анодное напряжение усилителя; от трансивера получает PTT, от усилителя — сигнал защиты." class="scheme"><defs>
 <marker id="ar-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-net"/></marker>
 <marker id="ar-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-ctl"/></marker>
 <marker id="ar-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-sig"/></marker>
@@ -123,8 +123,8 @@
 <text x="425" y="220" class="t" text-anchor="middle">включение и прогрев</text>
 <text x="425" y="244" class="t" text-anchor="middle">PTT и охлаждение</text>
 <text x="425" y="268" class="t" text-anchor="middle">управление приводами</text>
-<text x="590" y="114" class="pin" text-anchor="end">IO21 TX</text>
-<text x="590" y="144" class="pin" text-anchor="end">IO47 RX</text>
+<text x="590" y="114" class="pin" text-anchor="end">IO47 TX</text>
+<text x="590" y="144" class="pin" text-anchor="end">IO21 RX</text>
 <text x="560" y="78" class="pin" text-anchor="middle">GND</text>
 <text x="260" y="279" class="pin" text-anchor="start">IO11</text>
 <text x="260" y="304" class="pin" text-anchor="start">IO41</text>
@@ -132,13 +132,16 @@
 <text x="337.5" y="380" class="pin" text-anchor="middle">IO12</text>
 <text x="512.5" y="380" class="pin" text-anchor="middle">IO48</text>
 <text x="567.5" y="380" class="pin" text-anchor="middle">IO40</text>
-<path d="M600 110 L630 110" class="bus"/>
-<rect x="630" y="103" width="50" height="14" rx="2" class="comp"/>
-<text x="655" y="96" class="ts" text-anchor="middle">1 кОм</text>
-<path d="M680 110 L760 110" class="bus"/>
-<path d="M600 140 L720 140 L720 110" class="bus"/>
-<circle cx="720" cy="110" r="3.5" class="dot"/>
-<text x="690" y="168" class="ts" text-anchor="middle">шина DATA, 1 Мбит/с</text>
+<path d="M600 110 L622 110" class="bus"/>
+<path d="M600 140 L622 140" class="bus"/>
+<rect x="622" y="90" width="118" height="66" rx="6" class="comp"/>
+<text x="627" y="114" class="pin" text-anchor="start">TXD</text>
+<text x="627" y="144" class="pin" text-anchor="start">RXD</text>
+<text x="696" y="112" class="tb" text-anchor="middle">Адаптер</text>
+<text x="696" y="129" class="ts" text-anchor="middle">Waveshare (A)</text>
+<text x="696" y="145" class="ts" text-anchor="middle">перемычки A</text>
+<path d="M740 110 L760 110" class="bus"/>
+<text x="690" y="174" class="ts" text-anchor="middle">шина DATA, 1 Мбит/с</text>
 <rect x="760" y="75" width="120" height="70" rx="6" class="box"/>
 <text x="820" y="104" class="tb" text-anchor="middle">STS3215</text>
 <text x="820" y="124" class="ts" text-anchor="middle">ID 1 · КПЕ</text>
@@ -152,8 +155,8 @@
 <path d="M1020 110 L1040 110" class="bus"/>
 <rect x="900" y="8" width="120" height="38" rx="6" class="box"/>
 <text x="960" y="32" class="t" text-anchor="middle">БП приводов</text>
-<path d="M960 46 L960 75" class="pwr"/>
-<text x="968" y="65" class="ts" text-anchor="start">VCC, GND</text>
+<path d="M960 46 L960 58 L700 58 L700 90" class="pwr"/>
+<text x="830" y="52" class="ts" text-anchor="middle">DC 12 В</text>
 <path d="M900 27 L560 27 L560 60" class="gnd"/>
 <text x="730" y="20" class="ts" text-anchor="middle">общая GND</text>
 <path d="M820 145 L820 505" class="mech"/>
@@ -249,8 +252,8 @@
       <tr><td class="mono">IO40</td><td>модуль 4 реле, реле 1</td><td>анодное напряжение</td></tr>
       <tr><td class="mono">IO11</td><td>вход от трансивера</td><td>PTT трансивера</td></tr>
       <tr><td class="mono">IO41</td><td>вход от усилителя</td><td>сработала защита</td></tr>
-      <tr><td class="mono">IO21</td><td>шина приводов через 1 кОм</td><td>передача (TX)</td></tr>
-      <tr><td class="mono">IO47</td><td>шина приводов</td><td>приём (RX)</td></tr>
+      <tr><td class="mono">IO47</td><td>адаптер шины, TXD</td><td>передача (TX)</td></tr>
+      <tr><td class="mono">IO21</td><td>адаптер шины, RXD</td><td>приём (RX)</td></tr>
     </tbody>
   </table>
   </div>
@@ -259,15 +262,15 @@
 <section>
   <h2>Перед подключением</h2>
   <ul class="checks">
-    <li>Измерьте напряжение между DATA и GND на запитанном приводе. Выводы ESP32 рассчитаны на 3,3 В: если на линии около 5 В, нужен преобразователь уровней или адаптер шины.</li>
-    <li>Приводы питаются от своего блока (7,4 или 12 В — по наклейке, до 2–3 А на привод при заклинивании), не от ESP32. Земля блока и ESP32 общая.</li>
+    <li>Приводы подключаются через адаптер Waveshare Bus Servo Adapter (A): перемычки в положении A, TX ESP32 на TXD адаптера, RX на RXD (подписи со стороны контроллера), GND общий. Уровни 3,3 В, согласование не нужно.</li>
+    <li>Приводы питаются через адаптер от своего блока: 12 В для 12-вольтовых STS3215 (по наклейке), до 2–3 А на привод при заклинивании. Адаптер рассчитан на 9–12,6 В; при 14,5 В привод отвечает ошибкой напряжения.</li>
     <li>С завода у приводов ID 1: подключайте их по одному и меняйте номер в сервисе на странице (вариометр — 2, переключатель — 3).</li>
     <li>На IO11 и IO41 нельзя подавать больше 3,3 В: PTT трансивера и сигналы усилителя заводите сухим контактом или оптроном на GND.</li>
     <li>Реле 2 и 4–7 модуля на 8 реле и реле 2–4 модуля на 4 реле свободны.</li>
   </ul>
 </section>
 
-<footer>Выводы — для LilyGO T-Halow; на плате с Ethernet они будут другими. Приводы, реле и входы к плате пока не подключались.</footer>
+<footer>Выводы — для LilyGO T-Halow; на плате с Ethernet они будут другими. С приводом проверено: опрос, чтение положения и движение (один привод, ID 1); реле и входы к плате пока не подключались.</footer>
 </main>
 </body>
 </html>

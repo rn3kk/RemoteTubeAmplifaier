@@ -54,8 +54,8 @@ Pins for the T-Halow. All relays are switched on by a **low** level at the modul
 | IO40 | relay 1 (4-relay module): anode voltage |
 | IO11 | input: transceiver PTT (active when pulled to GND) |
 | IO41 | input "protection tripped" (active when pulled to GND) |
-| IO21 | servo bus, transmit (through a 1 kΩ resistor) |
-| IO47 | servo bus, receive |
+| IO47 | servo bus, transmit (to adapter `TXD`) |
+| IO21 | servo bus, receive (to adapter `RXD`) |
 
 Relays 4–7 of the 8-relay module and 2–4 of the 4-relay module are currently free. Pins are set by constants at the top of the sketch.
 
@@ -64,16 +64,20 @@ Relays 4–7 of the 8-relay module and 2–4 of the 4-relay module are currently
 All three STS3215 share one half-duplex bus (1 Mbit/s): each servo has two parallel connectors,
 and the servos are daisy-chained.
 
+The servos are connected to the ESP32 through a Waveshare Bus Servo Adapter (A):
+
 ```
-ESP32 IO21 (TX) ──[ 1 kΩ ]──┬──── servo DATA
-ESP32 IO47 (RX) ────────────┘
-ESP32 GND ───────────────────────── servo GND ── power supply negative
-                                    servo VCC ── power supply positive
+ESP32 IO47 (TX) ─── TXD ┐
+ESP32 IO21 (RX) ─── RXD ├ adapter (jumpers in position A) ── servo port ── servo ── servo ── servo
+ESP32 GND ───────── GND ┘                │
+                                         └── DC 12 V (servo power supply)
 ```
 
-- **Servo power**: a separate supply at the servo voltage (7.4 V or 12 V — check the label) with enough current (up to 2–3 A per servo when stalled). Do not power the servos from the ESP32.
-- **Common ground** between the servo supply and the ESP32 is required.
-- **Data line level**: before connecting to the ESP32, measure the voltage between DATA and GND on a powered servo. ESP32 pins are 3.3 V; if the line sits at about 5 V, use a level shifter or a ready-made adapter (Feetech FE-URT-1, Waveshare Bus Servo Adapter).
+- **TX to TXD, RX to RXD**: the adapter labels are from the controller side, this is not a mistake.
+- **Jumpers** on the 6-pin header in position A: the RXD/TXD row is connected to the middle row (U1RXD/U1TXD). In position B the bus is driven by a computer through the adapter's USB-C (handy for testing servos and changing IDs).
+- **Servo power**: a supply at the servo voltage (12 V for 12 V STS3215, check the label) with enough current (up to 2–3 A per servo when stalled). The adapter is rated 9–12.6 V; at 14.5 V the servo reports a voltage error. Do not power the servos from the ESP32.
+- **Common ground** between the adapter and the ESP32 is required (GND pin of the UART header).
+- The adapter UART header uses 3.3 V levels, no level shifting needed. The adapter does not provide 5 V for the ESP32.
 
 ### Relays and inputs
 
