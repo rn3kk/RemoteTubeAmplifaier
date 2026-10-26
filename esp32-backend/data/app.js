@@ -165,7 +165,7 @@ function showState(s) {
   const ready = s.freq > 0;
   $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
   for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || locked();
-  $('save').disabled = !ready || !s.sw;
+  $('save').disabled = !ready || (!s.sw && s.servoSwitch >= 0);
   $('reset').disabled = !ready || !s.saved;
   const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
   $('unsaved').textContent = !ready ? '' : !s.saved ? 'точка не настроена' : changed ? 'положение не сохранено' : 'сохранено';

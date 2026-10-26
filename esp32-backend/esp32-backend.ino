@@ -31,8 +31,8 @@ const int ETH_W5500_ADDR = 1;
 #endif
 
 // Шина сервоприводов Feetech STS3215 (полудуплексный UART, 1 Мбит/с)
-const int SERVO_TX_PIN = 21;
-const int SERVO_RX_PIN = 47;
+const int SERVO_TX_PIN = 47;
+const int SERVO_RX_PIN = 21;
 const uint32_t SERVO_BAUD = 1000000;
 const uint8_t SERVO_ID_CAP = 1;     // КПЕ
 const uint8_t SERVO_ID_VARIO = 2;   // вариометр
@@ -982,7 +982,8 @@ void handleSave() {
     sendError(409, "частота не выбрана");
     return;
   }
-  if (currentSwitch < 1) {
+  // без привода переключателя (нет связи) точку можно сохранить с БМЗ "не задано"
+  if (currentSwitch < 1 && servoSwitchPos >= 0) {
     sendError(409, "не выбрано положение БМЗ");
     return;
   }
