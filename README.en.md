@@ -14,7 +14,7 @@ An ESP32 controller for a vacuum tube power amplifier based on the R-140. It ret
 power-up sequence and PTT enable. Operation and tuning are done from a web page served by the
 controller itself.
 
-> Work in progress. The logic and the web interface have been tested on the board, but the servos,
+> Work in progress. The logic, the web interface and the servos have been tested on the board; the
 > relays and amplifier inputs have not been connected to it yet — see [Project status](#project-status).
 
 ## Features
