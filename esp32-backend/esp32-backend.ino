@@ -63,12 +63,17 @@ const uint32_t WEB_TX_MAX_MS = 60000;
 const int WWW_API_VERSION = 2;
 
 // Переключатель БМЗ: третий сервопривод, 5 положений через 360/5 градусов, ограничителей нет.
-// Привод работает в шаговом режиме STS (относительные перемещения) и всегда едет кратчайшим путём.
-// Положения нумеруются с 1, 0 - не задано. Положению 1 соответствует шаг switchOffset (калибровка)
+// Привод работает в многооборотном режиме STS: цель задаётся со счётом оборотов, текущее положение
+// читается как угол 0..4095. Едет кратчайшим путём, в том числе через ноль.
+// Положения нумеруются с 1, 0 - не задано. Положению 1 соответствует угол switchOffset (калибровка)
 const uint8_t SERVO_ID_SWITCH = 3;
 const int SWITCH_POSITIONS = 5;
 const int SWITCH_TOLERANCE = 20;          // шагов: допуск, при котором переключатель считается вставшим
-const uint32_t SWITCH_TIMEOUT_MS = 4000;  // сколько ждать окончания поворота
+const uint32_t SWITCH_TIMEOUT_MS = 5000;  // сколько ждать окончания поворота
+// Цель со счётом оборотов держим в окне -1..+2 оборота, чтобы счёт не рос бесконечно:
+// за краем окна привод едет по кругу в другую сторону и встаёт в то же положение
+const int SWITCH_GOAL_MIN = -4096;
+const int SWITCH_GOAL_MAX = 8191;
 const uint32_t SWITCH_CHECK_MS = 50;      // как часто проверять положение во время поворота
 const int PTT_RELEASE_MS = 30;   // пауза между снятием разрешения PTT и поворотом переключателя БМЗ
 
@@ -144,9 +149,13 @@ const uint8_t STS_INST_PING = 0x01;
 const uint8_t STS_INST_READ = 0x02;
 const uint8_t STS_INST_WRITE = 0x03;
 const uint8_t STS_REG_ID = 5;
+const uint8_t STS_REG_MIN_ANGLE = 9;  // ограничения угла, по 2 байта, EEPROM; оба 0 - многооборотный режим
+const uint8_t STS_REG_MAX_ANGLE = 11;
 const uint8_t STS_REG_MODE = 33;      // режим работы привода, EEPROM
-const uint8_t STS_MODE_STEP = 3;      // шаговый режим: цель - относительное перемещение
+const uint8_t STS_MODE_POSITION = 0;  // режим положения
+const uint8_t STS_REG_TORQUE = 40;    // удержание; после подачи питания на привод выключено
 const uint8_t STS_REG_ACC = 41;       // далее подряд: положение, время, скорость
+const uint8_t STS_REG_GOAL = 42;      // цель, 2 байта, знак в 15-м бите
 const uint8_t STS_REG_LOCK = 55;      // 0 - запись в EEPROM привода разрешена, 1 - запрещена
 const uint8_t STS_REG_POSITION = 56;  // текущее положение, 2 байта
 const int STS_MAX_ID = 253;
@@ -174,11 +183,11 @@ bool relayPtt = false;
 bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
 bool switchMoving = false;   // переключатель поворачивается, PTT запрещён
 bool switchFailed = false;   // переключатель не ответил или не встал в положение, PTT запрещён
-int switchTarget = 0;        // цель поворота, шаги привода 0..4095
+int switchTarget = 0;        // цель поворота, угол привода 0..4095
 uint32_t switchMoveStart = 0;
 uint32_t lastSwitchCheck = 0;
-int switchOffset = 0;        // шаг привода, соответствующий положению 1
-bool switchStepModeChecked = false;
+int switchOffset = 0;        // угол привода, соответствующий положению 1
+bool switchModeChecked = false;
 
 // Перестройка привода КПЕ или вариометра в положение выбранной частоты
 struct Retune {
@@ -435,13 +444,28 @@ bool stsPing(uint8_t id) {
   return stsTransfer(id, STS_INST_PING, nullptr, 0, true) >= 0;
 }
 
-// Текущее положение привода или -1, если он не ответил
-int stsReadPosition(uint8_t id) {
-  uint8_t params[2] = {STS_REG_POSITION, 2};
+void stsWriteWord(uint8_t id, uint8_t reg, int value) {
+  uint8_t params[3] = {reg, lowByte(value), highByte(value)};
+  stsTransfer(id, STS_INST_WRITE, params, sizeof(params));
+}
+
+// Два байта из регистра привода (0..65535) или -1, если он не ответил
+int stsReadWord(uint8_t id, uint8_t reg) {
+  uint8_t params[2] = {reg, 2};
   uint8_t data[2];
   if (stsTransfer(id, STS_INST_READ, params, sizeof(params), true, data, sizeof(data)) != 2)
     return -1;
   return data[0] | (data[1] << 8);
+}
+
+// Текущее положение привода или -1, если он не ответил
+int stsReadPosition(uint8_t id) {
+  return stsReadWord(id, STS_REG_POSITION);
+}
+
+// Значение со знаком в 15-м бите (цель положения)
+int stsDecodeSigned(int raw) {
+  return (raw & 0x8000) ? -(raw & 0x7FFF) : raw;
 }
 
 // Байт из регистра привода или -1, если он не ответил
@@ -453,24 +477,13 @@ int stsReadByte(uint8_t id, uint8_t reg) {
   return data[0];
 }
 
-// Относительное перемещение в шаговом режиме; знак передаётся 15-м битом
-void stsMoveRelative(uint8_t id, int steps) {
-  int goal = abs(steps) | (steps < 0 ? 0x8000 : 0);
+// Цель положения; в многооборотном режиме может быть отрицательной, знак передаётся 15-м битом
+void setServoPosition(uint8_t id, int position) {
+  int goal = abs(position) | (position < 0 ? 0x8000 : 0);
   uint8_t params[8] = {
     STS_REG_ACC,
     SERVO_ACC,
     lowByte(goal), highByte(goal),
-    0, 0,
-    lowByte(SERVO_SPEED), highByte(SERVO_SPEED),
-  };
-  stsTransfer(id, STS_INST_WRITE, params, sizeof(params));
-}
-
-void setServoPosition(uint8_t id, int position) {
-  uint8_t params[8] = {
-    STS_REG_ACC,
-    SERVO_ACC,
-    lowByte(position), highByte(position),
     0, 0,  // время не задаём - движение по скорости
     lowByte(SERVO_SPEED), highByte(SERVO_SPEED),
   };
@@ -523,6 +536,8 @@ const char *pttBlockReason() {
     return "вариометр не встал в положение";
   if (switchMoving)
     return "поворот переключателя БМЗ";
+  if (servoSwitchPos < 0)
+    return "нет связи с приводом переключателя БМЗ";
   if (switchFailed)
     return "переключатель БМЗ не отвечает или не встал в положение";
   return nullptr;
@@ -543,22 +558,28 @@ void updatePtt() {
   Serial.printf("PTT %s\n", key ? "on" : "off");
 }
 
-// Начинает перестройку КПЕ и вариометра в положения новой частоты. PTT снимается сразу,
-// возвращается в updateRetune(), когда оба привода встанут
-void retuneServos(int cap, int vario) {
+// Начинает перестройку привода КПЕ или вариометра. PTT снимается до начала движения,
+// возвращается в updateRetune(), когда привод встанет. Цель отправляется всегда, даже прежняя:
+// привод мог потерять питание и удержание
+void startRetune(Retune &r, int target) {
   bool pttWasOn = relayPtt;
-  capRetune.moving = true;
-  capRetune.failed = false;
-  varioRetune.moving = true;
-  varioRetune.failed = false;
+  r.moving = true;
+  r.failed = false;
+  r.target = target;
   updatePtt();
   if (pttWasOn)
     delay(PTT_RELEASE_MS);
-  moveServos(cap, vario);
-  capRetune.target = currentCap;
-  varioRetune.target = currentVario;
+  setServoPosition(r.id, target);
   retuneStart = millis();
   lastRetuneCheck = 0;
+}
+
+// Перестройка КПЕ и вариометра в положения новой частоты
+void retuneServos(int cap, int vario) {
+  currentCap = constrain(cap, 0, SERVO_POS_MAX);
+  currentVario = constrain(vario, 0, SERVO_POS_MAX);
+  startRetune(capRetune, currentCap);
+  startRetune(varioRetune, currentVario);
 }
 
 // Ручное движение в режиме настройки: перестройку по частоте больше не отслеживаем
@@ -614,46 +635,65 @@ int shortestDelta(int from, int to) {
   return delta > 2048 ? delta - 4096 : delta;
 }
 
-// Положение привода переключателя в пределах оборота или -1. В шаговом режиме привод может
-// отдавать накопленное значение со знаком в 15-м бите
+// Угол привода переключателя 0..4095 или -1, если привод не отвечает
 int readSwitchPos() {
   int raw = stsReadPosition(SERVO_ID_SWITCH);
-  if (raw < 0)
-    return -1;
-  int value = raw & 0x7FFF;
-  if (raw & 0x8000)
-    value = -value;
-  return wrapSteps(value);
+  return raw < 0 ? -1 : wrapSteps(raw);
 }
 
 int switchStepsFor(int position) {
   return wrapSteps(switchOffset + ((position - 1) * 4096 + 2) / SWITCH_POSITIONS);
 }
 
-// Переводит привод переключателя в шаговый режим (запись в EEPROM только если режим другой)
-bool ensureSwitchStepMode() {
-  if (switchStepModeChecked)
+// Переводит привод переключателя в многооборотный режим: режим положения, оба ограничения угла 0.
+// В EEPROM привода пишется только то, что отличается, - другой привод настроится сам
+bool ensureSwitchMultiTurn() {
+  if (switchModeChecked)
     return true;
   int mode = stsReadByte(SERVO_ID_SWITCH, STS_REG_MODE);
-  if (mode < 0)
+  int minAngle = stsReadWord(SERVO_ID_SWITCH, STS_REG_MIN_ANGLE);
+  int maxAngle = stsReadWord(SERVO_ID_SWITCH, STS_REG_MAX_ANGLE);
+  if (mode < 0 || minAngle < 0 || maxAngle < 0)
     return false;
-  if (mode != STS_MODE_STEP) {
+  if (mode != STS_MODE_POSITION || minAngle != 0 || maxAngle != 0) {
     stsWriteByte(SERVO_ID_SWITCH, STS_REG_LOCK, 0);
-    stsWriteByte(SERVO_ID_SWITCH, STS_REG_MODE, STS_MODE_STEP);
+    stsWriteByte(SERVO_ID_SWITCH, STS_REG_MODE, STS_MODE_POSITION);
+    stsWriteWord(SERVO_ID_SWITCH, STS_REG_MIN_ANGLE, 0);
+    stsWriteWord(SERVO_ID_SWITCH, STS_REG_MAX_ANGLE, 0);
     stsWriteByte(SERVO_ID_SWITCH, STS_REG_LOCK, 1);
-    if (stsReadByte(SERVO_ID_SWITCH, STS_REG_MODE) != STS_MODE_STEP)
+    if (stsReadByte(SERVO_ID_SWITCH, STS_REG_MODE) != STS_MODE_POSITION ||
+        stsReadWord(SERVO_ID_SWITCH, STS_REG_MIN_ANGLE) != 0 ||
+        stsReadWord(SERVO_ID_SWITCH, STS_REG_MAX_ANGLE) != 0)
       return false;
-    Serial.println("switch servo: step mode set");
+    Serial.println("switch servo: multi-turn mode set");
   }
-  switchStepModeChecked = true;
+  switchModeChecked = true;
   return true;
 }
 
-// Начинает поворот переключателя кратчайшим путём к шагу target. PTT снимается сразу,
+// Положение привода переключателя со счётом оборотов. Счёт хранит сам привод; после подачи
+// питания он равен углу, а удержание выключено. Иначе счёт - последняя цель, поправленная
+// на фактический угол. Ошибка в счёте удлиняет путь, но не меняет угол, в который встанет привод
+bool readSwitchCount(int angle, int &count) {
+  int torque = stsReadByte(SERVO_ID_SWITCH, STS_REG_TORQUE);
+  int goal = stsReadWord(SERVO_ID_SWITCH, STS_REG_GOAL);
+  if (torque < 0 || goal < 0)
+    return false;
+  if (torque == 0) {
+    count = angle;
+  } else {
+    goal = stsDecodeSigned(goal);
+    count = goal + shortestDelta(wrapSteps(goal), angle);
+  }
+  return true;
+}
+
+// Начинает поворот переключателя кратчайшим путём к углу target. PTT снимается сразу,
 // возвращается в updateSwitch(), когда привод встанет
 bool moveSwitchTo(int target) {
   int current = readSwitchPos();
-  if (current < 0 || !ensureSwitchStepMode()) {
+  int count = 0;
+  if (current < 0 || !ensureSwitchMultiTurn() || !readSwitchCount(current, count)) {
     switchFailed = true;
     updatePtt();
     Serial.println("switch servo: no response");
@@ -665,13 +705,16 @@ bool moveSwitchTo(int target) {
   updatePtt();
   if (pttWasOn)
     delay(PTT_RELEASE_MS);
-  int delta = shortestDelta(current, target);
-  if (delta != 0)
-    stsMoveRelative(SERVO_ID_SWITCH, delta);
+  int goal = count + shortestDelta(current, target);
+  while (goal > SWITCH_GOAL_MAX)
+    goal -= 4096;
+  while (goal < SWITCH_GOAL_MIN)
+    goal += 4096;
+  setServoPosition(SERVO_ID_SWITCH, goal);
   switchTarget = target;
   switchMoveStart = millis();
   lastSwitchCheck = 0;
-  Serial.printf("switch servo: %d -> %d (%+d)\n", current, target, delta);
+  Serial.printf("switch servo: %d -> %d (count %d, goal %d)\n", current, target, count, goal);
   return true;
 }
 
@@ -815,11 +858,30 @@ void pollServos() {
   if (millis() - lastServoPoll < SERVO_POLL_MS)
     return;
   lastServoPoll = millis();
+  int capBefore = servoCapPos;
+  int varioBefore = servoVarioPos;
+  int switchBefore = servoSwitchPos;
   servoCapPos = stsReadPosition(SERVO_ID_CAP);
   servoVarioPos = stsReadPosition(SERVO_ID_VARIO);
   servoSwitchPos = readSwitchPos();
   if (servoSwitchPos < 0)
-    switchStepModeChecked = false;  // привод могли заменить - режим проверим заново
+    switchModeChecked = false;  // привод могли заменить - режим проверим заново
+
+  // Привод снова на связи (например, вернулось питание 12 В): удержание у него выключено,
+  // вал мог сдвинуться - ставим его в положение текущей частоты, PTT снят до окончания
+  bool restore = ampState != AMP_OFF && findPoint(currentFreqKhz) != nullptr;
+  if (restore && capBefore < 0 && servoCapPos >= 0 && currentCap >= 0) {
+    Serial.println("cap servo: link restored");
+    startRetune(capRetune, currentCap);
+  }
+  if (restore && varioBefore < 0 && servoVarioPos >= 0 && currentVario >= 0) {
+    Serial.println("vario servo: link restored");
+    startRetune(varioRetune, currentVario);
+  }
+  if (restore && switchBefore < 0 && servoSwitchPos >= 0 && currentSwitch > 0) {
+    Serial.println("switch servo: link restored");
+    moveSwitchTo(switchStepsFor(currentSwitch));
+  }
   updatePtt();  // связь с приводами влияет на разрешение PTT
 }
 

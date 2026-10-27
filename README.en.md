@@ -152,8 +152,12 @@ Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolut
 Tested on the T-Halow: Wi-Fi with DHCP, the web page, all API methods, settings storage in flash,
 the power-up sequence and PTT blocking logic.
 
+The servos can be tested from a PC without the ESP32: adapter jumpers in position B, USB-C to the PC,
+`tools/sts-servo.py scan` (find), `regs ID` (registers), `goto ID GOAL` (move), `powercut ID` (power loss
+during rotation). Requires pyserial.
+
 Not yet tested on hardware:
-- the STS3215 servos (the protocol is implemented from the Feetech documentation), including the band switch step mode;
+- the band switch in multi-turn mode driven by the firmware (the mode itself was tested from a PC with `tools/sts-servo.py`); the capacitor and variometer servos are tested: scan, position readout, movement;
 - the relays and the PTT and protection inputs;
 - the Ethernet build.
 
