@@ -11,6 +11,10 @@
                         и показать, как привод едет
   powercut ID [ОБОРОТЫ] медленное вращение на несколько оборотов: выключите и включите 12 В
                         во время вращения - скрипт покажет угол до и после пропадания питания
+  multiturn ID          включить многооборотный режим (режим 0, ограничения угла 0) только в ОЗУ привода
+  resetturns ID         сбросить счёт оборотов к углу: режим 3 и обратно 0 только в ОЗУ привода
+Записи в регистры настроек идут при защите EEPROM (регистр 55 = 1): действуют до выключения
+питания привода, в его память не попадают.
 Порт по умолчанию - первый /dev/serial/by-id/usb-1a86* (CH343 на адаптере).
 Требуется pyserial.
 """
@@ -25,6 +29,7 @@ REG_MIN_ANGLE = 9
 REG_MAX_ANGLE = 11
 REG_MODE = 33
 REG_TORQUE = 40
+REG_LOCK = 55
 REG_ACC = 41
 REG_GOAL = 42
 REG_POSITION = 56
@@ -140,6 +145,25 @@ def cmd_powercut(bus, servo_id, turns):
     print('пропадания питания не было, угол %s' % bus.read_word(servo_id, REG_POSITION))
 
 
+def cmd_multiturn(bus, servo_id):
+    bus.write(servo_id, REG_LOCK, [1])
+    bus.write(servo_id, REG_MODE, [0])
+    bus.write(servo_id, REG_MIN_ANGLE, [0, 0])
+    bus.write(servo_id, REG_MAX_ANGLE, [0, 0])
+    cmd_regs(bus, servo_id)
+
+
+def cmd_resetturns(bus, servo_id):
+    print('цель до сброса: %s' % signed(bus.read_word(servo_id, REG_GOAL)))
+    bus.write(servo_id, REG_LOCK, [1])
+    bus.write(servo_id, REG_MODE, [3])
+    bus.write(servo_id, REG_MODE, [0])
+    angle = bus.read_word(servo_id, REG_POSITION)
+    if angle is not None:
+        bus.set_goal(servo_id, angle)  # сброс снимает удержание - возвращаем
+    print('счёт сброшен к углу %s, цель %s' % (angle, signed(bus.read_word(servo_id, REG_GOAL))))
+
+
 def main():
     args = sys.argv[1:]
     port = None
@@ -165,6 +189,10 @@ def main():
         cmd_goto(bus, int(args[1]), int(args[2]))
     elif command == 'powercut' and len(args) in (2, 3):
         cmd_powercut(bus, int(args[1]), int(args[2]) if len(args) == 3 else 6)
+    elif command == 'multiturn' and len(args) == 2:
+        cmd_multiturn(bus, int(args[1]))
+    elif command == 'resetturns' and len(args) == 2:
+        cmd_resetturns(bus, int(args[1]))
     else:
         print(__doc__)
         return 1

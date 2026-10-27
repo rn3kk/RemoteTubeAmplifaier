@@ -1,4 +1,4 @@
-const API_VERSION = 2;  // должна совпадать с WWW_API_VERSION в прошивке
+const API_VERSION = 3;  // должна совпадать с WWW_API_VERSION в прошивке
 const POS_MAX = 4095;
 const STEPS = [-100, -10, -1, 1, 10, 100];
 const SERVOS = [['cap', 'КПЕ'], ['vario', 'Вариометр']];
@@ -18,9 +18,6 @@ let dirty = false;
 let sending = false;
 let remainUntil = 0;    // момент окончания текущего этапа включения
 let cooldownUntil = 0;  // момент окончания охлаждения после передачи
-let swDirty = false;     // ползунок переключателя сдвинут, команда ещё не отправлена
-let swSending = false;
-let swLastInput = 0;
 let txTimer = null;      // подтверждение передачи с веб-страницы
 let offRefused = false; // выключение отклонено из-за охлаждения - показываем принудительное
 
@@ -129,11 +126,7 @@ function showAmp(s) {
   chip('c-cap', servoChipClass(s.servoCap, s.capMoving, s.capFailed), 'КПЕ: ' + servoChipText(s.servoCap, s.capMoving, s.capFailed));
   chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
     (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
-  $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : s.servoSwitch;
-  if (s.servoSwitch >= 0 && !swDirty && !swSending && Date.now() - swLastInput > 1500) {
-    $('swslider').value = s.servoSwitch;
-    $('swtarget').textContent = withDegrees(s.servoSwitch);
-  }
+  $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : withDegrees(s.servoSwitch);
   chip('c-vario', servoChipClass(s.servoVario, s.varioMoving, s.varioFailed),
     'Вариометр: ' + servoChipText(s.servoVario, s.varioMoving, s.varioFailed));
   $('power').textContent = s.amp === 'off' ? 'Включить' : 'Выключить';
@@ -327,38 +320,10 @@ $('reset').onclick = () => {
 
 const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр', 3: 'переключатель БМЗ'};
 
-for (const step of STEPS) {
-  const b = document.createElement('button');
-  b.textContent = (step > 0 ? '+' : '') + step;
-  b.onclick = () => post('/api/switch/jog?steps=' + step).then(showState).catch(serviceError);
-  $('swjog').appendChild(b);
-}
-// Ползунок переключателя: шлём последнее положение, пока предыдущая команда не выполнена - не копим
-function flushSwitch() {
-  if (swSending || !swDirty) return;
-  swSending = true;
-  swDirty = false;
-  post('/api/switch/move?pos=' + $('swslider').value).then(s => {
-    swSending = false;
-    if (swDirty) flushSwitch(); else showState(s);
-  }).catch(e => {
-    swSending = false;
-    serviceError(e);
-  });
-}
-addWheel($('swslider'));
-$('swslider').oninput = () => {
-  swLastInput = Date.now();
-  swDirty = true;
-  $('swtarget').textContent = withDegrees(Number($('swslider').value));
-  flushSwitch();
-};
-
-$('swcal').onclick = () => {
-  if (!confirm('Запомнить текущее положение привода как положение 1 переключателя?')) return;
-  post('/api/switch/calibrate').then(s => {
+$('swzero').onclick = () => {
+  post('/api/switch/zero').then(s => {
     showState(s);
-    serviceMessage('Положение 1 запомнено: шаг привода ' + s.swOffset + '.');
+    serviceMessage('Привод переключателя приводится в ноль (положение 1).');
   }).catch(serviceError);
 };
 

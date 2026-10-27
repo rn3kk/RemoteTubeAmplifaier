@@ -25,7 +25,7 @@ controller itself.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
 - **Status on the page**: power-up stage with countdown, mains, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
-- **Service**: servo bus scan, servo ID change, band switch position 1 calibration.
+- **Service**: servo bus scan, servo ID change, bringing the band switch to zero (position 1).
 - **Settings storage** in the ESP32 flash; the table can be downloaded to a file and uploaded back (to move it to another board).
 - Layout for desktop and phone.
 
@@ -123,7 +123,7 @@ and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 ## First start
 
 1. **Servo IDs.** All servos ship with ID 1. Connect them to the bus one at a time and change the ID in the "Service" block of the page: variometer to 2, band switch to 3. The capacitor stays at 1. "Find servos" shows which servos respond.
-2. **Band switch calibration.** In the "Service" block, turn the switch exactly to position 1 with the slider and the ±1/±10/±100 buttons and press "Remember as position 1".
+2. **Band switch calibration.** Servo zero is switch position 1. In the "Service" block press "Bring to zero" and set the switch mechanically to position 1 (couple it at servo zero). The other positions are 72° apart.
 3. **Frequency tuning.** Turn on "Tuning mode", select a frequency, adjust the capacitor, the variometer and the band switch position, press "Save". Tuned frequencies are marked with a green bar.
 4. **Backup.** In tuning mode, "Download" saves the table to `tubeamp-points.csv` (`frequency;capacitor;variometer;switch`), "Upload" restores it.
 
@@ -145,7 +145,7 @@ Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolut
 | `POST /api/tx?on=1`, `?keep=1`, `?on=0` | transmit from the web page: start, confirm (at least every 2 s), stop |
 | `POST /api/www` | upload web page files (multipart) |
 | `POST /api/servo/scan`, `POST /api/servo/id?from=&to=` | servo scan and ID change |
-| `POST /api/switch/move?pos=`, `POST /api/switch/jog?steps=`, `POST /api/switch/calibrate` | band switch calibration |
+| `POST /api/switch/zero` | bring the band switch servo to zero (position 1) |
 
 ## Project status
 
