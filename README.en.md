@@ -6,6 +6,9 @@
 
 The diagram with the power-up sequence and the pin table (in Russian): [docs/scheme.html](docs/scheme.html).
 
+**User manual** (in Russian: assembly, first start, operation): [docs/manual/manual.pdf](docs/manual/manual.pdf),
+LaTeX source `docs/manual/manual.tex`, build with `docs/manual/build.sh`.
+
 An ESP32 controller for a vacuum tube power amplifier based on the R-140. It retunes the pi-network
 (variable capacitor, variometer, band switch) to the selected frequency, controls the amplifier
 power-up sequence and PTT enable. Operation and tuning are done from a web page served by the
@@ -157,7 +160,6 @@ The servos can be tested from a PC without the ESP32: adapter jumpers in positio
 during rotation). Requires pyserial.
 
 Not yet tested on hardware:
-- the band switch in multi-turn mode driven by the firmware (the mode itself was tested from a PC with `tools/sts-servo.py`); the capacitor and variometer servos are tested: scan, position readout, movement;
 - the relays and the PTT and protection inputs;
 - the Ethernet build.
 
