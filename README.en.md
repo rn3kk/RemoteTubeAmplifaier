@@ -1,0 +1,174 @@
+# RemoteTubeAmplifaier
+
+[Русская версия](README.md)
+
+![Wiring diagram](img/scheme.svg)
+
+The diagram with the power-up sequence and the pin table (in Russian): [docs/scheme.html](docs/scheme.html).
+
+**User manual** (in Russian: assembly, first start, operation): [docs/manual/manual.pdf](docs/manual/manual.pdf),
+LaTeX source `docs/manual/manual.tex`, build with `docs/manual/build.sh`.
+
+An ESP32 controller for a vacuum tube power amplifier based on the R-140. It retunes the pi-network
+(variable capacitor, variometer, band switch) to the selected frequency, controls the amplifier
+power-up sequence and PTT enable. Operation and tuning are done from a web page served by the
+controller itself.
+
+> Work in progress. The logic, the web interface and the servos have been tested on the board; the
+> relays and amplifier inputs have not been connected to it yet — see [Project status](#project-status).
+
+## Features
+
+- **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 190 m (1600–1775 kHz) and 100 m (2900–3200 kHz) bands; one band is shown at a time.
+- **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it. Frequency selection and tuning work only with the amplifier on and warmed up.
+- **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
+- **Power-up sequence**: mains on → 3-minute tube warm-up (controls locked) → anode voltage → PTT enable. The amplifier's soft start is self-contained; the controller does not drive it.
+- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while retuning after a frequency change (variable capacitor, variometer, band switch) and while any servo is not responding; manual turning of the capacitor and variometer in tuning mode does not drop PTT (tuning under carrier). The page always shows whether transmission is allowed and why not.
+- **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3), only when the amplifier is on and warmed up; the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
+- **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
+- **Protection**: a trip is latched and PTT stays disabled until it is reset from the web page.
+- **Status on the page**: power-up stage with countdown, mains, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
+- **Service**: servo bus scan, servo ID change, bringing the band switch to zero (position 1).
+- **Settings storage** in the ESP32 flash; the table can be downloaded to a file and uploaded back (to move it to another board).
+- Layout for desktop and phone.
+
+## Hardware
+
+| Part | What is used |
+|---|---|
+| Controller | LilyGO T-Halow (ESP32-S3, 16 MB flash); a move to an ESP32-S3 board with Ethernet is planned |
+| Variable capacitor | Feetech STS3215 servo, ID 1 |
+| Variometer | Feetech STS3215 servo, ID 2 (rotates without limits) |
+| Band switch | Feetech STS3215 servo, ID 3, 5 positions 72° apart, no end stops |
+| Switching | 8-relay optocoupled module + 4-relay module |
+| Network | Wi-Fi client (DHCP); an Ethernet (W5500) build option exists but is untested |
+
+The RJ45 jack on the T-Halow belongs to its HaLow module; the ESP32 has no access to it.
+
+## Wiring
+
+Pins for the T-Halow. All relays are switched on by a **low** level at the module input.
+
+| ESP32 pin | Function |
+|---|---|
+| IO9 | relay 1 (8-relay module): amplifier mains |
+| IO12 | relay 3: transceiver PTT (transmit from the web page) |
+| IO48 | relay 8: amplifier PTT |
+| IO40 | relay 1 (4-relay module): anode voltage |
+| IO11 | input: transceiver PTT (active when pulled to GND) |
+| IO41 | input "protection tripped" (active when pulled to GND) |
+| IO47 | servo bus, transmit (to adapter `TXD`) |
+| IO21 | servo bus, receive (to adapter `RXD`) |
+
+Relays 4–7 of the 8-relay module and 2–4 of the 4-relay module are currently free. Pins are set by constants at the top of the sketch.
+
+### Servo bus
+
+All three STS3215 share one half-duplex bus (1 Mbit/s): each servo has two parallel connectors,
+and the servos are daisy-chained.
+
+The servos are connected to the ESP32 through a Waveshare Bus Servo Adapter (A):
+
+```
+ESP32 IO47 (TX) ─── TXD ┐
+ESP32 IO21 (RX) ─── RXD ├ adapter (jumpers in position A) ── servo port ── servo ── servo ── servo
+ESP32 GND ───────── GND ┘                │
+                                         └── DC 12 V (servo power supply)
+```
+
+- **TX to TXD, RX to RXD**: the adapter labels are from the controller side, this is not a mistake.
+- **Jumpers** on the 6-pin header in position A: the RXD/TXD row is connected to the middle row (U1RXD/U1TXD). In position B the bus is driven by a computer through the adapter's USB-C (handy for testing servos and changing IDs).
+- **Servo power**: a supply at the servo voltage (12 V for 12 V STS3215, check the label) with enough current (up to 2–3 A per servo when stalled). The adapter is rated 9–12.6 V; at 14.5 V the servo reports a voltage error. Do not power the servos from the ESP32.
+- **Common ground** between the adapter and the ESP32 is required (GND pin of the UART header).
+- The adapter UART header uses 3.3 V levels, no level shifting needed. The adapter does not provide 5 V for the ESP32.
+
+### Relays and inputs
+
+- "Arduino" relay modules are designed for 5 V. If the relays do not switch reliably from 3.3 V, power the optocoupler side (VCC) from 3.3 V and the coils (JD-VCC) from 5 V with the jumper removed.
+- Never apply more than 3.3 V to IO11/IO41: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
+
+## Build and flash
+
+You need [arduino-cli](https://arduino.github.io/arduino-cli/) (or the Arduino IDE) and the ESP32
+core 3.x (`esp32:esp32`). No third-party libraries are required.
+
+1. Create `esp32-backend/secrets.h` (it is in `.gitignore`):
+
+   ```cpp
+   #pragma once
+   const char *WIFI_SSID = "network name";  // the ESP32 supports 2.4 GHz only
+   const char *WIFI_PASS = "password";
+   ```
+
+2. Build the firmware and upload it together with the web page files (`esp32-backend/data`) with one command:
+
+   ```bash
+   tools/flash.sh               # build, upload firmware and page files
+   tools/flash.sh build         # build only
+   tools/flash.sh firmware      # build and upload the firmware only
+   tools/flash.sh www           # upload the page files only
+   tools/flash.sh monitor       # serial monitor
+   tools/flash.sh -p /dev/ttyACM1 all   # another port
+   ```
+
+   Close the serial monitor before uploading. Later the files can be updated without a cable: "Service" block on the page → "Upload files". If the files are missing (for example, after a full flash erase), the board serves a fallback page with an upload form.
+
+3. Open the serial monitor (`tools/flash.sh monitor`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
+
+For a board with Ethernet (W5500), set `#define USE_ETHERNET 1` at the top of the sketch and set the `ETH_*` pins.
+
+Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; warm-up
+and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
+
+> For debugging, warm-up and cool-down are currently shortened to 10 s (`WARMUP_MS`, `COOLDOWN_MS`, marked "ОТЛАДКА").
+> Set them back to 180000 and 300000 before running the amplifier.
+
+## First start
+
+1. **Servo IDs.** All servos ship with ID 1. Connect them to the bus one at a time and change the ID in the "Service" block of the page: variometer to 2, band switch to 3. The capacitor stays at 1. "Find servos" shows which servos respond.
+2. **Band switch calibration.** Servo zero is switch position 1. In the "Service" block press "Bring to zero" and set the switch mechanically to position 1 (couple it at servo zero). The other positions are 72° apart.
+3. **Frequency tuning.** Turn on "Tuning mode", select a frequency, adjust the capacitor, the variometer and the band switch position, press "Save". Tuned frequencies are marked with a green bar.
+4. **Backup.** In tuning mode, "Download" saves the table to `tubeamp-points.csv` (`frequency;capacitor;variometer;switch`), "Upload" restores it.
+
+## HTTP API
+
+Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolution).
+
+| Method | Purpose |
+|---|---|
+| `GET /api/state` | full current state: frequency, positions, mode, power-up stage, relays, inputs, PTT, servo links |
+| `GET /api/table` | bands and points `[frequency, capacitor, variometer, saved, switch]` |
+| `POST /api/select?freq=<kHz>` | select a frequency |
+| `POST /api/mode?tuning=0\|1` | tuning mode |
+| `POST /api/move?cap=&vario=&sw=` | manual control (tuning mode only) |
+| `POST /api/save`, `POST /api/reset` | save or reset the setting for the current frequency |
+| `GET /api/points.csv`, `POST /api/points.csv` | table download and upload |
+| `POST /api/power?on=0\|1[&force=1]` | switch the amplifier on or off; within 5 minutes after a transmission, switching off needs `force=1` |
+| `POST /api/protection/reset` | reset a latched protection trip |
+| `POST /api/tx?on=1`, `?keep=1`, `?on=0` | transmit from the web page: start, confirm (at least every 2 s), stop |
+| `POST /api/www` | upload web page files (multipart) |
+| `POST /api/servo/scan`, `POST /api/servo/id?from=&to=` | servo scan and ID change |
+| `POST /api/switch/zero` | bring the band switch servo to zero (position 1) |
+
+## Project status
+
+Tested on the T-Halow: Wi-Fi with DHCP, the web page, all API methods, settings storage in flash,
+the power-up sequence and PTT blocking logic.
+
+The servos can be tested from a PC without the ESP32: adapter jumpers in position B, USB-C to the PC,
+`tools/sts-servo.py scan` (find), `regs ID` (registers), `goto ID GOAL` (move), `powercut ID` (power loss
+during rotation). Requires pyserial.
+
+Not yet tested on hardware:
+- the relays and the PTT and protection inputs;
+- the Ethernet build.
+
+Not implemented: reading the frequency from the transceiver over CAT.
+
+## Previous version
+
+The `py_server/`, `py_client/` and `common/` directories are the previous generation of the
+project: a Raspberry Pi with stepper motors and Mechaduino boards, retuning to the frequency of a
+Flex-6400 transceiver. It is no longer developed.
+
+![Previous version diagram](img/sch1.png)

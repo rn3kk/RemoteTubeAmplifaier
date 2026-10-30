@@ -71,6 +71,7 @@ Thumbs.db
 *.dll
 *.exe
 
+<<<<<<< HEAD
 # KiCad local/machine-specific files
 *.kicad_prl
 fp-info-cache
@@ -78,3 +79,6 @@ fp-info-cache
 _autosave-*
 *.bak
 
+=======
+esp32-backend/secrets.h
+>>>>>>> fb3fc39969c9e16519c208949877808d6cae190c
