@@ -71,3 +71,10 @@ Thumbs.db
 *.dll
 *.exe
 
+# KiCad local/machine-specific files
+*.kicad_prl
+fp-info-cache
+*-backups/
+_autosave-*
+*.bak
+
