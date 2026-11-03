@@ -10,7 +10,9 @@
 # Порт по умолчанию /dev/ttyACM0. Перед заливкой закройте монитор порта.
 set -e
 
-PORT=/dev/ttyACM0
+#PORT=/dev/ttyACM0
+#PORT=/dev/cu.usbmodem1201
+PORT=/dev/cu.usbmodem1101
 if [ "$1" = "-p" ]; then
     PORT="$2"
     shift 2
@@ -51,10 +53,10 @@ check_port() {
         echo "Порт $PORT не найден: подключите плату или укажите порт через -p" >&2
         exit 1
     fi
-    if command -v fuser >/dev/null && fuser "$PORT" >/dev/null 2>&1; then
-        echo "Порт $PORT занят (открыт монитор порта?): закройте его и повторите" >&2
-        exit 1
-    fi
+#    if command -v fuser >/dev/null && fuser "$PORT" >/dev/null 2>&1; then
+#        echo "Порт $PORT занят (открыт монитор порта?): закройте его и повторите" >&2
+#        exit 1
+#    fi
 }
 
 build() {

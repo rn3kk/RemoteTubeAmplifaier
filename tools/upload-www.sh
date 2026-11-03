@@ -7,7 +7,8 @@ set -e
 PORT="${1:-/dev/ttyACM0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$ROOT/esp32-backend/data"
-TOOLS="$HOME/.arduino15/packages/esp32/tools"
+#TOOLS="$HOME/.arduino15/packages/esp32/tools"
+TOOLS="$HOME/Library/Arduino15/packages/esp32/tools"
 
 # Раздел spiffs из таблицы разделов default.csv ядра ESP32 (её использует прошивка)
 OFFSET=0x290000
@@ -20,7 +21,8 @@ if [ -z "$MKLITTLEFS" ] || [ -z "$ESPTOOL" ]; then
     exit 1
 fi
 
-IMAGE="$(mktemp --suffix=.bin)"
+#IMAGE="$(mktemp --suffix=.bin)"
+IMAGE="$(mktemp)"
 trap 'rm -f "$IMAGE"' EXIT
 
 "$MKLITTLEFS" -c "$DATA" -p 256 -b 4096 -s "$SIZE" "$IMAGE"
