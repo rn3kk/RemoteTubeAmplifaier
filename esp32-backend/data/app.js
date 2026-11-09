@@ -124,8 +124,13 @@ function showAmp(s) {
   $('txallow').textContent = s.ptt ? 'Идёт передача' : s.pttAllowed ? 'Передача разрешена' :
     'Передача запрещена: ' + s.pttReason;
   chip('c-cap', servoChipClass(s.servoCap, s.capMoving, s.capFailed), 'КПЕ: ' + servoChipText(s.servoCap, s.capMoving, s.capFailed));
-  chip('c-switch', s.servoSwitch < 0 || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on', 'Переключатель: ' +
-    (s.servoSwitch < 0 ? 'нет связи' : s.swMoving ? 'поворот' : s.swFailed ? 'не встал' : 'полож. ' + (s.sw || '-')));
+  const swText = s.servoSwitch < 0 ? 'нет связи'
+    : s.swZero === false ? 'нужно «Привести в ноль»'
+    : s.swMoving ? 'поворот'
+    : s.swFailed ? 'не встал'
+    : 'полож. ' + (s.sw || '-');
+  chip('c-switch', s.servoSwitch < 0 || s.swZero === false || s.swFailed ? 'bad' : s.swMoving ? 'wait' : 'on',
+    'Переключатель: ' + swText);
   $('swpos').textContent = s.servoSwitch < 0 ? 'нет связи' : withDegrees(s.servoSwitch);
   chip('c-vario', servoChipClass(s.servoVario, s.varioMoving, s.varioFailed),
     'Вариометр: ' + servoChipText(s.servoVario, s.varioMoving, s.varioFailed));

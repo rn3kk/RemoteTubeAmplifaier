@@ -63,14 +63,17 @@ const uint32_t WEB_TX_MAX_MS = 60000;
 const int WWW_API_VERSION = 3;
 
 // Переключатель БМЗ: третий сервопривод, 5 положений.
-// Механика Р-140: одно положение переключателя = полный оборот привода (360°, 4096 шагов).
-// Привод в многооборотном режиме STS: цель задаётся со счётом оборотов, текущее положение
-// читается как угол 0..4095. Между положениями едет ровно N полных оборотов (не кратчайшим
-// путём). После каждого поворота счёт оборотов сбрасывается к углу. Режим включается только
-// в ОЗУ привода, в EEPROM ничего не пишется. Положения с 1, 0 - не задано; положение 1 - угол 0.
+// Механика Р-140: одно положение переключателя = 180° привода (2048 шагов).
+// Привод в многооборотном режиме STS: цель задаётся абсолютным счётом шагов от нуля
+// (switchBase), текущее положение читается как угол 0..4095. Счёт не сбрасывается и не растёт:
+// все пять положений лежат в пределах 0..2 оборотов от нуля. Цель абсолютная, поэтому повторная
+// отправка не двигает вал, а прерванный поворот продолжается, а не начинается заново.
+// Режим включается только в ОЗУ привода, в EEPROM ничего не пишется.
+// Положения с 1, 0 - не задано; положение 1 - угол 0.
 const uint8_t SERVO_ID_SWITCH = 3;
 const int SWITCH_POSITIONS = 5;
-const int SWITCH_STEPS_PER_POS = 4096;    // один шаг БМЗ = 360° = полный оборот привода
+const int SWITCH_STEPS_PER_POS = 2048;    // одно положение БМЗ = 180° = пол-оборота привода
+const int SWITCH_DIRECTION = -1;          // +1 - номер положения растёт с ростом счёта, -1 - наоборот
 const int SWITCH_TOLERANCE = 20;          // шагов: допуск, при котором переключатель считается вставшим
 const uint32_t SWITCH_TIMEOUT_BASE_MS = 3000;  // базовый запас на разгон/торможение
 const uint32_t SWITCH_CHECK_MS = 50;      // как часто проверять положение во время поворота
@@ -189,15 +192,18 @@ bool relayPtt = false;
 bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
 bool switchMoving = false;   // переключатель поворачивается, PTT запрещён
 bool switchFailed = false;   // переключатель не ответил или не встал в положение, PTT запрещён
-int switchTarget = 0;        // ожидаемый угол 0..4095 после приезда (после полных оборотов ≈ 0)
+int switchTarget = 0;        // ожидаемый угол 0..4095 по приезду
+int switchGoalSent = 0;      // абсолютная цель, отправленная приводу (счёт шагов от нуля)
+int switchBase = 0;          // счёт привода, соответствующий положению 1
+bool switchBaseValid = false;  // ноль привода известен; иначе нужно «Привести в ноль»
+bool switchZeroing = false;  // идёт «Привести в ноль»: по приезду текущий угол станет положением 1
 uint32_t switchMoveStart = 0;
-uint32_t switchMinMs = 0;    // раньше этого времени приезд не засчитываем (полные обороты)
+uint32_t switchMinMs = 0;    // раньше этого времени приезд не засчитываем
 uint32_t switchTimeoutMs = 0;
 uint32_t lastSwitchCheck = 0;
 int switchStableCount = 0;   // подряд чтений в допуске после switchMinMs
 int switchFrom = 0;          // откуда едем (логическое положение), 0 если не задано
 int switchTo = 0;            // куда едем; пишется в NVS на старте поворота
-bool switchRecovering = false;  // идёт восстановление после пропадания питания
 
 // Перестройка привода КПЕ или вариометра в положение выбранной частоты
 struct Retune {
@@ -645,14 +651,15 @@ int shortestDelta(int from, int to) {
   return delta > 2048 ? delta - 4096 : delta;
 }
 
-// --- энергонезависимая память положения БМЗ ---
-// После полного оборота угол снова ≈ 0 (если отталкивались от нуля). Если угол далеко от 0 —
-// поворот оборвался посередине оборота.
-bool switchAngleNearZero(int angle) {
-  if (angle < 0)
-    return false;
-  int d = abs(shortestDelta(angle, 0));
-  return d <= SWITCH_TOLERANCE;
+// --- положение переключателя БМЗ ---
+// Угол привода для положения 1..5: 0°, 180°, 0°, 180°, 0° (5 положений по 180° = 2,5 оборота)
+int switchAngleForPos(int pos) {
+  return wrapSteps((pos - 1) * SWITCH_STEPS_PER_POS);
+}
+
+// Абсолютная цель привода для положения 1..5: счёт шагов от нуля привода
+int switchGoalForPos(int pos) {
+  return switchBase + (pos - 1) * SWITCH_STEPS_PER_POS * SWITCH_DIRECTION;
 }
 
 void saveSwitchConfirmed(int pos) {
@@ -686,81 +693,86 @@ void loadSwitchStateFromNvs() {
   bool busy = prefs.getUChar(PREFS_KEY_SW_BUSY, 0) != 0;
   Serial.printf("switch NVS: pos=%d busy=%d from=%d to=%d\n",
                 currentSwitch, busy ? 1 : 0, switchFrom, switchTo);
-  if (busy && switchFrom >= 1 && switchTo >= 1 && switchFrom <= SWITCH_POSITIONS &&
-      switchTo <= SWITCH_POSITIONS) {
+  if (busy && switchTo >= 1 && switchTo <= SWITCH_POSITIONS) {
     // Задание было, питание пропало — восстановим в recoverSwitchAfterPower()
-    switchRecovering = true;
     switchFailed = true;  // PTT запрещён, пока не разберёмся
   } else if (busy) {
     clearSwitchMoveJob();
-    switchRecovering = false;
   }
 }
 
-// Вызывается из setup после появления связи с приводом (или из pollServos при первом ответе).
-// Если вал не на ~0° или в NVS висел busy — доводим незавершённый поворот.
-bool moveSwitchTo(int target);
-bool moveSwitchByTurns(int turns);
-void onSwitchArrived();
+// Вызывается при первом появлении связи с приводом БМЗ (старт ESP32 или вернулось 12 В).
+// Восстанавливает привязку абсолютного счёта к положению 1 (switchBase) и доводит
+// незавершённый поворот. Если питание терял сам привод посреди поворота, абсолютное
+// положение восстановить нельзя — нужна команда «Привести в ноль».
+bool moveSwitchToPos(int pos);
+bool startSwitchAngleMove(int targetAngle);
+bool readSwitchState(int &angle, int &goal, bool &counterValid);
+void finishSwitchMove();
 
 bool recoverSwitchAfterPower() {
-  int angle = readSwitchPos();
-  if (angle < 0)
+  int angle = 0;
+  int goal = 0;
+  bool counterValid = false;
+  if (!readSwitchState(angle, goal, counterValid))
     return false;
 
   bool busy = prefs.getUChar(PREFS_KEY_SW_BUSY, 0) != 0;
   int from = prefs.getUChar(PREFS_KEY_SW_FROM, 0);
   int to = prefs.getUChar(PREFS_KEY_SW_TO, 0);
   int pos = prefs.getUChar(PREFS_KEY_SW_POS, 0);
-
-  bool midTurn = !switchAngleNearZero(angle);
-  if (!busy && !midTurn) {
-    // Всё согласовано: угол у нуля, задания нет
-    currentSwitch = pos <= SWITCH_POSITIONS ? pos : 0;
-    switchFailed = false;
-    switchRecovering = false;
-    Serial.printf("switch recover: ok, pos=%d angle=%d\n", currentSwitch, angle);
-    return true;
+  if (pos > SWITCH_POSITIONS)
+    pos = 0;
+  if (busy && (to < 1 || to > SWITCH_POSITIONS)) {
+    clearSwitchMoveJob();
+    busy = false;
   }
 
-  Serial.printf("switch recover: incomplete angle=%d busy=%d from=%d to=%d pos=%d\n",
-                angle, busy ? 1 : 0, from, to, pos);
-
-  // 1) Докрутить текущий оборот до нуля (выйти из «посередине»)
-  if (midTurn) {
-    Serial.println("switch recover: finishing partial turn to 0°");
-    if (!moveSwitchTo(0))
-      return false;
-    // moveSwitchTo сам выставит switchMoving; дальнейшее — в updateSwitch по приезду
-    // Запомним, что после приезда на 0 нужно продолжить from→to
-    switchRecovering = true;
-    switchFrom = (busy && from >= 1) ? from : (pos >= 1 ? pos : 1);
-    switchTo = (busy && to >= 1) ? to : switchFrom;
-    switchFailed = true;
-    return true;
-  }
-
-  // 2) Угол уже ~0, но busy — поворот оборвался между оборотами. Доезжаем from→to.
-  if (busy && from >= 1 && to >= 1 && from != to) {
-    currentSwitch = from;  // подтверждено только from
+  if (busy) {
+    // Поворот был прерван. Пока привод не терял питание, счёт оборотов цел, а прошлая цель —
+    // абсолютный адрес положения to: продолжаем движение к ней (повторная отправка не двигает
+    // вал, если он уже приехал).
+    if (!counterValid) {
+      // Привод обесточивался: число оборотов потеряно, где стоит переключатель — неизвестно
+      clearSwitchMoveJob();
+      switchBaseValid = false;
+      currentSwitch = 0;
+      switchFailed = true;
+      updatePtt();
+      Serial.println("switch recover: counter lost mid-move, «Привести в ноль» required");
+      return true;
+    }
+    switchBase = goal - (to - 1) * SWITCH_STEPS_PER_POS * SWITCH_DIRECTION;
+    switchBaseValid = true;
     switchFrom = from;
     switchTo = to;
-    switchRecovering = false;  // обычный приезд подтвердит to
     switchFailed = false;
-    Serial.printf("switch recover: resume %d -> %d\n", from, to);
-    int turns = to - from;
-    if (!moveSwitchByTurns(turns)) {
+    Serial.printf("switch recover: resume %d -> %d (base %d)\n", from, to, switchBase);
+    if (!moveSwitchToPos(to)) {
       switchFailed = true;
+      updatePtt();
       return false;
     }
     return true;
   }
 
-  // busy с from==to или битые данные — считаем, что стоим на pos
-  clearSwitchMoveJob();
-  currentSwitch = pos <= SWITCH_POSITIONS ? pos : 0;
-  switchRecovering = false;
-  switchFailed = false;
+  // Поворот не начинался: переключатель физически на положении из NVS, поэтому текущий угол
+  // привода и задаёт привязку нуля
+  switchFrom = 0;
+  switchTo = 0;
+  if (pos >= 1 && pos <= SWITCH_POSITIONS) {
+    switchBase = angle - (pos - 1) * SWITCH_STEPS_PER_POS * SWITCH_DIRECTION;
+    switchBaseValid = true;
+    currentSwitch = pos;
+    switchFailed = false;
+    Serial.printf("switch recover: pos=%d angle=%d base=%d\n", pos, angle, switchBase);
+  } else {
+    // Положение не задано: без нуля двигать переключатель нельзя
+    switchBaseValid = false;
+    currentSwitch = 0;
+    switchFailed = false;
+  }
+  updatePtt();
   return true;
 }
 
@@ -793,39 +805,19 @@ bool ensureSwitchMultiTurn() {
   return true;
 }
 
-// Сбрасывает счёт оборотов привода к текущему углу, чтобы он не рос от поворота к повороту:
-// переход в шаговый режим и обратно (только в ОЗУ привода). Привод при этом снимает удержание -
-// возвращаем его целью target (угол 0..4095), кратчайшим путём от текущего угла: привод мог ещё
-// не доехать последние шаги допуска
-void resetSwitchTurns(int target) {
-  stsWriteByte(SERVO_ID_SWITCH, STS_REG_LOCK, 1);
-  stsWriteByte(SERVO_ID_SWITCH, STS_REG_MODE, STS_MODE_STEP);
-  stsWriteByte(SERVO_ID_SWITCH, STS_REG_MODE, STS_MODE_POSITION);
-  int current = readSwitchPos();
-  if (current >= 0)
-    setServoPosition(SERVO_ID_SWITCH, current + shortestDelta(current, target));
-}
-
-// Последняя цель привода переключателя со счётом оборотов. После подачи питания или сброса счёта
-// удержание выключено, а счёт равен углу - тогда возвращается угол
-bool readSwitchGoal(int angle, int &goal) {
+// Угол привода переключателя и его текущий счёт (абсолютные шаги). counterValid = false -
+// привод подавали питанием заново, число оборотов потеряно и счёт равен углу.
+// false - привод не отвечает.
+bool readSwitchState(int &angle, int &goal, bool &counterValid) {
+  angle = readSwitchPos();
+  if (angle < 0)
+    return false;
   int torque = stsReadByte(SERVO_ID_SWITCH, STS_REG_TORQUE);
   int raw = stsReadWord(SERVO_ID_SWITCH, STS_REG_GOAL);
   if (torque < 0 || raw < 0)
     return false;
-  goal = torque == 0 ? angle : stsDecodeSigned(raw);
-  return true;
-}
-
-// Угол и последняя цель привода переключателя; false - привод не отвечает
-bool prepareSwitch(int &current, int &goal) {
-  current = readSwitchPos();
-  if (current < 0 || !ensureSwitchMultiTurn() || !readSwitchGoal(current, goal)) {
-    switchFailed = true;
-    updatePtt();
-    Serial.println("switch servo: no response");
-    return false;
-  }
+  counterValid = torque != 0;
+  goal = counterValid ? stsDecodeSigned(raw) : angle;
   return true;
 }
 
@@ -841,6 +833,7 @@ uint32_t switchTravelMs(int steps) {
 // Общая подготовка к движению переключателя: снять PTT, выставить флаги и таймауты
 void beginSwitchMove(int finalAngle, int goal, int steps, const char *tag) {
   bool pttWasOn = relayPtt;
+  bool wasMoving = switchMoving;  // команда пришла во время прошлого поворота
   switchMoving = true;
   switchFailed = false;
   switchStableCount = 0;
@@ -848,48 +841,67 @@ void beginSwitchMove(int finalAngle, int goal, int steps, const char *tag) {
   if (pttWasOn)
     delay(PTT_RELEASE_MS);
   setServoPosition(SERVO_ID_SWITCH, goal);
-  switchTarget = finalAngle;  // после N полных оборотов угол снова ≈ стартовый / целевой
+  switchGoalSent = goal;
+  switchTarget = finalAngle;  // ожидаемый угол по приезду
   switchMoveStart = millis();
   switchMinMs = switchTravelMs(steps);
-  // таймаут с запасом ~50%
+  // таймаут с запасом ~50%; при перенаправлении на ходу счёт привода известен неточно,
+  // поэтому добавляется время полного хода по всем положениям
   switchTimeoutMs = switchMinMs + switchMinMs / 2 + 2000;
+  if (wasMoving)
+    switchTimeoutMs += switchTravelMs(SWITCH_POSITIONS * SWITCH_STEPS_PER_POS);
   lastSwitchCheck = 0;
   Serial.printf("switch servo: %s steps=%d goal=%d min=%lums timeout=%lums\n",
                 tag, steps, goal, (unsigned long)switchMinMs, (unsigned long)switchTimeoutMs);
 }
 
-// Поворот на угол target (0..4095) кратчайшим путём — только для сервиса «ноль» (положение 1)
-bool moveSwitchTo(int target) {
-  int current = 0;
+// Доехать до положения pos абсолютной целью switchGoalForPos(pos). Повторная отправка той же
+// цели вал не двигает, поэтому этот же вызов продолжает прерванный поворот.
+bool moveSwitchToPos(int pos) {
+  int angle = 0;
   int goal = 0;
-  if (!prepareSwitch(current, goal))
+  bool counterValid = false;
+  if (!readSwitchState(angle, goal, counterValid) || !ensureSwitchMultiTurn()) {
+    Serial.println("switch servo: no response");
     return false;
-  int count = goal + shortestDelta(wrapSteps(goal), current);
-  int delta = shortestDelta(current, target);
-  goal = count + delta;
-  beginSwitchMove(target, goal, delta, "to-angle");
+  }
+  int count = goal + shortestDelta(wrapSteps(goal), angle);
+  int target = switchGoalForPos(pos);
+  int steps = target - count;
+  switchZeroing = false;
+  // на ходу счёт привода известен только приблизительно: «уже на месте» засчитываем,
+  // лишь когда переключатель не едет
+  if (!switchMoving && abs(steps) <= SWITCH_TOLERANCE) {
+    finishSwitchMove();  // уже на месте — только подтвердить
+    return true;
+  }
+  beginSwitchMove(switchAngleForPos(pos), target, steps, "pos");
   return true;
 }
 
-// Поворот ровно на turns полных оборотов (один шаг БМЗ Р-140 = 1 оборот = 360°).
-// Знак: + в сторону увеличения номера положения, − — уменьшения.
-bool moveSwitchByTurns(int turns) {
-  if (turns == 0)
-    return true;
-  int current = 0;
+// Поворот к углу 0..4095 кратчайшим путём — только для «Привести в ноль»
+bool startSwitchAngleMove(int targetAngle) {
+  int angle = 0;
   int goal = 0;
-  if (!prepareSwitch(current, goal))
+  bool counterValid = false;
+  if (!readSwitchState(angle, goal, counterValid) || !ensureSwitchMultiTurn()) {
+    Serial.println("switch servo: no response");
     return false;
-  int count = goal + shortestDelta(wrapSteps(goal), current);
-  int steps = turns * SWITCH_STEPS_PER_POS;
-  goal = count + steps;
-  // После целых оборотов угол возвращается к стартовому
-  beginSwitchMove(current, goal, steps, "turns");
+  }
+  int count = goal + shortestDelta(wrapSteps(goal), angle);
+  int delta = shortestDelta(angle, targetAngle);
+  if (abs(delta) <= SWITCH_TOLERANCE) {
+    switchGoalSent = count;
+    finishSwitchMove();
+    return true;
+  }
+  beginSwitchMove(targetAngle, count + delta, delta, "zero");
   return true;
 }
+
 
 // Ставит переключатель БМЗ в положение 1..SWITCH_POSITIONS; 0 - положение не задано,
-// переключатель остаётся где был. Между положениями — полные обороты (360° на шаг).
+// переключатель остаётся где был. Положения разнесены на 180°, цель абсолютная.
 // currentSwitch меняется только после приезда; на старте в NVS пишется задание from→to.
 bool setSwitch(int position) {
   if (position < 0 || position > SWITCH_POSITIONS)
@@ -902,65 +914,56 @@ bool setSwitch(int position) {
   }
   if (position == currentSwitch && !switchMoving && !switchFailed)
     return true;
-  // Если текущее положение неизвестно — считаем, что стоим на 1 (после zero или первого выбора)
-  int from = currentSwitch >= 1 ? currentSwitch : 1;
-  int turns = position - from;
-  switchFrom = from;
-  switchTo = position;
-  saveSwitchMoveJob(from, position);  // до движения — защита от пропадания света
-  if (turns == 0) {
-    // Уже на месте логически
-    currentSwitch = position;
-    saveSwitchConfirmed(position);
-    return true;
-  }
-  if (!moveSwitchByTurns(turns))
+  if (!switchBaseValid) {
+    // После обесточивания привода посреди поворота неизвестно, где стоит переключатель
+    switchFailed = true;
+    updatePtt();
+    Serial.println("switch servo: zero unknown, «Привести в ноль» required");
     return false;
-  // currentSwitch остаётся = from, станет = to в onSwitchArrived()
+  }
+  switchFrom = currentSwitch >= 1 ? currentSwitch : 0;
+  switchTo = position;
+  saveSwitchMoveJob(switchFrom, position);  // до движения — защита от пропадания света
+  if (!moveSwitchToPos(position)) {
+    switchFailed = true;
+    updatePtt();
+    return false;
+  }
+  // currentSwitch остаётся = from, станет = to в finishSwitchMove()
   return true;
 }
 
-// Вызывается когда привод доехал и счёт оборотов сброшен.
-// Подтверждает положение в RAM и NVS; при восстановлении после света может начать следующий этап.
-void onSwitchArrived() {
+// Приезд переключателя: подтверждает положение в RAM и NVS.
+void finishSwitchMove() {
+  switchMoving = false;
+  switchStableCount = 0;
   switchFailed = false;
 
-  if (switchRecovering) {
-    // Этап 1 recovery: докрутили частичный оборот до 0°. Дальше — доехать from→to.
-    int from = switchFrom >= 1 ? switchFrom : 1;
-    int to = switchTo >= 1 ? switchTo : from;
-    if (from != to) {
-      Serial.printf("switch recover: partial done, resume %d -> %d\n", from, to);
-      currentSwitch = from;
-      switchFrom = from;
-      switchTo = to;
-      saveSwitchMoveJob(from, to);
-      switchRecovering = false;  // следующий приезд — обычное подтверждение to
-      int turns = to - from;
-      if (moveSwitchByTurns(turns))
-        return;
-      switchFailed = true;
-      updatePtt();
-      return;
-    }
-    // from==to: просто зафиксировать
-    switchRecovering = false;
+  if (switchZeroing) {
+    // «Привести в ноль»: текущее положение объявлено положением 1
+    switchZeroing = false;
+    switchBase = switchGoalSent;
+    switchBaseValid = true;
+    currentSwitch = 1;
+    switchFrom = 0;
+    switchTo = 0;
+    saveSwitchConfirmed(1);
+    Serial.printf("switch servo: zero set, base=%d\n", switchBase);
+    updatePtt();
+    return;
   }
 
-  // Обычный приезд (или конец recovery)
   int confirmed = switchTo >= 1 ? switchTo : currentSwitch;
-  if (confirmed < 1)
-    confirmed = currentSwitch >= 1 ? currentSwitch : 1;
   currentSwitch = confirmed;
   switchFrom = 0;
   switchTo = 0;
-  switchRecovering = false;
   saveSwitchConfirmed(confirmed);
   Serial.printf("switch servo: confirmed pos %d (saved to NVS)\n", confirmed);
+  updatePtt();
 }
 
 // Следит за поворотом переключателя.
-// При полных оборотах угол 0..4095 несколько раз проходит через цель — поэтому до switchMinMs
+// На переезде в 2 положения (360°) угол проходит цель повторно — поэтому до switchMinMs
 // приезд не засчитываем; после — нужны SWITCH_STABLE_READS подряд попаданий в допуск.
 void updateSwitch() {
   if (!switchMoving || millis() - lastSwitchCheck < SWITCH_CHECK_MS)
@@ -975,12 +978,8 @@ void updateSwitch() {
   if (elapsed >= switchMinMs && inTol) {
     switchStableCount++;
     if (switchStableCount >= SWITCH_STABLE_READS) {
-      resetSwitchTurns(switchTarget);
-      switchMoving = false;
-      switchStableCount = 0;
       Serial.printf("switch servo: reached %d after %lums\n", current, (unsigned long)elapsed);
-      onSwitchArrived();
-      updatePtt();
+      finishSwitchMove();
     }
   } else {
     switchStableCount = 0;
@@ -1118,7 +1117,7 @@ void pollServos() {
     startRetune(varioRetune, currentVario);
   }
   // Первое появление связи с приводом БМЗ после старта/пропадания 12 В —
-  // проверить NVS (незавершённый поворот) и угол (~0° = на границе положений).
+  // восстановить привязку нуля и довезти прерванный поворот
   if (switchBefore < 0 && servoSwitchPos >= 0) {
     Serial.printf("switch servo: link up, angle=%d\n", servoSwitchPos);
     recoverSwitchAfterPower();
@@ -1135,7 +1134,7 @@ void sendState() {
   const Point *p = findPoint(currentFreqKhz);
   String json = "{\"freq\":" + String(currentFreqKhz) + ",\"cap\":" + String(currentCap) +
                 ",\"vario\":" + String(currentVario) + ",\"sw\":" + String(currentSwitch) +
-                ",\"swmax\":" + String(SWITCH_POSITIONS) + ",\"swFrom\":" + String(switchFrom) + ",\"swTo\":" + String(switchTo) + ",\"swRecovering\":" + jsonBool(switchRecovering) + ",\"tuning\":" + (tuningMode ? "true" : "false") +
+                ",\"swmax\":" + String(SWITCH_POSITIONS) + ",\"swFrom\":" + String(switchFrom) + ",\"swTo\":" + String(switchTo) + ",\"swZero\":" + jsonBool(switchBaseValid) + ",\"tuning\":" + (tuningMode ? "true" : "false") +
                 ",\"saved\":" + (p && p->saved ? "true" : "false") +
                 ",\"pcap\":" + String(p ? p->cap : -1) + ",\"pvario\":" + String(p ? p->vario : -1) +
                 ",\"psw\":" + String(p ? p->sw : 0);
@@ -1358,7 +1357,9 @@ void handleMove() {
       return;
     }
     if (!setSwitch(sw)) {
-      sendError(503, "переключатель БМЗ не отвечает");
+      sendError(503, switchBaseValid
+                         ? "переключатель БМЗ не отвечает"
+                         : "положение переключателя БМЗ неизвестно, нажмите «Привести в ноль»");
       return;
     }
   }
@@ -1486,23 +1487,31 @@ void handleProtectionReset() {
   sendState();
 }
 
-// Сервис: привести привод переключателя в ноль - это положение 1. При наладке переключатель
-// механически выставляется в положение 1 при вале привода в нуле. Работает и при выключенном усилителе
+// Сервис: привести привод переключателя в ноль. Ноль привода объявляется положением 1:
+// при наладке переключатель механически выставляется в положение 1 при вале привода в нуле.
+// Работает и при выключенном усилителе
 void handleSwitchZero() {
   if (controlsLocked()) {
     sendError(409, "идёт включение усилителя, управление заблокировано");
     return;
   }
-  // Задание: куда бы ни стояли логически → положение 1 (угол 0)
-  int from = currentSwitch >= 1 ? currentSwitch : 1;
-  switchFrom = from;
+  if (switchMoving) {
+    // Ноль задаётся только из неподвижного положения: при движении абсолютный счёт
+    // приблизительный (известен только с точностью до оборота)
+    sendError(409, "переключатель поворачивается, подождите");
+    return;
+  }
+  switchZeroing = true;
+  switchFrom = currentSwitch >= 1 ? currentSwitch : 0;
   switchTo = 1;
-  saveSwitchMoveJob(from, 1);
-  if (!moveSwitchTo(0)) {
+  saveSwitchMoveJob(switchFrom, 1);
+  if (!startSwitchAngleMove(0)) {
+    switchZeroing = false;
+    clearSwitchMoveJob();
     sendError(503, "переключатель БМЗ не отвечает");
     return;
   }
-  // currentSwitch = 1 только после onSwitchArrived
+  // currentSwitch = 1 только после приезда (finishSwitchMove)
   sendState();
 }
 

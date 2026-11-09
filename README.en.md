@@ -39,7 +39,7 @@ controller itself.
 | Controller | LilyGO T-Halow (ESP32-S3, 16 MB flash); a move to an ESP32-S3 board with Ethernet is planned |
 | Variable capacitor | Feetech STS3215 servo, ID 1 |
 | Variometer | Feetech STS3215 servo, ID 2 (rotates without limits) |
-| Band switch | Feetech STS3215 servo, ID 3, 5 positions 72° apart, no end stops |
+| Band switch | Feetech STS3215 servo, ID 3, 5 positions 180° apart (half a servo turn per step), no end stops |
 | Switching | 8-relay optocoupled module + 4-relay module |
 | Network | Wi-Fi client (DHCP); an Ethernet (W5500) build option exists but is untested |
 
@@ -126,7 +126,7 @@ and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 ## First start
 
 1. **Servo IDs.** All servos ship with ID 1. Connect them to the bus one at a time and change the ID in the "Service" block of the page: variometer to 2, band switch to 3. The capacitor stays at 1. "Find servos" shows which servos respond.
-2. **Band switch calibration.** Servo zero is switch position 1. In the "Service" block press "Bring to zero" and set the switch mechanically to position 1 (couple it at servo zero). The other positions are 72° apart.
+2. **Band switch calibration.** Servo zero is switch position 1. In the "Service" block press "Bring to zero" and set the switch mechanically to position 1 (couple it at servo zero). The other positions are 180° apart (half a servo turn per step).
 3. **Frequency tuning.** Turn on "Tuning mode", select a frequency, adjust the capacitor, the variometer and the band switch position, press "Save". Tuned frequencies are marked with a green bar.
 4. **Backup.** In tuning mode, "Download" saves the table to `tubeamp-points.csv` (`frequency;capacitor;variometer;switch`), "Upload" restores it.
 
