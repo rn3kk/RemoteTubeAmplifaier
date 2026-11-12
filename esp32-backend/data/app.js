@@ -1,5 +1,7 @@
-const API_VERSION = 3;  // должна совпадать с WWW_API_VERSION в прошивке
-const POS_MAX = 4095;
+const API_VERSION = 4;  // должна совпадать с WWW_API_VERSION в прошивке
+const POS_MAX = 4095;   // вариометр - полный оборот
+const CAP_MAX = 2047;   // КПЕ - пол-оборота (180°)
+const MAX_FOR = {cap: CAP_MAX, vario: POS_MAX};
 const STEPS = [-100, -10, -1, 1, 10, 100];
 const SERVOS = [['cap', 'КПЕ'], ['vario', 'Вариометр']];
 const buttons = {};
@@ -221,7 +223,7 @@ function flush() {
 }
 
 function setTarget(name, value) {
-  target[name] = Math.max(0, Math.min(POS_MAX, Math.round(value)));
+  target[name] = Math.max(0, Math.min(MAX_FOR[name], Math.round(value)));
   lastInput = Date.now();
   dirty = true;
   showTarget();
@@ -263,7 +265,7 @@ for (const [name, title] of SERVOS) {
   const slider = document.createElement('input');
   slider.type = 'range';
   slider.min = 0;
-  slider.max = POS_MAX;
+  slider.max = MAX_FOR[name];
   slider.oninput = () => setTarget(name, Number(slider.value));
   sliders[name] = slider;
   addWheel(slider);

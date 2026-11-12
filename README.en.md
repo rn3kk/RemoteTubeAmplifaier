@@ -132,7 +132,7 @@ and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 
 ## HTTP API
 
-Responses are JSON. Servo positions are in steps 0..4095 (4096 steps per revolution).
+Responses are JSON. Servo positions are in steps: capacitor 0..2047 (half-turn, 180°), variometer 0..4095 (full turn).
 
 | Method | Purpose |
 |---|---|

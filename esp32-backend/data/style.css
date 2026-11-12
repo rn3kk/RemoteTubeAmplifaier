@@ -74,8 +74,9 @@ input[type=range]:disabled { opacity: .4; }
 #service { border-top: 1px solid #3a3d44; padding-top: 12px; }
 #service summary { cursor: pointer; color: #9aa0aa; padding: 6px 0; }
 #service .actions { margin-top: 10px; }
-#service input { width: 72px; min-height: 40px; padding: 6px; background: #2d3038; color: inherit;
+#service input[type=number] { width: 72px; min-height: 40px; padding: 6px; background: #2d3038; color: inherit;
                  border: 1px solid #4a4e57; border-radius: 6px; font-size: 15px; }
+#service input[type=file] { color: inherit; font-size: 15px; }
 #servicemsg { margin-top: 10px; white-space: pre-line; }
 /* телефон */
 @media (max-width: 600px) {
