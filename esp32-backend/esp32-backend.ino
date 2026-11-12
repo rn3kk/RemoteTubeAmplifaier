@@ -1,5 +1,5 @@
 // 0 - Wi-Fi (клиент), 1 - Ethernet на W5500 (для платы с Ethernet)
-#define USE_ETHERNET 0
+#define USE_ETHERNET 1
 
 #if USE_ETHERNET
 #include <ETH.h>
@@ -15,13 +15,13 @@
 // Адрес в обоих вариантах выдаётся по DHCP, свою точку доступа плата не поднимает
 const char *HOSTNAME = "tubeamp";
 #if USE_ETHERNET
-// Контроллер W5500 на SPI
-const int ETH_SCK_PIN = 10;
-const int ETH_MISO_PIN = 11;
-const int ETH_MOSI_PIN = 12;
-const int ETH_CS_PIN = 9;
-const int ETH_IRQ_PIN = 13;
-const int ETH_RST_PIN = 14;
+// Контроллер W5500 на SPI (Waveshare ESP32-S3-ETH)
+const int ETH_SCK_PIN = 13;
+const int ETH_MISO_PIN = 12;
+const int ETH_MOSI_PIN = 11;
+const int ETH_CS_PIN = 14;
+const int ETH_IRQ_PIN = 10;
+const int ETH_RST_PIN = 9;
 const int ETH_W5500_ADDR = 1;
 #else
 // WIFI_SSID и WIFI_PASS задаются в secrets.h (в git не попадает):
@@ -32,7 +32,7 @@ const int ETH_W5500_ADDR = 1;
 
 // Шина сервоприводов Feetech STS3215 (полудуплексный UART, 1 Мбит/с)
 const int SERVO_TX_PIN = 47;
-const int SERVO_RX_PIN = 21;
+const int SERVO_RX_PIN = 38;
 const uint32_t SERVO_BAUD = 1000000;
 const uint8_t SERVO_ID_CAP = 1;     // КПЕ
 const uint8_t SERVO_ID_VARIO = 2;   // вариометр
@@ -49,10 +49,10 @@ const uint32_t SERVO_CHECK_MS = 50;           // как часто провер�
 // Основной модуль на 8 реле с опторазвязкой и второй модуль на 4 реле.
 // Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе
 const int RELAY_ACTIVE_LEVEL = LOW;
-const int RELAY_POWER_PIN = 9;       // реле 1: включение усилителя
+const int RELAY_POWER_PIN = 16;      // реле 1: включение усилителя
 const int RELAY_PTT_PIN = 48;        // реле 8: PTT усилителя
 const int RELAY_ANODE_PIN = 40;      // второй модуль, реле 1: анодное напряжение
-const int RELAY_TRX_PTT_PIN = 12;    // реле 3: PTT трансивера (передача с веб-страницы)
+const int RELAY_TRX_PTT_PIN = 17;    // реле 3: PTT трансивера (передача с веб-страницы)
 
 // Передача с веб-страницы: страница подтверждает её не реже WEB_TX_KEEPALIVE_MS,
 // иначе передача снимается (закрыли страницу, пропала связь); дольше WEB_TX_MAX_MS не держится
@@ -83,7 +83,7 @@ const int PTT_RELEASE_MS = 30;   // пауза между снятием раз�
 // Входы от усилителя, активный уровень INPUT_ACTIVE_LEVEL (замыкание на GND или выход оптрона)
 const int INPUT_PROTECTION_PIN = 41;  // сработала защита
 const int INPUT_ACTIVE_LEVEL = LOW;
-const int INPUT_PTT_PIN = 11;         // PTT от трансивера
+const int INPUT_PTT_PIN = 18;         // PTT от трансивера
 const uint32_t INPUT_DEBOUNCE_MS = 50;
 const uint32_t PTT_DEBOUNCE_MS = 5;   // для PTT короче, чтобы не задерживать передачу
 
