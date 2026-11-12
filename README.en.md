@@ -37,8 +37,8 @@ controller itself.
 | Part | What is used |
 |---|---|
 | Controller | LilyGO T-Halow (ESP32-S3, 16 MB flash); a move to an ESP32-S3 board with Ethernet is planned |
-| Variable capacitor | Feetech STS3215 servo, ID 1 |
-| Variometer | Feetech STS3215 servo, ID 2 (rotates without limits) |
+| Variable capacitor | Feetech STS3215 servo, ID 1, 190° (180° + 10° margin) |
+| Variometer | Feetech STS3215 servo, ID 2, 190° (180° + 10° margin) |
 | Band switch | Feetech STS3215 servo, ID 3, 5 positions 180° apart (half a servo turn per step), no end stops |
 | Switching | 8-relay optocoupled module + 4-relay module |
 | Network | Wi-Fi client (DHCP); an Ethernet (W5500) build option exists but is untested |
@@ -132,7 +132,7 @@ and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 
 ## HTTP API
 
-Responses are JSON. Servo positions are in steps: capacitor 0..2047 (half-turn, 180°), variometer 0..4095 (full turn).
+Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190° = 180° travel + 10° margin).
 
 | Method | Purpose |
 |---|---|

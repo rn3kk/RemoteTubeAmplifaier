@@ -38,8 +38,9 @@ const uint8_t SERVO_ID_CAP = 1;     // КПЕ
 const uint8_t SERVO_ID_VARIO = 2;   // вариометр
 const uint16_t SERVO_SPEED = 1500;  // шагов/с, 0 - максимальная
 const uint8_t SERVO_ACC = 50;       // x100 шагов/с^2, 0 - максимальное
-const int SERVO_POS_MAX = 4095;     // 4096 шагов на оборот
-const int CAP_POS_MAX = 2047;       // КПЕ поворачивается на пол-оборота (180°)
+// КПЕ и вариометр: 190° = 180° рабочего хода + 10° запаса на проворот.
+// 4096 шагов на оборот, поэтому 190° = 190*4096/360 = 2162 шага
+const int TUNE_POS_MAX = 2162;
 
 // Перестройка КПЕ и вариометра по выбору частоты: PTT запрещён, пока приводы не встанут.
 // Ручное движение в режиме настройки PTT не снимает - настройка идёт под несущей
@@ -61,7 +62,7 @@ const uint32_t WEB_TX_KEEPALIVE_MS = 2000;
 const uint32_t WEB_TX_MAX_MS = 60000;
 
 // Версия API для файлов веб-страницы: страница сверяет её со своей и предупреждает о расхождении
-const int WWW_API_VERSION = 4;
+const int WWW_API_VERSION = 5;
 
 // Переключатель БМЗ: третий сервопривод, 5 положений.
 // Механика Р-140: одно положение переключателя = 180° привода (2048 шагов).
@@ -100,7 +101,7 @@ const uint32_t SERVO_POLL_MS = 1000;  // как часто опрашивать 
 const int TUNE_STEP_KHZ = 25;
 
 // Диапазоны. Пока точка не настроена и не сохранена, положения сервоприводов
-// (в шагах, 0..4095) линейно интерполируются внутри диапазона от ...From до ...To
+// (в шагах, 0..2162 = 190°) линейно интерполируются внутри диапазона от ...From до ...To
 struct Band {
   const char *name;
   int fromKhz;
@@ -113,16 +114,16 @@ struct Band {
 
 const Band BANDS[] = {
   {"190m", 1600, 1775, 0, 0, 0, 0},
-  {"160m", 1800, 2000, 0, 200, 0, 400},
-  {"100m", 2900, 3200, 200, 200, 400, 400},
-  {"80m", 3500, 3800, 200, 450, 400, 900},
-  {"40m", 7000, 7200, 450, 700, 900, 1400},
-  {"30m", 10100, 10150, 700, 800, 1400, 1600},
-  {"20m", 14000, 14350, 800, 1100, 1600, 2200},
-  {"17m", 18075, 18175, 1100, 1250, 2200, 2500},
-  {"15m", 21000, 21450, 1250, 1550, 2500, 3100},
-  {"12m", 24900, 25000, 1550, 1650, 3100, 3300},
-  {"10m", 28000, 29700, 1650, 2047, 3300, 4095},
+  {"160m", 1800, 2000, 0, 200, 0, 200},
+  {"100m", 2900, 3200, 200, 200, 200, 200},
+  {"80m", 3500, 3800, 200, 450, 200, 450},
+  {"40m", 7000, 7200, 450, 700, 450, 700},
+  {"30m", 10100, 10150, 700, 800, 700, 800},
+  {"20m", 14000, 14350, 800, 1100, 800, 1100},
+  {"17m", 18075, 18175, 1100, 1250, 1100, 1250},
+  {"15m", 21000, 21450, 1250, 1550, 1250, 1550},
+  {"12m", 24900, 25000, 1550, 1650, 1550, 1650},
+  {"10m", 28000, 29700, 1650, 2047, 1650, 2047},
 };
 const int BANDS_COUNT = sizeof(BANDS) / sizeof(BANDS[0]);
 
@@ -146,7 +147,6 @@ struct StoredPoint {
 const int MAX_POINTS = 256;
 const char *PREFS_NAMESPACE = "tubeamp";
 const char *PREFS_KEY_POINTS = "pts";
-const char *PREFS_KEY_CAP_SCALE = "capscale";  // 1 - КПЕ уже в масштабе 0..2047 (пол-оборота)
 // Состояние БМЗ во flash (NVS): подтверждённое положение и незавершённый поворот
 const char *PREFS_KEY_SW_POS = "sw_pos";     // 0..SWITCH_POSITIONS, последнее подтверждённое
 const char *PREFS_KEY_SW_FROM = "sw_from";   // откуда ехали (при busy)
@@ -342,15 +342,15 @@ bool parsePointLine(String line) {
   Point *p = findPoint(freq);
   if (!p)
     return false;
-  p->cap = constrain(cap, 0, CAP_POS_MAX);
-  p->vario = constrain(vario, 0, SERVO_POS_MAX);
+  p->cap = constrain(cap, 0, TUNE_POS_MAX);
+  p->vario = constrain(vario, 0, TUNE_POS_MAX);
   p->sw = sw >= 1 && sw <= SWITCH_POSITIONS ? sw : 0;
   p->saved = true;
   return true;
 }
 
 String pointsCsv() {
-  String csv = "# частота кГц;КПЕ;вариометр;БМЗ (КПЕ 0..2047 = пол-оборота, вариометр 0..4095, БМЗ - номер положения)\n";
+  String csv = "# частота кГц;КПЕ;вариометр;БМЗ (КПЕ и вариометр 0..2162 = 190°, БМЗ - номер положения)\n";
   for (int i = 0; i < pointsCount; i++) {
     const Point &p = points[i];
     if (p.saved)
@@ -366,22 +366,15 @@ void loadSavedPoints() {
     return;
   prefs.getBytes(PREFS_KEY_POINTS, stored, len);
   int count = len / sizeof(StoredPoint);
-  // Однократный перевод КПЕ с полного оборота (0..4095) на пол-оборота (0..2047):
-  // сохранённые точки делим на 2 и записываем обратно в новом масштабе
-  bool migrateCap = prefs.getUChar(PREFS_KEY_CAP_SCALE, 0) == 0;
   for (int i = 0; i < count; i++) {
     Point *p = findPoint(stored[i].freqKhz);
     if (!p)
       continue;
-    p->cap = constrain(stored[i].cap, 0, SERVO_POS_MAX);
-    if (migrateCap)
-      p->cap /= 2;
-    p->vario = constrain(stored[i].vario, 0, SERVO_POS_MAX);
+    p->cap = constrain(stored[i].cap, 0, TUNE_POS_MAX);
+    p->vario = constrain(stored[i].vario, 0, TUNE_POS_MAX);
     p->sw = stored[i].sw <= SWITCH_POSITIONS ? stored[i].sw : 0;
     p->saved = true;
   }
-  if (migrateCap && storeSavedPoints())
-    prefs.putUChar(PREFS_KEY_CAP_SCALE, 1);
   Serial.printf("Loaded %d saved points\n", count);
 }
 
@@ -516,8 +509,8 @@ void setServoPosition(uint8_t id, int position) {
 }
 
 void moveServos(int cap, int vario) {
-  cap = constrain(cap, 0, CAP_POS_MAX);
-  vario = constrain(vario, 0, SERVO_POS_MAX);
+  cap = constrain(cap, 0, TUNE_POS_MAX);
+  vario = constrain(vario, 0, TUNE_POS_MAX);
   if (cap != currentCap)
     setServoPosition(SERVO_ID_CAP, cap);
   if (vario != currentVario)
@@ -601,8 +594,8 @@ void startRetune(Retune &r, int target) {
 
 // Перестройка КПЕ и вариометра в положения новой частоты
 void retuneServos(int cap, int vario) {
-  currentCap = constrain(cap, 0, CAP_POS_MAX);
-  currentVario = constrain(vario, 0, SERVO_POS_MAX);
+  currentCap = constrain(cap, 0, TUNE_POS_MAX);
+  currentVario = constrain(vario, 0, TUNE_POS_MAX);
   startRetune(capRetune, currentCap);
   startRetune(varioRetune, currentVario);
 }

@@ -1,7 +1,6 @@
-const API_VERSION = 4;  // должна совпадать с WWW_API_VERSION в прошивке
-const POS_MAX = 4095;   // вариометр - полный оборот
-const CAP_MAX = 2047;   // КПЕ - пол-оборота (180°)
-const MAX_FOR = {cap: CAP_MAX, vario: POS_MAX};
+const API_VERSION = 5;  // должна совпадать с WWW_API_VERSION в прошивке
+const TUNE_MAX = 2162;  // КПЕ и вариометр: 190° = 180° + 10° запас на проворот
+const MAX_FOR = {cap: TUNE_MAX, vario: TUNE_MAX};
 const STEPS = [-100, -10, -1, 1, 10, 100];
 const SERVOS = [['cap', 'КПЕ'], ['vario', 'Вариометр']];
 const buttons = {};
