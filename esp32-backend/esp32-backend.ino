@@ -32,7 +32,7 @@ const int ETH_W5500_ADDR = 1;
 
 // Шина сервоприводов Feetech STS3215 (полудуплексный UART, 1 Мбит/с)
 const int SERVO_TX_PIN = 47;
-const int SERVO_RX_PIN = 38;
+const int SERVO_RX_PIN = 48;
 const uint32_t SERVO_BAUD = 1000000;
 const uint8_t SERVO_ID_CAP = 1;     // КПЕ
 const uint8_t SERVO_ID_VARIO = 2;   // вариометр
@@ -49,12 +49,16 @@ const uint32_t SERVO_MOVE_TIMEOUT_MS = 5000;  // сколько ждать ок�
 const uint32_t SERVO_CHECK_MS = 50;           // как часто проверять положение во время перестройки
 
 // Основной модуль на 8 реле с опторазвязкой и второй модуль на 4 реле.
-// Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе
+// Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе.
+// Пины под Waveshare ESP32-S3-ETH: GPIO33..37 заняты PSRAM (OPI), их использовать нельзя.
+// GP38..GP42 идут подряд на разъёме - шлейф IN1..IN5, остальные реле на GP15..GP17.
 const int RELAY_ACTIVE_LEVEL = LOW;
-const int RELAY_POWER_PIN = 16;      // реле 1: включение усилителя
-const int RELAY_PTT_PIN = 48;        // реле 8: PTT усилителя
-const int RELAY_ANODE_PIN = 40;      // второй модуль, реле 1: анодное напряжение
-const int RELAY_TRX_PTT_PIN = 17;    // реле 3: PTT трансивера (передача с веб-страницы)
+const int RELAY_POWER_PIN = 38;       // реле 1: включение 220В
+const int RELAY_SOFTSTART_PIN = 39;   // реле 2: плавный пуск (шунт пускового резистора)
+const int RELAY_TRX_PTT_PIN = 40;     // реле 3: PTT трансивера (передача с веб-страницы)
+// реле 4..7 (GPIO 41, 42, 15, 16) свободны
+const int RELAY_PTT_PIN = 17;         // реле 8: PTT усилителя
+const int RELAY_ANODE_PIN = 18;       // второй модуль, реле 1: АНОД (анодное напряжение на лампу)
 
 // Передача с веб-страницы: страница подтверждает её не реже WEB_TX_KEEPALIVE_MS,
 // иначе передача снимается (закрыли страницу, пропала связь); дольше WEB_TX_MAX_MS не держится
@@ -83,18 +87,21 @@ const int SWITCH_STABLE_READS = 3;        // сколько подряд поп�
 const int PTT_RELEASE_MS = 30;   // пауза между снятием разрешения PTT и поворотом переключателя БМЗ
 
 // Входы от усилителя, активный уровень INPUT_ACTIVE_LEVEL (замыкание на GND или выход оптрона)
-const int INPUT_PROTECTION_PIN = 41;  // сработала защита
+const int INPUT_PROTECTION_PIN = 43;  // сработала защита
 const int INPUT_ACTIVE_LEVEL = LOW;
-const int INPUT_PTT_PIN = 18;         // PTT от трансивера
+const int INPUT_PTT_PIN = 44;         // PTT от трансивера
 const uint32_t INPUT_DEBOUNCE_MS = 50;
 const uint32_t PTT_DEBOUNCE_MS = 5;   // для PTT короче, чтобы не задерживать передачу
 
-// Выключение раньше, чем через COOLDOWN_MS после последней передачи, только принудительно
+// Выключение раньше, чем через COOLDOWN_MS после последней передачи: АНОД снимается сразу,
+// а 220В остаётся - вентилятор обдува доохлаждает лампу, затем усилитель выключается сам
 const uint32_t COOLDOWN_MS = 10000;  // ОТЛАДКА: в усилителе 300000 (5 мин)
 
-// Последовательность включения: питание -> прогрев WARMUP_MS (управление заблокировано) ->
-// анодное -> разрешение PTT. Плавный пуск в усилителе автономный, ESP32 им не управляет
-const uint32_t WARMUP_MS = 10000;    // ОТЛАДКА: в усилителе 180000 (3 мин)
+// Последовательность включения: 220В -> плавный пуск SOFTSTART_MS (шунт пускового резистора) ->
+// прогрев WARMUP_MS (управление заблокировано) -> анодное -> разрешение PTT.
+// Анодный блок питания запитан от того же 220В, отдельного реле нет
+const uint32_t SOFTSTART_MS = 10000;  // плавный пуск, 10 с
+const uint32_t WARMUP_MS = 10000;     // ОТЛАДКА: в усилителе 240000 (4 мин)
 
 const uint32_t SERVO_POLL_MS = 1000;  // как часто опрашивать сервоприводы
 
@@ -185,10 +192,11 @@ int currentVario = -1;
 int currentSwitch = 0;  // подтверждённое положение БМЗ, 0 - не задано (только после приезда)
 bool tuningMode = false;
 
-enum AmpState { AMP_OFF, AMP_WARMUP, AMP_READY };
+enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY, AMP_COOLING };
 AmpState ampState = AMP_OFF;
 uint32_t ampStateSince = 0;
 bool relayPower = false;
+bool relaySoftstart = false;
 bool relayAnode = false;
 bool relayPtt = false;
 bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
@@ -538,6 +546,10 @@ void updateInput(Input &in) {
 const char *pttBlockReason() {
   if (ampState == AMP_OFF)
     return "усилитель выключен";
+  if (ampState == AMP_SOFTSTART)
+    return "идёт плавный пуск";
+  if (ampState == AMP_COOLING)
+    return "идёт охлаждение";
   if (ampState != AMP_READY)
     return "идёт прогрев";
   if (protectionLatched)
@@ -1008,8 +1020,8 @@ void ampPowerOn() {
   protectionLatched = false;
   relayPower = true;
   setRelay(RELAY_POWER_PIN, true);
-  setAmpState(AMP_WARMUP);
-  Serial.println("amp: power on, warming up");
+  setAmpState(AMP_SOFTSTART);
+  Serial.println("amp: power on, soft start");
 }
 
 void setWebTx(bool on) {
@@ -1046,15 +1058,23 @@ int webTxLeftSeconds() {
   return elapsed < WEB_TX_MAX_MS ? (WEB_TX_MAX_MS - elapsed + 999) / 1000 : 0;
 }
 
-void ampPowerOff() {
+void ampPowerOff(bool force) {
   setWebTx(false);
-  setAmpState(AMP_OFF);
   updatePtt();
   relayAnode = false;
   setRelay(RELAY_ANODE_PIN, false);
+  if (!force && cooldownSeconds() > 0) {
+    // охлаждение: АНОД снят, 220В держим - вентилятор доохлаждает лампу
+    setAmpState(AMP_COOLING);
+    Serial.println("amp: cooling, 220V kept for fan");
+    return;
+  }
+  relaySoftstart = false;
+  setRelay(RELAY_SOFTSTART_PIN, false);
   delay(PTT_RELEASE_MS);
   relayPower = false;
   setRelay(RELAY_POWER_PIN, false);
+  setAmpState(AMP_OFF);
   Serial.println("amp: power off");
 }
 
@@ -1063,35 +1083,58 @@ void updateAmp() {
   updateInput(protectionInput);
   updateInput(pttInput);
   uint32_t elapsed = millis() - ampStateSince;
-  if (ampState == AMP_WARMUP && elapsed >= WARMUP_MS) {
+  if (ampState == AMP_SOFTSTART && elapsed >= SOFTSTART_MS) {
+    relaySoftstart = true;
+    setRelay(RELAY_SOFTSTART_PIN, true);
+    setAmpState(AMP_WARMUP);
+    Serial.println("amp: soft start done, warming up");
+  } else if (ampState == AMP_WARMUP && elapsed >= WARMUP_MS) {
     relayAnode = true;
     setRelay(RELAY_ANODE_PIN, true);
     setAmpState(AMP_READY);
     Serial.println("amp: warm-up done, anode on");
+  } else if (ampState == AMP_COOLING && cooldownSeconds() == 0) {
+    relaySoftstart = false;
+    setRelay(RELAY_SOFTSTART_PIN, false);
+    relayPower = false;
+    setRelay(RELAY_POWER_PIN, false);
+    setAmpState(AMP_OFF);
+    Serial.println("amp: cooling done, power off");
   }
-  if (ampState != AMP_OFF && protectionInput.active && !protectionLatched) {
+  // Защита: снять анодное и заблокировать PTT (защёлка до ручного сброса), 220В не трогаем
+  if (ampState != AMP_OFF && ampState != AMP_COOLING && protectionInput.active && !protectionLatched) {
     protectionLatched = true;
-    Serial.println("amp: protection tripped");
+    relayAnode = false;
+    setRelay(RELAY_ANODE_PIN, false);
+    Serial.println("amp: protection tripped, anode off");
   }
   updatePtt();
 }
 
-// Во время прогрева управление заблокировано
+// Управление (выбор частоты, ручная перестройка) доступно только в готовом состоянии
 bool controlsLocked() {
-  return ampState == AMP_WARMUP;
+  return ampState != AMP_READY;
 }
 
 const char *ampStateName() {
   switch (ampState) {
+    case AMP_SOFTSTART: return "softstart";
     case AMP_WARMUP: return "warmup";
     case AMP_READY: return "ready";
+    case AMP_COOLING: return "cooling";
     default: return "off";
   }
 }
 
 // Сколько секунд осталось до конца текущего этапа включения
 int ampRemainSeconds() {
-  uint32_t duration = ampState == AMP_WARMUP ? WARMUP_MS : 0;
+  uint32_t duration = 0;
+  if (ampState == AMP_SOFTSTART)
+    duration = SOFTSTART_MS;
+  else if (ampState == AMP_WARMUP)
+    duration = WARMUP_MS;
+  else if (ampState == AMP_COOLING)
+    return cooldownSeconds();
   uint32_t elapsed = millis() - ampStateSince;
   return duration > elapsed ? (duration - elapsed + 999) / 1000 : 0;
 }
@@ -1142,7 +1185,8 @@ void sendState() {
                 ",\"psw\":" + String(p ? p->sw : 0);
   const char *reason = pttBlockReason();
   json += String(",\"amp\":\"") + ampStateName() + "\",\"remain\":" + String(ampRemainSeconds()) +
-          ",\"power\":" + jsonBool(relayPower) + ",\"anode\":" + jsonBool(relayAnode) +
+          ",\"power\":" + jsonBool(relayPower) + ",\"soft\":" + jsonBool(relaySoftstart) +
+          ",\"anode\":" + jsonBool(relayAnode) +
           ",\"protect\":" + jsonBool(protectionInput.active) + ",\"protectLatched\":" + jsonBool(protectionLatched) +
           ",\"ptt\":" + jsonBool(relayPtt) + ",\"pttAllowed\":" + jsonBool(reason == nullptr) +
           ",\"pttReason\":\"" + (reason ? reason : "") + "\"" + ",\"txReq\":" + jsonBool(pttInput.active) +
@@ -1468,12 +1512,7 @@ void handlePower() {
   if (server.arg("on").toInt() != 0) {
     ampPowerOn();
   } else {
-    int cooldown = cooldownSeconds();
-    if (cooldown > 0 && server.arg("force").toInt() == 0) {
-      sendError(409, ("идёт охлаждение после передачи, осталось " + String(cooldown) + " с").c_str());
-      return;
-    }
-    ampPowerOff();
+    ampPowerOff(server.arg("force").toInt() != 0);
   }
   sendState();
 }
@@ -1629,7 +1668,7 @@ void setup() {
   Serial1.begin(SERVO_BAUD, SERIAL_8N1, SERVO_RX_PIN, SERVO_TX_PIN);
 
   // уровень выставляем до включения выходов, чтобы реле не дёрнулись при старте
-  const int relayPins[] = {RELAY_POWER_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN, RELAY_TRX_PTT_PIN};
+  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN, RELAY_TRX_PTT_PIN};
   for (int pin : relayPins) {
     setRelay(pin, false);
     pinMode(pin, OUTPUT);

@@ -20,7 +20,6 @@ let sending = false;
 let remainUntil = 0;    // момент окончания текущего этапа включения
 let cooldownUntil = 0;  // момент окончания охлаждения после передачи
 let txTimer = null;      // подтверждение передачи с веб-страницы
-let offRefused = false; // выключение отклонено из-за охлаждения - показываем принудительное
 
 const $ = id => document.getElementById(id);
 
@@ -61,15 +60,22 @@ function showBand(index) {
   });
 }
 
-const AMP_NAMES = {off: 'Усилитель выключен', warmup: 'Прогрев ламп', ready: 'Усилитель включён'};
+const AMP_NAMES = {
+  off: 'Усилитель выключен',
+  softstart: 'Плавный пуск',
+  warmup: 'Прогрев ламп',
+  ready: 'Усилитель включён',
+  cooling: 'Охлаждение'
+};
 
 function chip(id, cls, text) {
   $(id).className = 'chip' + (cls ? ' ' + cls : '');
   $(id).textContent = text;
 }
 
+// Управление заблокировано, пока усилитель не готов (плавный пуск, прогрев, охлаждение)
 function locked() {
-  return state && state.amp === 'warmup';
+  return state && state.amp !== 'ready' && state.amp !== 'off';
 }
 
 // Выбор частоты и ручная перестройка - только при включённом и прогретом усилителе
@@ -93,7 +99,7 @@ function showAmpState() {
 function showAmpNote() {
   const s = state;
   let note = '';
-  if (locked()) note = 'Управление заблокировано до окончания прогрева.';
+  if (locked()) note = 'Управление заблокировано (' + (AMP_NAMES[state.amp] || '') + ').';
   else if (s.amp === 'off') note = 'Выбор частоты и настройка доступны после включения усилителя.';
   else if (s.txReq && !s.ptt && s.pttReason) note = 'PTT от трансивера не проходит: ' + s.pttReason + '.';
   if (s.cooldown > 0 && cooldownUntil > Date.now())
@@ -113,9 +119,10 @@ function servoChipText(position, moving, failed) {
 function showAmp(s) {
   remainUntil = Date.now() + s.remain * 1000;
   cooldownUntil = Date.now() + s.cooldown * 1000;
-  if (s.amp === 'off' || s.cooldown === 0) offRefused = false;
-  $('forceoff').hidden = !offRefused;
+  $('forceoff').hidden = s.amp !== 'cooling';
+  $('power').hidden = s.amp === 'cooling';
   chip('c-power', s.power ? 'on' : '', 'Питание: ' + (s.power ? 'вкл' : 'выкл'));
+  chip('c-soft', s.soft ? 'on' : '', 'Плавный пуск: ' + (s.soft ? 'готов' : 'идёт'));
   chip('c-anode', s.anode ? 'on' : '', 'Анодное: ' + (s.anode ? 'вкл' : 'выкл'));
   chip('c-ptt', s.ptt ? 'wait' : s.pttAllowed ? 'on' : '', 'PTT: ' + (s.ptt ? 'передача' : s.pttAllowed ? 'готов' : 'запрещён'));
   chip('c-tx', '', s.lastTx < 0 ? 'Передачи не было' : 'Последняя передача: ' +
@@ -284,11 +291,7 @@ for (const [name, title] of SERVOS) {
 $('power').onclick = () => {
   const on = state.amp === 'off';
   if (!confirm(on ? 'Включить усилитель?' : 'Выключить усилитель?')) return;
-  post('/api/power?on=' + (on ? 1 : 0)).then(showState).catch(e => {
-    if (!on && state.cooldown > 0) offRefused = true;
-    showError(e);
-    refresh();
-  });
+  post('/api/power?on=' + (on ? 1 : 0)).then(showState).catch(showError);
 };
 $('forceoff').onclick = () => {
   if (confirm('Выключить усилитель без охлаждения ламп?')) command('/api/power?on=0&force=1');
