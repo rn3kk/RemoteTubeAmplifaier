@@ -1,4 +1,4 @@
-const API_VERSION = 8;  // должна совпадать с WWW_API_VERSION в прошивке
+const API_VERSION = 9;  // должна совпадать с WWW_API_VERSION в прошивке
 const TUNE_MAX = 2162;  // КПЕ и вариометр: 190° = 180° + 10° запас на проворот
 const MAX_FOR = {cap: TUNE_MAX, vario: TUNE_MAX};
 const STEPS = [-100, -10, -1, 1, 10, 100];
@@ -355,8 +355,8 @@ function showAmp(s) {
   $('resetprot').hidden = !s.protectLatched;
   $('version').hidden = s.api === API_VERSION;
   $('txbtn').classList.toggle('on', s.webTx);
-  $('txbtn').disabled = !s.webTx && (s.amp !== 'ready' || (s.control === 'auto' && !s.pttAllowed));
-  $('txbtn').textContent = s.webTx ? 'Передача ' + Math.floor(s.webTxLeft / 60) + ':' + String(s.webTxLeft % 60).padStart(2, '0') : 'Передача';
+  $('txbtn').disabled = !s.webTx && (s.amp !== 'ready' || !s.pttAllowed);
+  $('txbtn').textContent = s.webTx ? 'Тест PTT ' + Math.floor(s.webTxLeft / 60) + ':' + String(s.webTxLeft % 60).padStart(2, '0') : 'Тест PTT усилителя';
   if (!s.webTx && txTimer) {
     clearInterval(txTimer);
     txTimer = null;
@@ -516,7 +516,7 @@ $('power').onclick = () => {
 $('forceoff').onclick = () => {
   if (confirm('Выключить усилитель без охлаждения ламп?')) command('/api/power?on=0&force=1');
 };
-// Передача с веб-страницы: пока она идёт, страница подтверждает её каждые 0,5 с,
+// Тестовый запрос PTT усилителя: подтверждение каждые 0,5 с,
 // иначе контроллер сам снимает передачу через 2 с
 function stopTx() {
   if (txTimer) {

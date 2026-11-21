@@ -2,6 +2,8 @@
 
 [Русская версия](README.md)
 
+> **Current PTT / single 8-relay module change: NOT COMPILED AND NOT TESTED.** Firmware builds, tests and hardware checks were not run, as requested by the user.
+
 ![Wiring diagram](img/scheme.svg)
 
 The diagram with the power-up sequence and the pin table (in Russian): [docs/scheme.html](docs/scheme.html).
@@ -24,8 +26,8 @@ controller itself.
 - **SunSDR2 DX / TCI**: the controller receives frequency, modulation and radio state from ExpertSDR on a computer. Auto selects a memory covering ±12.5 kHz; in Auto + Tuning mode a memory click sets its center frequency on the radio.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: "On" → 220 V relay → 10 s soft start (short-circuit the start-up resistor) → 4-minute tube warm-up (controls locked) → anode voltage → PTT enable.
-- **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while retuning after a frequency change (variable capacitor, variometer, band switch) and while any servo is not responding; manual turning of the capacitor and variometer in tuning mode does not drop PTT (tuning under carrier). The page always shows whether transmission is allowed and why not.
-- **Transmit from the web page**: the "Transmit" button keys the transceiver (relay 3), only when the amplifier is on and warmed up; the page confirms the transmission every 0.5 s, without confirmation it is released after 2 s, and it never lasts longer than 60 s.
+- **Hardware PTT permission**: the transceiver drives the amplifier PTT through the NO contacts of relay 8. The ESP32 energizes this permission relay when transmission is allowed, independently of the current PTT request; GPIO44 observes the request. Warmup, protection, memory and servo interlocks determine permission.
+- **Amplifier PTT test**: the page's "Тест PTT усилителя" button activates relay 3, which supplies a test request through the same permission relay. It does not key the transceiver. A page confirmation is required every 0.5 s; the test releases after 2 s without confirmation and has a 60 s limit. All PTT interlocks apply to the test.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip drops the anode voltage and blocks PTT (latched until reset from the web page).
 - **Status on the page**: power-up stage with countdown, mains, anode, PTT and the reason it is blocked, time since the last transmission and cool-down countdown, protection, link to each servo.
@@ -42,7 +44,7 @@ controller itself.
 | Variable capacitor | Feetech STS3215 servo, ID 1, 190° (180° + 10° margin) |
 | Variometer | Feetech STS3215 servo, ID 2, 190° (180° + 10° margin) |
 | Band switch | Feetech STS3215 servo, ID 3, 5 positions 180° apart (half a servo turn per step), no end stops |
-| Switching | 8-relay optocoupled module + 4-relay module |
+| Switching | one optocoupled 8-relay module |
 | Network | Ethernet on W5500, address via DHCP; Wi-Fi disabled |
 
 The board's RJ45 connects to its built-in W5500. The controller, the computer running ExpertSDR
@@ -58,9 +60,9 @@ GPIO33–37 on this board are used by the PSRAM (OPI) and are unavailable.
 |---|---|
 | IO38 | relay 1 (8-relay module): 220 V mains |
 | IO39 | relay 2: soft start (short-circuit the start-up resistor) |
-| IO40 | relay 3: transceiver PTT (transmit from the web page) |
-| IO17 | relay 8: amplifier PTT |
-| IO18 | relay 1 (4-relay module): anode voltage |
+| IO40 | relay 3: amplifier test PTT request |
+| IO17 | relay 8: PTT permission; NO contacts in series with the amplifier PTT request |
+| IO18 | relay 4: anode voltage |
 | IO44 | input: transceiver PTT (active when pulled to GND) |
 | IO43 | input "protection tripped" (active when pulled to GND) |
 | IO47 | servo bus, transmit (to adapter `TXD`) |
@@ -70,7 +72,7 @@ GPIO33–37 on this board are used by the PSRAM (OPI) and are unavailable.
 
 IO labels are ESP32 GPIO numbers, not connector contact numbers. The W5500 signals are already wired inside the board and reserved for Ethernet.
 
-Relays 4–7 of the 8-relay module (IO41, IO42, IO15, IO16) and 2–4 of the 4-relay module are currently free.
+Relays 5–7 of the single 8-relay module are free. Relay 4 uses GPIO18; GPIO41 is no longer assigned to relay 4.
 Pins are set by constants at the top of the sketch.
 
 ### Servo bus
@@ -94,6 +96,8 @@ ESP32 GND ───────── GND ┘                │
 - The adapter UART header uses 3.3 V levels, no level shifting needed. The adapter does not provide 5 V for the ESP32.
 
 ### Relays and inputs
+
+The normal signal path is **transceiver PTT → relay 8 COM/NO contacts → amplifier PTT**. The ESP32 controls permission, while the request passes in hardware. Relay 3 contacts provide a separate test request before the permission relay. GPIO44 observes PTT. The transmission indicator and cool-down timer use the presence of a request with permission granted; there is no sensor confirming the amplifier relay's physical state.
 
 - "Arduino" relay modules are designed for 5 V. If the relays do not switch reliably from 3.3 V, power the optocoupler side (VCC) from 3.3 V and the coils (JD-VCC) from 5 V with the jumper removed.
 - Never apply more than 3.3 V to IO44/IO43: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
@@ -151,7 +155,7 @@ Enable the TCI server in ExpertSDR on your computer. In the amplifier page, enab
 
 The main page shows TCI connection status, radio on/off/unknown, frequency in MHz to 1 Hz and modulation for **RX1 / VFO A**. The radio frequency and the amplifier's selected memory frequency are displayed separately. The ESP32 connects even when no browser is open, retries every 5 seconds after failures and uses a WebSocket heartbeat. A successful connection does not imply that the radio is on: its state is unknown until START/STOP is received. Frequency and modulation are hidden when disconnected or stopped.
 
-Connection settings are separate from the servo settings CSV. Update all three page files together with the firmware (API 8).
+Connection settings are separate from the servo settings CSV. Update all three page files together with the firmware (API 9).
 
 ## Position control modes
 
@@ -159,7 +163,7 @@ Connection settings are separate from the servo settings CSV. Update all three p
 
 Manual mode selects amplifier memories with page buttons. Tuning mode additionally enables servo controls and saving. Auto follows RX1 / VFO A: each memory covers ±12.5 kHz around its frequency, with the higher memory winning a shared boundary. An unconfigured memory is never replaced with an adjacent configured one.
 
-Auto blocks amplifier PTT and the page TX button when the radio is unavailable, off or unknown, frequency is missing, the matching memory is not fully saved (capacitor, variometer and switch), a frequency request is pending, or retuning has not finished. Existing warmup, protection and servo fault interlocks remain active, including in Tuning mode. Use Manual for initial tuning of an unsaved memory under a carrier.
+Auto blocks amplifier PTT and the amplifier PTT test button when the radio is unavailable, off or unknown, frequency is missing, the matching memory is not fully saved (capacitor, variometer and switch), a frequency request is pending, or retuning has not finished. Existing warmup, protection and servo fault interlocks remain active, including in Tuning mode. Use Manual for initial tuning of an unsaved memory under a carrier.
 
 If the memory changes during transmission, amplifier PTT drops and movement waits for the radio PTT to be released. Auto applies the current memory after warmup; it does not follow frequency with the amplifier off. Changes within the same memory do not resend motor targets.
 
@@ -169,7 +173,7 @@ In Auto + Tuning mode, clicking a memory sends its center frequency to the radio
 
 Open **Журнал** (Journal), then check **Записывать логи** (Record logs). This setting persists in flash and is restored before network and TCI startup. The journal records startup, network, amplifier and servo events, TCI connection/frequency/modulation changes and API errors. Timestamps show uptime since ESP32 startup.
 
-The journal refreshes every second while its tab is open. **Скачать логи** downloads `tubeamp-log.txt`. Disabling recording keeps existing messages available. RAM holds the latest 64 lines, up to 255 bytes per line, replacing old lines when full. Messages start fresh after reboot; only the checkbox is saved in flash. Update the firmware and all three page files together (API 8).
+The journal refreshes every second while its tab is open. **Скачать логи** downloads `tubeamp-log.txt`. Disabling recording keeps existing messages available. RAM holds the latest 64 lines, up to 255 bytes per line, replacing old lines when full. Messages start fresh after reboot; only the checkbox is saved in flash. Update the firmware and all three page files together (API 9).
 
 ## HTTP API
 
@@ -198,6 +202,8 @@ Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190
 The `tci` object in `/api/state` contains `host`, `port`, `enabled`, `link` (`disabled`, `connecting`, `connected`, `disconnected`, `error`), `running` (boolean or null), `frequency` (Hz or null) and `modulation` (string or null). Frequency and modulation are null when disconnected or stopped. Until START/STOP arrives, `running` is null while live frequency and modulation may be available.
 
 ## Project status
+
+**The current PTT change has not been compiled or tested.** Build and test results below refer to the previous revision.
 
 The current hardware is Waveshare ESP32-S3-ETH with W5500 Ethernet and SunSDR2 DX through
 the ExpertSDR TCI server on a computer. The user has confirmed a TCI connection. The firmware

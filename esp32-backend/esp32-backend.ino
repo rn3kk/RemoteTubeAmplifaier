@@ -51,25 +51,25 @@ const int SERVO_TOLERANCE = 20;               // шагов: допуск, пр�
 const uint32_t SERVO_MOVE_TIMEOUT_MS = 5000;  // сколько ждать окончания перестройки
 const uint32_t SERVO_CHECK_MS = 50;           // как часто проверять положение во время перестройки
 
-// Основной модуль на 8 реле с опторазвязкой и второй модуль на 4 реле.
+// Один модуль на 8 реле с опторазвязкой.
 // Все реле включаются уровнем RELAY_ACTIVE_LEVEL на входе.
 // Пины под Waveshare ESP32-S3-ETH: GPIO33..37 заняты PSRAM (OPI), их использовать нельзя.
-// GP38..GP42 идут подряд на разъёме - шлейф IN1..IN5, остальные реле на GP15..GP17.
+// Реле 1/2/3/4/8: GPIO38/39/40/18/17. Реле 5..7 свободны.
 const int RELAY_ACTIVE_LEVEL = LOW;
 const int RELAY_POWER_PIN = 38;       // реле 1: включение 220В
 const int RELAY_SOFTSTART_PIN = 39;   // реле 2: плавный пуск (шунт пускового резистора)
-const int RELAY_TRX_PTT_PIN = 40;     // реле 3: PTT трансивера (передача с веб-страницы)
-// реле 4..7 (GPIO 41, 42, 15, 16) свободны
-const int RELAY_PTT_PIN = 17;         // реле 8: PTT усилителя
-const int RELAY_ANODE_PIN = 18;       // второй модуль, реле 1: АНОД (анодное напряжение на лампу)
+const int RELAY_TEST_PTT_PIN = 40;     // реле 3: тестовый запрос PTT усилителя
+const int RELAY_PTT_PERMIT_PIN = 17;   // реле 8: разрешение PTT, включено = контакты NO замкнуты
+const int RELAY_ANODE_PIN = 18;        // реле 4: АНОД (анодное напряжение на лампу)
 
-// Передача с веб-страницы: страница подтверждает её не реже WEB_TX_KEEPALIVE_MS,
+// Тест PTT усилителя с веб-страницы: подтверждение не реже WEB_TX_KEEPALIVE_MS,
 // иначе передача снимается (закрыли страницу, пропала связь); дольше WEB_TX_MAX_MS не держится
 const uint32_t WEB_TX_KEEPALIVE_MS = 2000;
 const uint32_t WEB_TX_MAX_MS = 60000;
 
 // Версия API для файлов веб-страницы: страница сверяет её со своей и предупреждает о расхождении
-const int WWW_API_VERSION = 8;
+// Изменение логики реле PTT: НЕ СКОМПИЛИРОВАНО И НЕ ПРОТЕСТИРОВАНО.
+const int WWW_API_VERSION = 9;
 
 TciSettings tciSettings;
 bool tciAvailable = false;
@@ -206,7 +206,8 @@ uint32_t ampStateSince = 0;
 bool relayPower = false;
 bool relaySoftstart = false;
 bool relayAnode = false;
-bool relayPtt = false;
+bool relayPttPermit = false;
+bool amplifierPttActive = false;  // запрос PTT при выданном разрешении, без датчика состояния реле УМ
 bool protectionLatched = false;  // защита сработала, PTT запрещён до сброса с веб-страницы
 bool switchMoving = false;   // переключатель поворачивается, PTT запрещён
 bool switchFailed = false;   // переключатель не ответил или не встал в положение, PTT запрещён
@@ -247,10 +248,10 @@ struct Input {
 Input protectionInput = {INPUT_PROTECTION_PIN, INPUT_DEBOUNCE_MS, false, false, 0};
 Input pttInput = {INPUT_PTT_PIN, PTT_DEBOUNCE_MS, false, false, 0};
 
-bool txHappened = false;  // с момента запуска ESP32 усилитель работал на передачу
-uint32_t lastTxMs = 0;    // когда реле PTT усилителя было замкнуто в последний раз
+bool txHappened = false;  // с момента запуска наблюдался запрос PTT при выданном разрешении
+uint32_t lastTxMs = 0;    // последний момент разрешённого запроса PTT, без датчика реле УМ
 
-bool webTx = false;       // трансивер переведён на передачу с веб-страницы
+bool webTx = false;       // включено реле тестового запроса PTT усилителя
 uint32_t webTxStart = 0;
 uint32_t webTxLastPing = 0;
 
@@ -644,28 +645,34 @@ const char *pttBlockReason() {
   return nullptr;
 }
 
-// Реле PTT усилителя замкнуто, пока трансивер даёт PTT и передача разрешена.
-// Передача с веб-страницы тоже считается передачей для охлаждения ламп
+// Реле разрешения зависит только от блокировок. Штатный PTT проходит от трансивера
+// аппаратно через контакты NO реле 8, GPIO44 только наблюдает запрос.
+// Реле 3 подаёт отдельный тестовый запрос, который также проходит через реле разрешения.
 void updatePtt() {
-  bool key = pttInput.active && pttBlockReason() == nullptr;
-  if (key || webTx) {
+  const bool allowed = pttBlockReason() == nullptr;
+  if (allowed != relayPttPermit) {
+    relayPttPermit = allowed;
+    if (!allowed)
+      pttOffSince = millis();
+    setRelay(RELAY_PTT_PERMIT_PIN, allowed);
+    appLogPrintf("PTT permit relay %s", allowed ? "on" : "off");
+  }
+  const bool active = relayPttPermit && (pttInput.active || webTx);
+  if (active) {
     txHappened = true;
     lastTxMs = millis();
   }
-  if (key == relayPtt)
-    return;
-  relayPtt = key;
-  if (!key)
-    pttOffSince = millis();
-  setRelay(RELAY_PTT_PIN, key);
-  appLogPrintf("PTT %s\n", key ? "on" : "off");
+  if (active != amplifierPttActive) {
+    amplifierPttActive = active;
+    appLogPrintf("amplifier PTT request %s", active ? "active" : "inactive");
+  }
 }
 
 // Начинает перестройку привода КПЕ или вариометра. PTT снимается до начала движения,
 // возвращается в updateRetune(), когда привод встанет. Цель отправляется всегда, даже прежняя:
 // привод мог потерять питание и удержание
 void startRetune(Retune &r, int target) {
-  bool pttWasOn = relayPtt;
+  bool pttWasOn = relayPttPermit;
   r.moving = true;
   r.failed = false;
   r.target = target;
@@ -1002,7 +1009,7 @@ uint32_t switchTravelMs(int steps) {
 
 // Общая подготовка к движению переключателя: снять PTT, выставить флаги и таймауты
 void beginSwitchMove(int finalAngle, int goal, int steps, const char *tag) {
-  bool pttWasOn = relayPtt;
+  bool pttWasOn = relayPttPermit;
   bool wasMoving = switchMoving;  // команда пришла во время прошлого поворота
   switchMoving = true;
   switchFailed = false;
@@ -1184,10 +1191,15 @@ void setWebTx(bool on) {
   if (on == webTx)
     return;
   webTx = on;
-  setRelay(RELAY_TRX_PTT_PIN, on);
-  if (on)
+  if (on) {
     webTxStart = millis();
-  appLogPrintf("web TX %s\n", on ? "on" : "off");
+    updatePtt();
+    setRelay(RELAY_TEST_PTT_PIN, true);
+  } else {
+    setRelay(RELAY_TEST_PTT_PIN, false);
+    updatePtt();
+  }
+  appLogPrintf("amplifier test PTT %s", on ? "on" : "off");
 }
 
 // Снимает передачу с веб-страницы, если усилитель не готов, страница перестала её
@@ -1195,8 +1207,8 @@ void setWebTx(bool on) {
 void updateWebTx() {
   if (!webTx)
     return;
-  if (ampState != AMP_READY || (controlMode == ControlMode::Automatic && pttBlockReason() != nullptr)) {
-    appLogPrintf("web TX: amp not ready");
+  if (pttBlockReason() != nullptr) {
+    appLogPrintf("amplifier test PTT: transmission blocked");
     setWebTx(false);
   } else if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
     appLogPrintf("web TX: no keepalive");
@@ -1215,13 +1227,15 @@ int webTxLeftSeconds() {
 }
 
 void ampPowerOff(bool force) {
+  const bool needsCooling = !force && cooldownSeconds() > 0;
+  // Снять аппаратное разрешение до отключения анодного и питания.
+  setAmpState(needsCooling ? AMP_COOLING : AMP_OFF);
   setWebTx(false);
   updatePtt();
   relayAnode = false;
   setRelay(RELAY_ANODE_PIN, false);
-  if (!force && cooldownSeconds() > 0) {
+  if (needsCooling) {
     // охлаждение: АНОД снят, 220В держим - вентилятор доохлаждает лампу
-    setAmpState(AMP_COOLING);
     appLogPrintf("amp: cooling, 220V kept for fan");
     return;
   }
@@ -1351,7 +1365,8 @@ void sendState() {
           ",\"power\":" + jsonBool(relayPower) + ",\"soft\":" + jsonBool(relaySoftstart) +
           ",\"anode\":" + jsonBool(relayAnode) +
           ",\"protect\":" + jsonBool(protectionInput.active) + ",\"protectLatched\":" + jsonBool(protectionLatched) +
-          ",\"ptt\":" + jsonBool(relayPtt) + ",\"pttAllowed\":" + jsonBool(reason == nullptr) +
+          ",\"ptt\":" + jsonBool(amplifierPttActive) + ",\"pttAllowed\":" + jsonBool(reason == nullptr) +
+          ",\"pttPermitRelay\":" + jsonBool(relayPttPermit) +
           ",\"pttReason\":\"" + (reason ? reason : "") + "\"" + ",\"txReq\":" + jsonBool(pttInput.active) +
           ",\"lastTx\":" + String(txHappened ? (int)((millis() - lastTxMs) / 1000) : -1) +
           ",\"cooldown\":" + String(cooldownSeconds()) +
@@ -1575,7 +1590,7 @@ void handleWwwDone() {
   uploadCount = 0;
 }
 
-// on=1 - начать передачу (только при включённом и прогретом усилителе),
+// on=1 - включить тестовый запрос PTT усилителя при разрешённой передаче,
 // keep=1 - подтверждение от страницы, on=0 - закончить
 void handleTx() {
   if (server.hasArg("on") && server.arg("on").toInt() != 0) {
@@ -1583,7 +1598,7 @@ void handleTx() {
       sendError(409, ampState == AMP_OFF ? "усилитель выключен" : "идёт прогрев");
       return;
     }
-    const char *reason = controlMode == ControlMode::Automatic ? pttBlockReason() : nullptr;
+    const char *reason = pttBlockReason();
     if (reason) {
       sendError(409, reason);
       return;
@@ -2001,7 +2016,7 @@ void setup() {
   Serial1.begin(SERVO_BAUD, SERIAL_8N1, SERVO_RX_PIN, SERVO_TX_PIN);
 
   // уровень выставляем до включения выходов, чтобы реле не дёрнулись при старте
-  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PIN, RELAY_ANODE_PIN, RELAY_TRX_PTT_PIN};
+  const int relayPins[] = {RELAY_POWER_PIN, RELAY_SOFTSTART_PIN, RELAY_PTT_PERMIT_PIN, RELAY_ANODE_PIN, RELAY_TEST_PTT_PIN};
   for (int pin : relayPins) {
     setRelay(pin, false);
     pinMode(pin, OUTPUT);
