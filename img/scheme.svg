@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" role="img" aria-label="Схема контроллера: браузер по Ethernet обращается к ESP32; ESP32 через адаптер шины по линии DATA управляет тремя сервоприводами STS3215, которые вращают КПЕ, вариометр и переключатель БМЗ; через модули реле включает сеть 220В, плавный пуск, PTT и анодное напряжение усилителя; от трансивера получает PTT, от усилителя — сигнал защиты." class="scheme"><style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 970" role="img" aria-label="Схема Waveshare ESP32-S3-ETH: Ethernet W5500, браузер по HTTP, SunSDR2 DX через ExpertSDR на компьютере и TCI по WebSocket; отдельные проводные линии PTT; UART приводов GPIO47 TX и GPIO48 RX; реле GPIO38, 39, 40, 17, 18; входы GPIO44 и GPIO43; SPI W5500 GPIO13, 12, 11, 14, 10, 9." class="scheme"><style>
 .scheme text { font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; }
 .scheme .t { font-size: 13px; fill: #1c2330; }
 .scheme .ts { font-size: 11.5px; fill: #6e7888; }
@@ -29,7 +29,7 @@
 <marker id="ar-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-net"/></marker>
 <marker id="ar-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-ctl"/></marker>
 <marker id="ar-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-sig"/></marker>
-</defs><rect x="0" y="0" width="1200" height="790" class="bg"/><rect x="20" y="50" width="170" height="60" rx="6" class="box"/>
+</defs><rect x="0" y="0" width="1200" height="970" class="bg"/><rect x="20" y="50" width="170" height="60" rx="6" class="box"/>
 <text x="105" y="76" class="tb" text-anchor="middle">Браузер</text>
 <text x="105" y="96" class="ts" text-anchor="middle">ПК или телефон</text>
 <rect x="20" y="170" width="170" height="60" rx="6" class="box"/>
@@ -37,21 +37,32 @@
 <text x="105" y="216" class="ts" text-anchor="middle">адрес по DHCP</text>
 <path d="M105 110 L105 166" class="net" marker-end="url(#ar-net)"/>
 <text x="113" y="143" class="ts" text-anchor="start">HTTP</text>
-<path d="M190 200 L246 200" class="net" marker-end="url(#ar-net)"/>
+<path d="M190 200 L246 200" class="net" marker-start="url(#ar-net)" marker-end="url(#ar-net)"/>
 <text x="220" y="192" class="ts" text-anchor="middle">Ethernet</text>
 <rect x="20" y="250" width="170" height="50" rx="6" class="box"/>
-<text x="105" y="271" class="tb" text-anchor="middle">Трансивер</text>
+<text x="105" y="271" class="tb" text-anchor="middle">SunSDR2 DX</text>
 <text x="105" y="289" class="ts" text-anchor="middle">выход PTT</text>
 <path d="M190 275 L246 275" class="sig" marker-end="url(#ar-sig)"/>
 <text x="218" y="268" class="ts" text-anchor="middle">PTT</text>
+<rect x="20" y="335" width="170" height="74" rx="6" class="box"/>
+<text x="105" y="357" class="tb" text-anchor="middle">ПК · ExpertSDR</text>
+<text x="105" y="378" class="ts" text-anchor="middle">TCI-сервер, IP и порт ПК</text>
+<text x="105" y="397" class="ts" text-anchor="middle">частота, модуляция, статус</text>
+<path d="M105 304 L105 331" class="net" marker-start="url(#ar-net)" marker-end="url(#ar-net)"/>
+<text x="114" y="321" class="ts">Ethernet</text>
+<path d="M20 372 L8 372 L8 200 L20 200" class="net" marker-start="url(#ar-net)" marker-end="url(#ar-net)"/>
+<text x="105" y="431" class="ts" text-anchor="middle">TCI / WebSocket через сеть</text>
 <rect x="250" y="60" width="350" height="330" rx="8" class="esp"/>
-<text x="425" y="98" class="th" text-anchor="middle">ESP32-S3</text>
+<text x="425" y="98" class="th" text-anchor="middle">ESP32-S3-ETH</text>
 <text x="425" y="120" class="ts" text-anchor="middle">Waveshare ESP32-S3-ETH</text>
+<text x="425" y="147" class="ts" text-anchor="middle">Ethernet W5500 · DHCP</text>
 <text x="425" y="172" class="t" text-anchor="middle">веб-страница и API, порт 80</text>
 <text x="425" y="196" class="t" text-anchor="middle">таблица частот во flash</text>
 <text x="425" y="220" class="t" text-anchor="middle">включение и прогрев</text>
 <text x="425" y="244" class="t" text-anchor="middle">PTT и охлаждение</text>
 <text x="425" y="268" class="t" text-anchor="middle">управление приводами</text>
+<text x="425" y="294" class="t" text-anchor="middle">TCI: частота, модуляция, статус</text>
+<text x="425" y="320" class="t" text-anchor="middle">авто / вручную · журнал</text>
 <text x="590" y="114" class="pin" text-anchor="end">IO47 TX</text>
 <text x="590" y="144" class="pin" text-anchor="end">IO48 RX</text>
 <text x="560" y="78" class="pin" text-anchor="middle">GND</text>
@@ -129,8 +140,9 @@
 <path d="M567.5 390 L567.5 466" class="ctl" marker-end="url(#ar-ctl)"/>
 <path d="M337.5 520 L337.5 571" class="ctl" marker-end="url(#ar-ctl)"/>
 <rect x="318" y="575" width="150" height="34" rx="6" class="box"/>
-<text x="393" y="591" class="t" text-anchor="middle">Трансивер</text>
+<text x="393" y="591" class="t" text-anchor="middle">SunSDR2 DX</text>
 <text x="393" y="604" class="ts" text-anchor="middle">вход PTT</text>
+<text x="393" y="624" class="ts" text-anchor="middle">тот же трансивер</text>
 <rect x="740" y="470" width="440" height="260" rx="8" class="amp"/>
 <text x="752" y="718" class="tb" text-anchor="start">Усилитель на базе Р-140</text>
 <rect x="760" y="505" width="120" height="40" rx="6" class="box"/>
@@ -151,4 +163,20 @@
 <text x="752" y="665" class="t" text-anchor="start">плавный пуск</text>
 <path d="M1040 730 L1040 768 L215 768 L215 300 L246 300" class="sig" marker-end="url(#ar-sig)"/>
 <text x="620" y="763" class="ts" text-anchor="middle">защита сработала</text>
-<text x="1020" y="718" class="ts" text-anchor="middle">датчики</text></svg>
+<text x="1020" y="718" class="ts" text-anchor="middle">датчики</text>
+<rect x="20" y="804" width="1160" height="148" rx="8" class="box"/>
+<text x="40" y="830" class="tb">Выводы Waveshare ESP32-S3-ETH · GPIO из текущей прошивки</text>
+<text x="40" y="855" class="pin">GPIO47 TX → TXD адаптера</text>
+<text x="40" y="875" class="pin">GPIO48 RX → RXD адаптера</text>
+<text x="40" y="895" class="pin">GPIO44 ← PTT SunSDR2 DX</text>
+<text x="40" y="915" class="pin">GPIO43 ← защита усилителя</text>
+<text x="395" y="855" class="pin">GPIO38 → реле 220 В · GPIO39 → плавный пуск</text>
+<text x="395" y="875" class="pin">GPIO40 → реле PTT SunSDR2 DX</text>
+<text x="395" y="895" class="pin">GPIO17 → реле PTT усилителя</text>
+<text x="395" y="915" class="pin">GPIO18 → реле анодного напряжения</text>
+<text x="845" y="855" class="pin">W5500: SCK GPIO13 · MISO GPIO12</text>
+<text x="845" y="875" class="pin">MOSI GPIO11 · CS GPIO14</text>
+<text x="845" y="895" class="pin">IRQ GPIO10 · RST GPIO9</text>
+<text x="845" y="915" class="ts">SPI внутри платы → RJ45 → сеть</text>
+<text x="40" y="939" class="ts">GPIO33–37 заняты OPI PSRAM. GND контроллера и адаптера общая. Линии PTT показаны отдельно от сети TCI.</text>
+</svg>

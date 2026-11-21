@@ -9,18 +9,19 @@ The diagram with the power-up sequence and the pin table (in Russian): [docs/sch
 **User manual** (in Russian: assembly, first start, operation): [docs/manual/manual.pdf](docs/manual/manual.pdf),
 LaTeX source `docs/manual/manual.tex`, build with `docs/manual/build.sh`.
 
-An ESP32 controller for a vacuum tube power amplifier based on the R-140. It retunes the pi-network
+A Waveshare ESP32-S3-ETH controller for a vacuum tube power amplifier based on the R-140. It retunes the pi-network
 (variable capacitor, variometer, band switch) to the selected frequency, controls the amplifier
 power-up sequence and PTT enable. Operation and tuning are done from a web page served by the
 controller itself.
 
-> Work in progress. The logic, the web interface and the servos have been tested on the board; the
-> relays and amplifier inputs have not been connected to it yet — see [Project status](#project-status).
+> Work in progress. The current board is Waveshare ESP32-S3-ETH; the user has confirmed a TCI
+> connection. A complete check with servos, relays and the amplifier is still required — see [Project status](#project-status).
 
 ## Features
 
 - **Frequency table** in 25 kHz steps across the 160–10 m amateur bands and the 190 m (1600–1775 kHz) and 100 m (2900–3200 kHz) bands; one band is shown at a time.
 - **Frequency-based retuning**: selecting a frequency moves the variable capacitor, the variometer and the band switch to the positions saved for it. Frequency selection and tuning work only with the amplifier on and warmed up.
+- **SunSDR2 DX / TCI**: the controller receives frequency, modulation and radio state from ExpertSDR on a computer. Auto selects a memory covering ±12.5 kHz; in Auto + Tuning mode a memory click sets its center frequency on the radio.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: "On" → 220 V relay → 10 s soft start (short-circuit the start-up resistor) → 4-minute tube warm-up (controls locked) → anode voltage → PTT enable.
 - **PTT through the controller**: the transceiver PTT goes into the ESP32 and reaches the amplifier only after warm-up and with no protection trip; PTT is dropped while retuning after a frequency change (variable capacitor, variometer, band switch) and while any servo is not responding; manual turning of the capacitor and variometer in tuning mode does not drop PTT (tuning under carrier). The page always shows whether transmission is allowed and why not.
@@ -37,13 +38,16 @@ controller itself.
 | Part | What is used |
 |---|---|
 | Controller | Waveshare ESP32-S3-ETH (ESP32-S3, 16 MB flash, 8 MB PSRAM); Ethernet W5500, DHCP |
+| Transceiver | SunSDR2 DX; TCI connection through ExpertSDR on a computer |
 | Variable capacitor | Feetech STS3215 servo, ID 1, 190° (180° + 10° margin) |
 | Variometer | Feetech STS3215 servo, ID 2, 190° (180° + 10° margin) |
 | Band switch | Feetech STS3215 servo, ID 3, 5 positions 180° apart (half a servo turn per step), no end stops |
 | Switching | 8-relay optocoupled module + 4-relay module |
 | Network | Ethernet on W5500, address via DHCP; Wi-Fi disabled |
 
-The RJ45 jack on the T-Halow belongs to its HaLow module; the ESP32 has no access to it.
+The board's RJ45 connects to its built-in W5500. The controller, the computer running ExpertSDR
+and SunSDR2 DX connect to the local network. ExpertSDR hosts the TCI server: enter the computer's
+IP address and TCI port in the controller settings.
 
 ## Wiring
 
@@ -61,6 +65,10 @@ GPIO33–37 on this board are used by the PSRAM (OPI) and are unavailable.
 | IO43 | input "protection tripped" (active when pulled to GND) |
 | IO47 | servo bus, transmit (to adapter `TXD`) |
 | IO48 | servo bus, receive (to adapter `RXD`) |
+| IO13 / IO12 / IO11 | built-in W5500 SPI: SCK / MISO / MOSI |
+| IO14 / IO10 / IO9 | built-in W5500: CS / IRQ / RST |
+
+IO labels are ESP32 GPIO numbers, not connector contact numbers. The W5500 signals are already wired inside the board and reserved for Ethernet.
 
 Relays 4–7 of the 8-relay module (IO41, IO42, IO15, IO16) and 2–4 of the 4-relay module are currently free.
 Pins are set by constants at the top of the sketch.
@@ -122,13 +130,13 @@ arduino-cli lib install "WebSockets@2.7.2"
 
 3. Open the serial monitor (`tools/flash.sh monitor`): the board prints the address it got from the router, `IP: 192.168.x.x`. Open it in a browser. It is convenient to reserve this address for the board in the router settings.
 
-For a board with Ethernet (W5500), set `#define USE_ETHERNET 1` at the top of the sketch and set the `ETH_*` pins.
+The current sketch already selects `#define USE_ETHERNET 1`; its `ETH_*` pins match the built-in W5500 on Waveshare ESP32-S3-ETH.
 
 Servo speed and acceleration are the `SERVO_SPEED` and `SERVO_ACC` constants; warm-up
 and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 
 > For debugging, warm-up and cool-down are currently shortened to 10 s (`WARMUP_MS`, `COOLDOWN_MS`, marked "ОТЛАДКА").
-> Set them back to 180000 and 300000 before running the amplifier.
+> Set them back to 240000 (4 minutes) and 300000 (5 minutes) before running the amplifier.
 
 ## First start
 
@@ -191,18 +199,18 @@ The `tci` object in `/api/state` contains `host`, `port`, `enabled`, `link` (`di
 
 ## Project status
 
-Tested on the T-Halow: Wi-Fi with DHCP, the web page, all API methods, settings storage in flash,
-the power-up sequence and PTT blocking logic.
+The current hardware is Waveshare ESP32-S3-ETH with W5500 Ethernet and SunSDR2 DX through
+the ExpertSDR TCI server on a computer. The user has confirmed a TCI connection. The firmware
+builds for ESP32-S3 in C++17; memory-selection, TCI-protocol, journal and page-logic tests pass.
+Servo operation through the adapter, ID scan/change, movement and power-loss recovery were checked earlier.
 
 The servos can be tested from a PC without the ESP32: adapter jumpers in position B, USB-C to the PC,
 `tools/sts-servo.py scan` (find), `regs ID` (registers), `goto ID GOAL` (move), `powercut ID` (power loss
 during rotation). Requires pyserial.
 
-Not yet tested on hardware:
-- the relays and the PTT and protection inputs;
-- the Ethernet build.
-
-Not implemented: reading the frequency from the transceiver over CAT.
+A complete test of automatic retuning on the current board with servos, relays, PTT/protection inputs
+and the amplifier is still needed. The servos are unavailable in the user's latest check.
+TCI frequency reception, Manual/Auto modes and setting the radio frequency from a memory are implemented.
 
 ## Previous version
 
