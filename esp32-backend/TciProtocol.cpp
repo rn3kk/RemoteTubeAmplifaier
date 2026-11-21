@@ -96,6 +96,7 @@ void TciProtocol::processCommand() {
     uint32_t frequency = 0;
     if (parseFrequency(values[2], frequency)) {
       radio.frequencyHz = frequency;
+      ++radio.frequencyUpdates;
       radio.frequencyValid = true;
     }
   } else if (strcmp(name, "trx") == 0 && count == 2) {

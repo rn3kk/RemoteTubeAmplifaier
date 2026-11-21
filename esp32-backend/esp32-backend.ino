@@ -191,6 +191,12 @@ int currentSwitch = 0;  // подтверждённое положение БМ�
 bool tuningMode = false;
 ControlMode controlMode = ControlMode::Manual;
 int autoAppliedFreqKhz = 0;
+uint32_t pendingRadioRequest = 0;
+int pendingRadioFreqKhz = 0;
+uint32_t pendingRadioSince = 0;
+uint32_t pendingRadioConnection = 0;
+uint32_t pendingRadioGeneration = 0;
+bool radioFrequencyFailed = false;
 
 enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY, AMP_COOLING };
 AmpState ampState = AMP_OFF;
@@ -588,11 +594,15 @@ AutoSelection automaticSelection() {
 const char *automaticBlockReason() {
   if (controlMode != ControlMode::Automatic)
     return nullptr;
+  if (pendingRadioRequest != 0)
+    return "ожидание подтверждения частоты трансивером";
+  if (radioFrequencyFailed)
+    return "трансивер не подтвердил частоту ячейки";
   const AutoSelection selection = automaticSelection();
   if (selection.block != AutoBlock::None)
     return autoBlockText(selection.block);
   if (autoAppliedFreqKhz != points[selection.index].freqKhz || currentFreqKhz != autoAppliedFreqKhz)
-    return "ожидание перестройки по частоте трансивера";
+    return transceiverTransmitting() ? "ожидание отпускания PTT трансивера" : "ожидание перестройки по частоте трансивера";
   return nullptr;
 }
 
@@ -675,8 +685,42 @@ bool transceiverTransmitting() {
          (tci.link == TciLink::Connected && tci.radio.transmitting);
 }
 
+void cancelRadioFrequency() {
+  tciCancelFrequency();
+  pendingRadioRequest = 0;
+  pendingRadioFreqKhz = 0;
+  radioFrequencyFailed = false;
+}
+
+void updateRadioFrequency() {
+  if (pendingRadioRequest == 0)
+    return;
+  const TciStatus tci = tciReadStatus();
+  if (tci.connection == pendingRadioConnection && tci.generation == pendingRadioGeneration &&
+      tci.frequencyRequest == pendingRadioRequest && tci.frequencyState == TciFrequencyState::Confirmed &&
+      tci.radio.frequencyValid && tci.radio.frequencyHz == static_cast<uint32_t>(pendingRadioFreqKhz) * 1000) {
+    pendingRadioRequest = 0;
+    pendingRadioFreqKhz = 0;
+    autoAppliedFreqKhz = 0;
+    return;
+  }
+  if (tci.link != TciLink::Connected || tci.connection != pendingRadioConnection ||
+      tci.generation != pendingRadioGeneration || !tci.radio.runningKnown || !tci.radio.running ||
+      millis() - pendingRadioSince > 5000 || (tci.frequencyRequest == pendingRadioRequest &&
+      (tci.frequencyState == TciFrequencyState::Failed || tci.frequencyState == TciFrequencyState::Cancelled))) {
+    tciCancelFrequency();
+    pendingRadioRequest = 0;
+    radioFrequencyFailed = true;
+    appLogPrintf("TCI: cell %d kHz frequency request failed", pendingRadioFreqKhz);
+    pendingRadioFreqKhz = 0;
+  }
+}
+
 void updateAutomaticControl() {
+  updateRadioFrequency();
   if (controlMode != ControlMode::Automatic)
+    return;
+  if (pendingRadioRequest != 0 || radioFrequencyFailed)
     return;
   if (ampState != AMP_READY) {
     autoAppliedFreqKhz = 0;
@@ -699,6 +743,13 @@ void updateAutomaticControl() {
   setSwitch(point.sw);
   autoAppliedFreqKhz = point.freqKhz;
   appLogPrintf("auto: cell %d kHz -> cap %d, vario %d, switch %d", point.freqKhz, point.cap, point.vario, point.sw);
+}
+
+bool automaticEditingAllowed() {
+  const AutoSelection selection = automaticSelection();
+  return pendingRadioRequest == 0 && !radioFrequencyFailed && selection.index >= 0 &&
+         currentFreqKhz == points[selection.index].freqKhz && autoAppliedFreqKhz == currentFreqKhz &&
+         !capRetune.moving && !varioRetune.moving && !switchMoving;
 }
 
 // Ручное движение в режиме настройки: перестройку по частоте больше не отслеживаем
@@ -1289,6 +1340,7 @@ void sendState() {
           ",\"webTx\":" + jsonBool(webTx) + ",\"webTxLeft\":" + String(webTxLeftSeconds()) +
           ",\"api\":" + String(WWW_API_VERSION) + ",\"logsEnabled\":" + jsonBool(appLogEnabled()) +
           ",\"control\":\"" + (controlMode == ControlMode::Automatic ? "auto" : "manual") + "\"";
+  json += ",\"radioPending\":" + String(pendingRadioFreqKhz) + ",\"radioFailed\":" + jsonBool(radioFrequencyFailed);
   const TciStatus tci = tciReadStatus();
   const bool connected = tci.link == TciLink::Connected;
   const bool dataValid = connected && (!tci.radio.runningKnown || tci.radio.running);
@@ -1352,6 +1404,7 @@ void handleControlMode() {
       return;
     }
     setWebTx(false);
+    cancelRadioFrequency();
     controlMode = next;
     autoAppliedFreqKhz = 0;
     updatePtt();
@@ -1381,6 +1434,8 @@ void handleTciSettings() {
       return;
     }
     tciSettings = settings;
+    cancelRadioFrequency();
+    autoAppliedFreqKhz = 0;
     tciConfigure(tciSettings);
   }
   sendState();
@@ -1496,9 +1551,7 @@ void handleTx() {
       sendError(409, ampState == AMP_OFF ? "усилитель выключен" : "идёт прогрев");
       return;
     }
-    const char *reason = automaticBlockReason();
-    if (controlMode == ControlMode::Automatic)
-      reason = pttBlockReason();
+    const char *reason = controlMode == ControlMode::Automatic ? pttBlockReason() : nullptr;
     if (reason) {
       sendError(409, reason);
       return;
@@ -1536,10 +1589,6 @@ void handleTable() {
 }
 
 void handleSelect() {
-  if (controlMode == ControlMode::Automatic) {
-    sendError(409, "выбрано автоматическое управление");
-    return;
-  }
   if (ampState == AMP_OFF) {
     sendError(409, "усилитель выключен");
     return;
@@ -1554,6 +1603,35 @@ void handleSelect() {
     sendError(400, "неизвестная частота");
     return;
   }
+  if (controlMode == ControlMode::Automatic) {
+    if (!tuningMode) {
+      sendError(409, "для выбора ячейки в авто включите режим настройки");
+      return;
+    }
+    const TciStatus tci = tciReadStatus();
+    if (tci.link != TciLink::Connected || !tci.radio.runningKnown || !tci.radio.running) {
+      sendError(409, "нет связи с включённым трансивером");
+      return;
+    }
+    if (transceiverTransmitting() || webTx) {
+      sendError(409, "отпустите PTT перед сменой частоты трансивера");
+      return;
+    }
+    const uint32_t request = tciSetFrequency(static_cast<uint32_t>(freq) * 1000);
+    if (request == 0) {
+      sendError(503, "не удалось отправить частоту трансиверу");
+      return;
+    }
+    pendingRadioRequest = request;
+    pendingRadioFreqKhz = freq;
+    pendingRadioSince = millis();
+    pendingRadioConnection = tci.connection;
+    pendingRadioGeneration = tci.generation;
+    radioFrequencyFailed = false;
+    updatePtt();
+    sendState();
+    return;
+  }
   currentFreqKhz = freq;
   retuneServos(p->cap, p->vario);
   setSwitch(p->sw);
@@ -1562,6 +1640,8 @@ void handleSelect() {
 }
 
 void handleMode() {
+  if (server.arg("tuning").toInt() == 0)
+    cancelRadioFrequency();
   if (tuningMode && server.arg("tuning").toInt() == 0 && controlMode == ControlMode::Automatic)
     autoAppliedFreqKhz = 0;
   tuningMode = server.arg("tuning").toInt() != 0;
@@ -1587,6 +1667,10 @@ void handleMove() {
     sendError(409, "частота не выбрана");
     return;
   }
+  if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
+    sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
+    return;
+  }
   int cap = server.hasArg("cap") ? server.arg("cap").toInt() : currentCap;
   int vario = server.hasArg("vario") ? server.arg("vario").toInt() : currentVario;
   if (server.hasArg("sw")) {
@@ -1610,6 +1694,10 @@ void handleMove() {
 
 // Запоминает текущие положения сервоприводов и БМЗ для выбранной частоты
 void handleSave() {
+  if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
+    sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
+    return;
+  }
   Point *p = findPoint(currentFreqKhz);
   if (!tuningMode) {
     sendError(409, "режим настройки выключен");
@@ -1640,6 +1728,10 @@ void handleSave() {
 
 // Удаляет сохранённую настройку выбранной частоты, сервоприводы не двигает
 void handleReset() {
+  if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
+    sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
+    return;
+  }
   Point *p = findPoint(currentFreqKhz);
   const Band *band = findBand(currentFreqKhz);
   if (!tuningMode) {
@@ -1697,6 +1789,7 @@ void handleImport() {
     return;
   }
   appLogPrintf("imported %d points\n", loaded);
+  autoAppliedFreqKhz = 0;
   server.send(200, "application/json", "{\"loaded\":" + String(loaded) + "}");
 }
 

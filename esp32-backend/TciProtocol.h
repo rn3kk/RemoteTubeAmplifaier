@@ -10,6 +10,7 @@ struct TciRadioState {
   bool modulationValid = false;
   bool transmitting = false;
   uint32_t frequencyHz = 0;
+  uint32_t frequencyUpdates = 0;
   char modulation[16] = {};
 };
 
