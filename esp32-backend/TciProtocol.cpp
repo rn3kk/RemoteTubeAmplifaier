@@ -72,6 +72,7 @@ void TciProtocol::processCommand() {
     } else if (strcmp(name, "stop") == 0) {
       radio.runningKnown = true;
       radio.running = false;
+      radio.transmitting = false;
       radio.frequencyValid = false;
       radio.modulationValid = false;
     }
@@ -97,6 +98,11 @@ void TciProtocol::processCommand() {
       radio.frequencyHz = frequency;
       radio.frequencyValid = true;
     }
+  } else if (strcmp(name, "trx") == 0 && count == 2) {
+    if (strcmp(values[1], "true") == 0)
+      radio.transmitting = true;
+    else if (strcmp(values[1], "false") == 0)
+      radio.transmitting = false;
   } else if (strcmp(name, "modulation") == 0 && count == 2) {
     const size_t length = strlen(values[1]);
     if (length == 0 || length >= sizeof(radio.modulation))

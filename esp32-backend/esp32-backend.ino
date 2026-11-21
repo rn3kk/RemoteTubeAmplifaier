@@ -12,6 +12,7 @@
 #include <WebServer.h>
 #include "TciClient.h"
 #include "AppLog.h"
+#include "ControlLogic.h"
 #include <esp_system.h>
 
 // ---------- Настройки ----------
@@ -43,7 +44,6 @@ const uint16_t SERVO_SPEED = 1500;  // шагов/с, 0 - максимальна
 const uint8_t SERVO_ACC = 50;       // x100 шагов/с^2, 0 - максимальное
 // КПЕ и вариометр: 190° = 180° рабочего хода + 10° запаса на проворот.
 // 4096 шагов на оборот, поэтому 190° = 190*4096/360 = 2162 шага
-const int TUNE_POS_MAX = 2162;
 
 // Перестройка КПЕ и вариометра по выбору частоты: PTT запрещён, пока приводы не встанут.
 // Ручное движение в режиме настройки PTT не снимает - настройка идёт под несущей
@@ -83,7 +83,6 @@ bool tciAvailable = false;
 // Режим включается только в ОЗУ привода, в EEPROM ничего не пишется.
 // Положения с 1, 0 - не задано; положение 1 - угол 0.
 const uint8_t SERVO_ID_SWITCH = 3;
-const int SWITCH_POSITIONS = 5;
 const int SWITCH_STEPS_PER_POS = 2048;    // одно положение БМЗ = 180° = пол-оборота привода
 const int SWITCH_DIRECTION = -1;          // +1 - номер положения растёт с ростом счёта, -1 - наоборот
 const int SWITCH_TOLERANCE = 20;          // шагов: допуск, при котором переключатель считается вставшим
@@ -141,13 +140,6 @@ const Band BANDS[] = {
 const int BANDS_COUNT = sizeof(BANDS) / sizeof(BANDS[0]);
 
 // Точка таблицы настройки: положения сервоприводов для частоты
-struct Point {
-  uint16_t freqKhz;
-  uint16_t cap;
-  uint16_t vario;
-  uint8_t sw;  // положение переключателя БМЗ, 0 - не задано
-  bool saved;  // настроена вручную и записана во flash-память
-};
 
 // Запись о сохранённой точке во flash-памяти (NVS)
 struct StoredPoint {
@@ -197,6 +189,8 @@ int currentCap = -1;
 int currentVario = -1;
 int currentSwitch = 0;  // подтверждённое положение БМЗ, 0 - не задано (только после приезда)
 bool tuningMode = false;
+ControlMode controlMode = ControlMode::Manual;
+int autoAppliedFreqKhz = 0;
 
 enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY, AMP_COOLING };
 AmpState ampState = AMP_OFF;
@@ -586,6 +580,22 @@ void updateInput(Input &in) {
   }
 }
 
+AutoSelection automaticSelection() {
+  const TciStatus tci = tciReadStatus();
+  return selectAutomaticPoint(points, pointsCount, tci.link == TciLink::Connected, tci.radio);
+}
+
+const char *automaticBlockReason() {
+  if (controlMode != ControlMode::Automatic)
+    return nullptr;
+  const AutoSelection selection = automaticSelection();
+  if (selection.block != AutoBlock::None)
+    return autoBlockText(selection.block);
+  if (autoAppliedFreqKhz != points[selection.index].freqKhz || currentFreqKhz != autoAppliedFreqKhz)
+    return "ожидание перестройки по частоте трансивера";
+  return nullptr;
+}
+
 // Почему PTT сейчас запрещён; nullptr - разрешён
 const char *pttBlockReason() {
   if (ampState == AMP_OFF)
@@ -598,6 +608,9 @@ const char *pttBlockReason() {
     return "идёт прогрев";
   if (protectionLatched)
     return "сработала защита";
+  const char *automatic = automaticBlockReason();
+  if (automatic)
+    return automatic;
   if (capRetune.moving || varioRetune.moving)
     return "перестройка КПЕ и вариометра";
   if (servoCapPos < 0)
@@ -654,6 +667,38 @@ void retuneServos(int cap, int vario) {
   currentVario = constrain(vario, 0, TUNE_POS_MAX);
   startRetune(capRetune, currentCap);
   startRetune(varioRetune, currentVario);
+}
+
+bool transceiverTransmitting() {
+  const TciStatus tci = tciReadStatus();
+  return pttInput.active || pttInput.raw || digitalRead(INPUT_PTT_PIN) == INPUT_ACTIVE_LEVEL ||
+         (tci.link == TciLink::Connected && tci.radio.transmitting);
+}
+
+void updateAutomaticControl() {
+  if (controlMode != ControlMode::Automatic)
+    return;
+  if (ampState != AMP_READY) {
+    autoAppliedFreqKhz = 0;
+    return;
+  }
+  const AutoSelection selection = automaticSelection();
+  if (selection.index < 0 || (selection.block != AutoBlock::None && !tuningMode)) {
+    autoAppliedFreqKhz = 0;
+    return;
+  }
+  const Point &point = points[selection.index];
+  if (autoAppliedFreqKhz == point.freqKhz)
+    return;
+  setWebTx(false);
+  updatePtt();
+  if (transceiverTransmitting())
+    return;
+  currentFreqKhz = point.freqKhz;
+  retuneServos(point.cap, point.vario);
+  setSwitch(point.sw);
+  autoAppliedFreqKhz = point.freqKhz;
+  appLogPrintf("auto: cell %d kHz -> cap %d, vario %d, switch %d", point.freqKhz, point.cap, point.vario, point.sw);
 }
 
 // Ручное движение в режиме настройки: перестройку по частоте больше не отслеживаем
@@ -1083,7 +1128,7 @@ void setWebTx(bool on) {
 void updateWebTx() {
   if (!webTx)
     return;
-  if (ampState != AMP_READY) {
+  if (ampState != AMP_READY || (controlMode == ControlMode::Automatic && pttBlockReason() != nullptr)) {
     appLogPrintf("web TX: amp not ready");
     setWebTx(false);
   } else if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
@@ -1242,7 +1287,8 @@ void sendState() {
           ",\"capMoving\":" + jsonBool(capRetune.moving) + ",\"capFailed\":" + jsonBool(capRetune.failed) +
           ",\"varioMoving\":" + jsonBool(varioRetune.moving) + ",\"varioFailed\":" + jsonBool(varioRetune.failed) +
           ",\"webTx\":" + jsonBool(webTx) + ",\"webTxLeft\":" + String(webTxLeftSeconds()) +
-          ",\"api\":" + String(WWW_API_VERSION) + ",\"logsEnabled\":" + jsonBool(appLogEnabled());
+          ",\"api\":" + String(WWW_API_VERSION) + ",\"logsEnabled\":" + jsonBool(appLogEnabled()) +
+          ",\"control\":\"" + (controlMode == ControlMode::Automatic ? "auto" : "manual") + "\"";
   const TciStatus tci = tciReadStatus();
   const bool connected = tci.link == TciLink::Connected;
   const bool dataValid = connected && (!tci.radio.runningKnown || tci.radio.running);
@@ -1289,6 +1335,27 @@ void handleLogging() {
       appLogSetEnabled(true);
     appLogPrintf("logging: %s", enabled ? "enabled" : "disabled");
     appLogSetEnabled(enabled);
+  }
+  sendState();
+}
+
+void handleControlMode() {
+  const String value = server.arg("mode");
+  if (value != "manual" && value != "auto") {
+    sendError(400, "Укажите mode=manual или mode=auto");
+    return;
+  }
+  const ControlMode next = value == "auto" ? ControlMode::Automatic : ControlMode::Manual;
+  if (next != controlMode) {
+    if (prefs.putBool("auto", next == ControlMode::Automatic) == 0) {
+      sendError(500, "Не удалось сохранить режим управления");
+      return;
+    }
+    setWebTx(false);
+    controlMode = next;
+    autoAppliedFreqKhz = 0;
+    updatePtt();
+    appLogPrintf("control: %s", value.c_str());
   }
   sendState();
 }
@@ -1429,6 +1496,13 @@ void handleTx() {
       sendError(409, ampState == AMP_OFF ? "усилитель выключен" : "идёт прогрев");
       return;
     }
+    const char *reason = automaticBlockReason();
+    if (controlMode == ControlMode::Automatic)
+      reason = pttBlockReason();
+    if (reason) {
+      sendError(409, reason);
+      return;
+    }
     webTxLastPing = millis();
     setWebTx(true);
   } else if (server.hasArg("keep")) {
@@ -1462,6 +1536,10 @@ void handleTable() {
 }
 
 void handleSelect() {
+  if (controlMode == ControlMode::Automatic) {
+    sendError(409, "выбрано автоматическое управление");
+    return;
+  }
   if (ampState == AMP_OFF) {
     sendError(409, "усилитель выключен");
     return;
@@ -1484,6 +1562,8 @@ void handleSelect() {
 }
 
 void handleMode() {
+  if (tuningMode && server.arg("tuning").toInt() == 0 && controlMode == ControlMode::Automatic)
+    autoAppliedFreqKhz = 0;
   tuningMode = server.arg("tuning").toInt() != 0;
   appLogPrintf("tuning mode %s\n", tuningMode ? "on" : "off");
   sendState();
@@ -1797,6 +1877,7 @@ void setup() {
   loadSavedPoints();
   loadSwitchStateFromNvs();
   loadTciSettings();
+  controlMode = prefs.getBool("auto", false) ? ControlMode::Automatic : ControlMode::Manual;
 
   appLogPrintf("network: starting %s", USE_ETHERNET ? "Ethernet" : "Wi-Fi");
   setupNetwork();
@@ -1816,6 +1897,7 @@ void setup() {
   server.on("/api/table", HTTP_GET, handleTable);
   server.on("/api/state", HTTP_GET, sendState);
   server.on("/api/tci", HTTP_POST, handleTciSettings);
+  server.on("/api/control", HTTP_POST, handleControlMode);
   server.on("/api/logs", HTTP_GET, handleLogs);
   server.on("/api/logs", HTTP_POST, handleLogging);
   server.on("/api/logs/download", HTTP_GET, handleLogs);
@@ -1836,6 +1918,7 @@ void setup() {
 }
 
 void loop() {
+  updateAutomaticControl();
   updateAmp();
   pollServos();
   updateSwitch();
