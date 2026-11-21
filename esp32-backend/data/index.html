@@ -7,8 +7,22 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="layout">
+<div class="layout" id="layout">
 <h1>Ламповый усилитель на базе УМ от Р-140</h1>
+<nav id="page-tabs" aria-label="Разделы страницы">
+  <button type="button" id="tab-control" class="active" aria-pressed="true">Управление</button>
+  <button type="button" id="tab-logs" aria-pressed="false">Журнал</button>
+</nav>
+<section id="log-panel" hidden aria-label="Журнал контроллера">
+  <div class="actions">
+    <label class="mode"><input type="checkbox" id="logging" disabled> Записывать логи</label>
+    <a id="logs-download" class="download-button" href="/api/logs/download" download="tubeamp-log.txt">Скачать логи</a>
+  </div>
+  <div class="hint">Галка сохраняется при выключении питания. Здесь — последние сообщения текущего запуска;
+    при заполнении журнала старые строки заменяются новыми.</div>
+  <div id="log-message" role="status"></div>
+  <pre id="log-output" tabindex="0" aria-label="Сообщения журнала"></pre>
+</section>
 <div class="area-amp">
   <div id="version" hidden>Файлы страницы и прошивка разных версий: обновите файлы страницы (сервис внизу) или прошивку.</div>
   <div id="amp">
@@ -33,11 +47,33 @@
     </div>
     <div id="ampnote"></div>
   </div>
-  <div id="state">Частота: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
+  <div id="transceiver">
+    <div class="title">SunSDR2 DX · RX1 / VFO A</div>
+    <div class="chips">
+      <span class="chip" id="tci-link">TCI: ожидание данных</span>
+      <span class="chip" id="tci-running">Трансивер: состояние неизвестно</span>
+    </div>
+    <div class="radio-values">Частота: <b id="tci-frequency">—</b> <span id="tci-unit">МГц</span>,
+      вид модуляции: <b id="tci-modulation">—</b></div>
+  </div>
+  <div id="state">Частота ячейки: <b id="freq">-</b> кГц, КПЕ: <b id="cap">-</b>, вариометр: <b id="vario">-</b>, БМЗ: <b id="sw">-</b>
     <span id="error"></span></div>
 </div>
 <div class="area-tune">
   <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
+  <form id="tci-settings" hidden>
+    <div class="title">Трансивер SunSDR2 DX / TCI</div>
+    <div class="hint">Укажите IP компьютера с ExpertSDR и порт включённого в программе TCI-сервера.</div>
+    <fieldset id="tci-fields">
+      <label class="tci-enable"><input type="checkbox" id="tci-enabled"> Подключаться к TCI</label>
+      <div class="tci-address">
+        <label>IP компьютера<input type="text" id="tci-host" maxlength="15" inputmode="decimal" placeholder="192.168.1.100" autocomplete="off"></label>
+        <label>Порт<input type="number" id="tci-port" min="1" max="65535" step="1" value="50001" required></label>
+      </div>
+      <button type="submit" id="tci-save">Сохранить подключение</button>
+    </fieldset>
+    <div id="tci-message" role="status"></div>
+  </form>
   <div id="panel" hidden>
     <div class="hint" id="hint"></div>
     <div id="servos"></div>

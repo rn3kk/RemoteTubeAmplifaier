@@ -10,6 +10,9 @@
 #include <SPI.h>
 #include <LittleFS.h>
 #include <WebServer.h>
+#include "TciClient.h"
+#include "AppLog.h"
+#include <esp_system.h>
 
 // ---------- Настройки ----------
 // Адрес в обоих вариантах выдаётся по DHCP, свою точку доступа плата не поднимает
@@ -66,7 +69,10 @@ const uint32_t WEB_TX_KEEPALIVE_MS = 2000;
 const uint32_t WEB_TX_MAX_MS = 60000;
 
 // Версия API для файлов веб-страницы: страница сверяет её со своей и предупреждает о расхождении
-const int WWW_API_VERSION = 5;
+const int WWW_API_VERSION = 7;
+
+TciSettings tciSettings;
+bool tciAvailable = false;
 
 // Переключатель БМЗ: третий сервопривод, 5 положений.
 // Механика Р-140: одно положение переключателя = 180° привода (2048 шагов).
@@ -383,7 +389,7 @@ void loadSavedPoints() {
     p->sw = stored[i].sw <= SWITCH_POSITIONS ? stored[i].sw : 0;
     p->saved = true;
   }
-  Serial.printf("Loaded %d saved points\n", count);
+  appLogPrintf("Loaded %d saved points\n", count);
 }
 
 bool storeSavedPoints() {
@@ -400,6 +406,44 @@ bool storeSavedPoints() {
   }
   size_t len = count * sizeof(StoredPoint);
   return prefs.putBytes(PREFS_KEY_POINTS, stored, len) == len;
+}
+
+bool parseTciSettings(String host, const String &port, const String &enabled, TciSettings &result) {
+  host.trim();
+  if (enabled != "0" && enabled != "1")
+    return false;
+  if (port.length() == 0 || port.length() > 5)
+    return false;
+  for (unsigned i = 0; i < port.length(); ++i) {
+    if (port[i] < '0' || port[i] > '9')
+      return false;
+  }
+  const unsigned long number = strtoul(port.c_str(), nullptr, 10);
+  if (number == 0 || number > 65535)
+    return false;
+  if (host.length() > 15 || (enabled == "1" && host.isEmpty()))
+    return false;
+  if (!host.isEmpty()) {
+    IPAddress address;
+    if (!address.fromString(host) || address.toString() != host || address[0] == 0 || address[0] >= 224)
+      return false;
+  }
+  result = TciSettings{};
+  host.toCharArray(result.host, sizeof(result.host));
+  result.port = static_cast<uint16_t>(number);
+  result.enabled = enabled == "1";
+  return true;
+}
+
+void loadTciSettings() {
+  const String stored = prefs.getString("tci", "");
+  const int first = stored.indexOf(';');
+  const int second = stored.indexOf(';', first + 1);
+  if (first < 0 || second < 0)
+    return;
+  if (!parseTciSettings(stored.substring(first + 1, second), stored.substring(second + 1),
+                        stored.substring(0, first), tciSettings))
+    appLogPrintf("TCI: invalid saved settings, connection disabled");
 }
 
 // Отправляет пакет приводу. Если нужен ответ - ждёт его и кладёт данные ответа в reply,
@@ -538,7 +582,7 @@ void updateInput(Input &in) {
     in.since = millis();
   } else if (value != in.active && millis() - in.since >= in.debounceMs) {
     in.active = value;
-    Serial.printf("input GPIO %d -> %s\n", in.pin, value ? "active" : "inactive");
+    appLogPrintf("input GPIO %d -> %s\n", in.pin, value ? "active" : "inactive");
   }
 }
 
@@ -585,7 +629,7 @@ void updatePtt() {
     return;
   relayPtt = key;
   setRelay(RELAY_PTT_PIN, key);
-  Serial.printf("PTT %s\n", key ? "on" : "off");
+  appLogPrintf("PTT %s\n", key ? "on" : "off");
 }
 
 // Начинает перестройку привода КПЕ или вариометра. PTT снимается до начала движения,
@@ -627,11 +671,11 @@ void checkRetune(Retune &r) {
   int current = stsReadPosition(r.id);
   if (current >= 0 && abs(current - r.target) <= SERVO_TOLERANCE) {
     r.moving = false;
-    Serial.printf("%s servo: reached %d\n", r.name, current);
+    appLogPrintf("%s servo: reached %d\n", r.name, current);
   } else if (millis() - retuneStart > SERVO_MOVE_TIMEOUT_MS) {
     r.moving = false;
     r.failed = true;
-    Serial.printf("%s servo: timeout\n", r.name);
+    appLogPrintf("%s servo: timeout\n", r.name);
   }
 }
 
@@ -705,7 +749,7 @@ void loadSwitchStateFromNvs() {
   switchFrom = prefs.getUChar(PREFS_KEY_SW_FROM, 0);
   switchTo = prefs.getUChar(PREFS_KEY_SW_TO, 0);
   bool busy = prefs.getUChar(PREFS_KEY_SW_BUSY, 0) != 0;
-  Serial.printf("switch NVS: pos=%d busy=%d from=%d to=%d\n",
+  appLogPrintf("switch NVS: pos=%d busy=%d from=%d to=%d\n",
                 currentSwitch, busy ? 1 : 0, switchFrom, switchTo);
   if (busy && switchTo >= 1 && switchTo <= SWITCH_POSITIONS) {
     // Задание было, питание пропало — восстановим в recoverSwitchAfterPower()
@@ -753,7 +797,7 @@ bool recoverSwitchAfterPower() {
       currentSwitch = 0;
       switchFailed = true;
       updatePtt();
-      Serial.println("switch recover: counter lost mid-move, «Привести в ноль» required");
+      appLogPrintf("switch recover: counter lost mid-move, «Привести в ноль» required");
       return true;
     }
     switchBase = goal - (to - 1) * SWITCH_STEPS_PER_POS * SWITCH_DIRECTION;
@@ -761,7 +805,7 @@ bool recoverSwitchAfterPower() {
     switchFrom = from;
     switchTo = to;
     switchFailed = false;
-    Serial.printf("switch recover: resume %d -> %d (base %d)\n", from, to, switchBase);
+    appLogPrintf("switch recover: resume %d -> %d (base %d)\n", from, to, switchBase);
     if (!moveSwitchToPos(to)) {
       switchFailed = true;
       updatePtt();
@@ -779,7 +823,7 @@ bool recoverSwitchAfterPower() {
     switchBaseValid = true;
     currentSwitch = pos;
     switchFailed = false;
-    Serial.printf("switch recover: pos=%d angle=%d base=%d\n", pos, angle, switchBase);
+    appLogPrintf("switch recover: pos=%d angle=%d base=%d\n", pos, angle, switchBase);
   } else {
     // Положение не задано: без нуля двигать переключатель нельзя
     switchBaseValid = false;
@@ -815,7 +859,7 @@ bool ensureSwitchMultiTurn() {
       stsReadWord(SERVO_ID_SWITCH, STS_REG_MIN_ANGLE) != 0 ||
       stsReadWord(SERVO_ID_SWITCH, STS_REG_MAX_ANGLE) != 0)
     return false;
-  Serial.println("switch servo: multi-turn mode set");
+  appLogPrintf("switch servo: multi-turn mode set");
   return true;
 }
 
@@ -865,7 +909,7 @@ void beginSwitchMove(int finalAngle, int goal, int steps, const char *tag) {
   if (wasMoving)
     switchTimeoutMs += switchTravelMs(SWITCH_POSITIONS * SWITCH_STEPS_PER_POS);
   lastSwitchCheck = 0;
-  Serial.printf("switch servo: %s steps=%d goal=%d min=%lums timeout=%lums\n",
+  appLogPrintf("switch servo: %s steps=%d goal=%d min=%lums timeout=%lums\n",
                 tag, steps, goal, (unsigned long)switchMinMs, (unsigned long)switchTimeoutMs);
 }
 
@@ -876,7 +920,7 @@ bool moveSwitchToPos(int pos) {
   int goal = 0;
   bool counterValid = false;
   if (!readSwitchState(angle, goal, counterValid) || !ensureSwitchMultiTurn()) {
-    Serial.println("switch servo: no response");
+    appLogPrintf("switch servo: no response");
     return false;
   }
   int count = goal + shortestDelta(wrapSteps(goal), angle);
@@ -899,7 +943,7 @@ bool startSwitchAngleMove(int targetAngle) {
   int goal = 0;
   bool counterValid = false;
   if (!readSwitchState(angle, goal, counterValid) || !ensureSwitchMultiTurn()) {
-    Serial.println("switch servo: no response");
+    appLogPrintf("switch servo: no response");
     return false;
   }
   int count = goal + shortestDelta(wrapSteps(goal), angle);
@@ -932,7 +976,7 @@ bool setSwitch(int position) {
     // После обесточивания привода посреди поворота неизвестно, где стоит переключатель
     switchFailed = true;
     updatePtt();
-    Serial.println("switch servo: zero unknown, «Привести в ноль» required");
+    appLogPrintf("switch servo: zero unknown, «Привести в ноль» required");
     return false;
   }
   switchFrom = currentSwitch >= 1 ? currentSwitch : 0;
@@ -962,7 +1006,7 @@ void finishSwitchMove() {
     switchFrom = 0;
     switchTo = 0;
     saveSwitchConfirmed(1);
-    Serial.printf("switch servo: zero set, base=%d\n", switchBase);
+    appLogPrintf("switch servo: zero set, base=%d\n", switchBase);
     updatePtt();
     return;
   }
@@ -972,7 +1016,7 @@ void finishSwitchMove() {
   switchFrom = 0;
   switchTo = 0;
   saveSwitchConfirmed(confirmed);
-  Serial.printf("switch servo: confirmed pos %d (saved to NVS)\n", confirmed);
+  appLogPrintf("switch servo: confirmed pos %d (saved to NVS)\n", confirmed);
   updatePtt();
 }
 
@@ -992,7 +1036,7 @@ void updateSwitch() {
   if (elapsed >= switchMinMs && inTol) {
     switchStableCount++;
     if (switchStableCount >= SWITCH_STABLE_READS) {
-      Serial.printf("switch servo: reached %d after %lums\n", current, (unsigned long)elapsed);
+      appLogPrintf("switch servo: reached %d after %lums\n", current, (unsigned long)elapsed);
       finishSwitchMove();
     }
   } else {
@@ -1004,7 +1048,7 @@ void updateSwitch() {
     switchFailed = true;
     switchStableCount = 0;
     // Задание from→to остаётся в NVS (busy=1) — после перезагрузки попробуем доехать
-    Serial.printf("switch servo: timeout (job %d -> %d kept in NVS)\n", switchFrom, switchTo);
+    appLogPrintf("switch servo: timeout (job %d -> %d kept in NVS)\n", switchFrom, switchTo);
     updatePtt();
   }
 }
@@ -1021,7 +1065,7 @@ void ampPowerOn() {
   relayPower = true;
   setRelay(RELAY_POWER_PIN, true);
   setAmpState(AMP_SOFTSTART);
-  Serial.println("amp: power on, soft start");
+  appLogPrintf("amp: power on, soft start");
 }
 
 void setWebTx(bool on) {
@@ -1031,7 +1075,7 @@ void setWebTx(bool on) {
   setRelay(RELAY_TRX_PTT_PIN, on);
   if (on)
     webTxStart = millis();
-  Serial.printf("web TX %s\n", on ? "on" : "off");
+  appLogPrintf("web TX %s\n", on ? "on" : "off");
 }
 
 // Снимает передачу с веб-страницы, если усилитель не готов, страница перестала её
@@ -1040,13 +1084,13 @@ void updateWebTx() {
   if (!webTx)
     return;
   if (ampState != AMP_READY) {
-    Serial.println("web TX: amp not ready");
+    appLogPrintf("web TX: amp not ready");
     setWebTx(false);
   } else if (millis() - webTxLastPing > WEB_TX_KEEPALIVE_MS) {
-    Serial.println("web TX: no keepalive");
+    appLogPrintf("web TX: no keepalive");
     setWebTx(false);
   } else if (millis() - webTxStart > WEB_TX_MAX_MS) {
-    Serial.println("web TX: time limit");
+    appLogPrintf("web TX: time limit");
     setWebTx(false);
   }
 }
@@ -1066,7 +1110,7 @@ void ampPowerOff(bool force) {
   if (!force && cooldownSeconds() > 0) {
     // охлаждение: АНОД снят, 220В держим - вентилятор доохлаждает лампу
     setAmpState(AMP_COOLING);
-    Serial.println("amp: cooling, 220V kept for fan");
+    appLogPrintf("amp: cooling, 220V kept for fan");
     return;
   }
   relaySoftstart = false;
@@ -1075,7 +1119,7 @@ void ampPowerOff(bool force) {
   relayPower = false;
   setRelay(RELAY_POWER_PIN, false);
   setAmpState(AMP_OFF);
-  Serial.println("amp: power off");
+  appLogPrintf("amp: power off");
 }
 
 // Последовательность включения, защита и разрешение PTT
@@ -1087,26 +1131,26 @@ void updateAmp() {
     relaySoftstart = true;
     setRelay(RELAY_SOFTSTART_PIN, true);
     setAmpState(AMP_WARMUP);
-    Serial.println("amp: soft start done, warming up");
+    appLogPrintf("amp: soft start done, warming up");
   } else if (ampState == AMP_WARMUP && elapsed >= WARMUP_MS) {
     relayAnode = true;
     setRelay(RELAY_ANODE_PIN, true);
     setAmpState(AMP_READY);
-    Serial.println("amp: warm-up done, anode on");
+    appLogPrintf("amp: warm-up done, anode on");
   } else if (ampState == AMP_COOLING && cooldownSeconds() == 0) {
     relaySoftstart = false;
     setRelay(RELAY_SOFTSTART_PIN, false);
     relayPower = false;
     setRelay(RELAY_POWER_PIN, false);
     setAmpState(AMP_OFF);
-    Serial.println("amp: cooling done, power off");
+    appLogPrintf("amp: cooling done, power off");
   }
   // Защита: снять анодное и заблокировать PTT (защёлка до ручного сброса), 220В не трогаем
   if (ampState != AMP_OFF && ampState != AMP_COOLING && protectionInput.active && !protectionLatched) {
     protectionLatched = true;
     relayAnode = false;
     setRelay(RELAY_ANODE_PIN, false);
-    Serial.println("amp: protection tripped, anode off");
+    appLogPrintf("amp: protection tripped, anode off");
   }
   updatePtt();
 }
@@ -1154,17 +1198,17 @@ void pollServos() {
   // вал мог сдвинуться - ставим его в положение текущей частоты, PTT снят до окончания
   bool restore = ampState != AMP_OFF && findPoint(currentFreqKhz) != nullptr;
   if (restore && capBefore < 0 && servoCapPos >= 0 && currentCap >= 0) {
-    Serial.println("cap servo: link restored");
+    appLogPrintf("cap servo: link restored");
     startRetune(capRetune, currentCap);
   }
   if (restore && varioBefore < 0 && servoVarioPos >= 0 && currentVario >= 0) {
-    Serial.println("vario servo: link restored");
+    appLogPrintf("vario servo: link restored");
     startRetune(varioRetune, currentVario);
   }
   // Первое появление связи с приводом БМЗ после старта/пропадания 12 В —
   // восстановить привязку нуля и довезти прерванный поворот
   if (switchBefore < 0 && servoSwitchPos >= 0) {
-    Serial.printf("switch servo: link up, angle=%d\n", servoSwitchPos);
+    appLogPrintf("switch servo: link up, angle=%d\n", servoSwitchPos);
     recoverSwitchAfterPower();
   }
   updatePtt();  // связь с приводами влияет на разрешение PTT
@@ -1198,12 +1242,81 @@ void sendState() {
           ",\"capMoving\":" + jsonBool(capRetune.moving) + ",\"capFailed\":" + jsonBool(capRetune.failed) +
           ",\"varioMoving\":" + jsonBool(varioRetune.moving) + ",\"varioFailed\":" + jsonBool(varioRetune.failed) +
           ",\"webTx\":" + jsonBool(webTx) + ",\"webTxLeft\":" + String(webTxLeftSeconds()) +
-          ",\"api\":" + String(WWW_API_VERSION) + "}";
+          ",\"api\":" + String(WWW_API_VERSION) + ",\"logsEnabled\":" + jsonBool(appLogEnabled());
+  const TciStatus tci = tciReadStatus();
+  const bool connected = tci.link == TciLink::Connected;
+  const bool dataValid = connected && (!tci.radio.runningKnown || tci.radio.running);
+  json += String(",\"tci\":{\"host\":\"") + tciSettings.host + "\",\"port\":" + String(tciSettings.port) +
+          ",\"enabled\":" + jsonBool(tciSettings.enabled) + ",\"link\":\"" + tciLinkName(tci.link) +
+          "\",\"running\":" + (connected && tci.radio.runningKnown ? jsonBool(tci.radio.running) : "null") +
+          ",\"frequency\":" + (dataValid && tci.radio.frequencyValid ? String(tci.radio.frequencyHz) : String("null")) +
+          ",\"modulation\":" + (dataValid && tci.radio.modulationValid ? String("\"") + tci.radio.modulation + "\"" : String("null")) + "}}";
   server.send(200, "application/json", json);
 }
 
 void sendError(int code, const char *message) {
+  appLogPrintf("HTTP %d %s: %s", code, server.uri().c_str(), message);
   server.send(code, "application/json", String("{\"error\":\"") + message + "\"}");
+}
+
+void handleLogs() {
+  static char snapshot[LogBuffer::TextCapacity];
+  if (!appLogSnapshot(snapshot)) {
+    sendError(503, "Журнал занят, повторите запрос");
+    return;
+  }
+  server.sendHeader("Cache-Control", "no-store");
+  if (server.uri() == "/api/logs/download")
+    server.sendHeader("Content-Disposition", "attachment; filename=\"tubeamp-log.txt\"");
+  server.setContentLength(strlen(snapshot));
+  server.send(200, "text/plain; charset=utf-8", "");
+  server.sendContent(snapshot, strlen(snapshot));
+}
+
+void handleLogging() {
+  const String value = server.arg("enabled");
+  if (value != "0" && value != "1") {
+    sendError(400, "Укажите enabled=0 или enabled=1");
+    return;
+  }
+  const bool enabled = value == "1";
+  if (enabled != appLogEnabled()) {
+    if (prefs.putBool("logging", enabled) == 0) {
+      sendError(500, "Не удалось сохранить включение журнала");
+      return;
+    }
+    if (enabled)
+      appLogSetEnabled(true);
+    appLogPrintf("logging: %s", enabled ? "enabled" : "disabled");
+    appLogSetEnabled(enabled);
+  }
+  sendState();
+}
+
+void handleTciSettings() {
+  if (!tuningMode) {
+    sendError(409, "Включите режим настройки");
+    return;
+  }
+  if (!tciAvailable) {
+    sendError(503, "TCI-клиент не запущен: перезагрузите контроллер");
+    return;
+  }
+  TciSettings settings;
+  if (!parseTciSettings(server.arg("host"), server.arg("port"), server.arg("enabled"), settings)) {
+    sendError(400, "Укажите IPv4-адрес компьютера и порт от 1 до 65535");
+    return;
+  }
+  const String stored = String(settings.enabled ? "1;" : "0;") + settings.host + ";" + String(settings.port);
+  if (prefs.getString("tci", "") != stored) {
+    if (prefs.putString("tci", stored) == 0) {
+      sendError(500, "Не удалось сохранить настройки TCI");
+      return;
+    }
+    tciSettings = settings;
+    tciConfigure(tciSettings);
+  }
+  sendState();
 }
 
 const char *contentTypeFor(const String &name) {
@@ -1303,7 +1416,7 @@ void handleWwwDone() {
     sendError(400, "файлы не получены");
   else
     server.send(200, "application/json", "{\"files\":" + String(uploadCount) + "}");
-  Serial.printf("www upload: %d files %s\n", uploadCount, uploadError.c_str());
+  appLogPrintf("www upload: %d files %s\n", uploadCount, uploadError.c_str());
   uploadError = "";
   uploadCount = 0;
 }
@@ -1366,13 +1479,13 @@ void handleSelect() {
   currentFreqKhz = freq;
   retuneServos(p->cap, p->vario);
   setSwitch(p->sw);
-  Serial.printf("freq %d kHz -> cap %d, vario %d, switch %d\n", currentFreqKhz, currentCap, currentVario, currentSwitch);
+  appLogPrintf("freq %d kHz -> cap %d, vario %d, switch %d\n", currentFreqKhz, currentCap, currentVario, currentSwitch);
   sendState();
 }
 
 void handleMode() {
   tuningMode = server.arg("tuning").toInt() != 0;
-  Serial.printf("tuning mode %s\n", tuningMode ? "on" : "off");
+  appLogPrintf("tuning mode %s\n", tuningMode ? "on" : "off");
   sendState();
 }
 
@@ -1441,7 +1554,7 @@ void handleSave() {
     sendError(500, "не удалось записать во flash-память");
     return;
   }
-  Serial.printf("saved %d kHz: cap %d, vario %d, switch %d\n", p->freqKhz, p->cap, p->vario, p->sw);
+  appLogPrintf("saved %d kHz: cap %d, vario %d, switch %d\n", p->freqKhz, p->cap, p->vario, p->sw);
   sendState();
 }
 
@@ -1464,7 +1577,7 @@ void handleReset() {
     sendError(500, "не удалось записать во flash-память");
     return;
   }
-  Serial.printf("reset %d kHz\n", p->freqKhz);
+  appLogPrintf("reset %d kHz\n", p->freqKhz);
   sendState();
 }
 
@@ -1503,7 +1616,7 @@ void handleImport() {
     sendError(500, "не удалось записать во flash-память");
     return;
   }
-  Serial.printf("imported %d points\n", loaded);
+  appLogPrintf("imported %d points\n", loaded);
   server.send(200, "application/json", "{\"loaded\":" + String(loaded) + "}");
 }
 
@@ -1523,7 +1636,7 @@ void handleProtectionReset() {
     return;
   }
   protectionLatched = false;
-  Serial.println("amp: protection reset");
+  appLogPrintf("amp: protection reset");
   updatePtt();
   sendState();
 }
@@ -1568,7 +1681,7 @@ void handleServoScan() {
     json += "{\"id\":" + String(id) + ",\"pos\":" + String(stsReadPosition(id)) + "}";
   }
   json += "]}";
-  Serial.printf("servo scan: %d found\n", found);
+  appLogPrintf("servo scan: %d found\n", found);
   server.send(200, "application/json", json);
 }
 
@@ -1599,7 +1712,7 @@ void handleServoId() {
     sendError(500, ("привод не отвечает на новом ID " + String(to)).c_str());
     return;
   }
-  Serial.printf("servo ID %d -> %d\n", from, to);
+  appLogPrintf("servo ID %d -> %d\n", from, to);
   server.send(200, "application/json", "{\"id\":" + String(to) + "}");
 }
 
@@ -1610,17 +1723,16 @@ void onNetworkEvent(arduino_event_id_t event) {
       ETH.setHostname(HOSTNAME);
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
-      Serial.println("ETH link up");
+      appLogPrintf("ETH link up");
       break;
     case ARDUINO_EVENT_ETH_GOT_IP:
-      Serial.print("IP: ");
-      Serial.println(ETH.localIP());
+      appLogPrintf("IP: %s", ETH.localIP().toString().c_str());
       break;
     case ARDUINO_EVENT_ETH_LOST_IP:
-      Serial.println("ETH lost IP");
+      appLogPrintf("ETH lost IP");
       break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
-      Serial.println("ETH link down");
+      appLogPrintf("ETH link down");
       break;
     default:
       break;
@@ -1631,17 +1743,16 @@ void setupNetwork() {
   Network.onEvent(onNetworkEvent);
   SPI.begin(ETH_SCK_PIN, ETH_MISO_PIN, ETH_MOSI_PIN);
   if (!ETH.begin(ETH_PHY_W5500, ETH_W5500_ADDR, ETH_CS_PIN, ETH_IRQ_PIN, ETH_RST_PIN, SPI))
-    Serial.println("ETH init failed");
+    appLogPrintf("ETH init failed");
 }
 #else
 void onNetworkEvent(arduino_event_id_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      Serial.print("IP: ");
-      Serial.println(WiFi.localIP());
+      appLogPrintf("IP: %s", WiFi.localIP().toString().c_str());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      Serial.println("WiFi disconnected");
+      appLogPrintf("WiFi disconnected");
       break;
     default:
       break;
@@ -1655,7 +1766,7 @@ void setupNetwork() {
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);  // энергосбережение радио даёт задержки ответа до сотен мс
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.printf("Connecting to %s\n", WIFI_SSID);
+  appLogPrintf("Connecting to %s\n", WIFI_SSID);
 }
 #endif
 
@@ -1680,16 +1791,23 @@ void setup() {
   }
 
   prefs.begin(PREFS_NAMESPACE, false);
+  appLogBegin(prefs.getBool("logging", false));
+  appLogPrintf("boot: API %d, reset reason %d", WWW_API_VERSION, static_cast<int>(esp_reset_reason()));
   buildPoints();
   loadSavedPoints();
   loadSwitchStateFromNvs();
+  loadTciSettings();
 
+  appLogPrintf("network: starting %s", USE_ETHERNET ? "Ethernet" : "Wi-Fi");
   setupNetwork();
+  tciAvailable = tciBegin(tciSettings);
+  if (!tciAvailable)
+    appLogPrintf("TCI: could not create task or queues");
 
   if (LittleFS.begin(true))
-    Serial.printf("LittleFS: %u of %u bytes used\n", (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
+    appLogPrintf("LittleFS: %u of %u bytes used\n", (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
   else
-    Serial.println("LittleFS mount failed");
+    appLogPrintf("LittleFS mount failed");
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/api/tx", HTTP_POST, handleTx);
@@ -1697,6 +1815,10 @@ void setup() {
   server.onNotFound(handleNotFound);
   server.on("/api/table", HTTP_GET, handleTable);
   server.on("/api/state", HTTP_GET, sendState);
+  server.on("/api/tci", HTTP_POST, handleTciSettings);
+  server.on("/api/logs", HTTP_GET, handleLogs);
+  server.on("/api/logs", HTTP_POST, handleLogging);
+  server.on("/api/logs/download", HTTP_GET, handleLogs);
   server.on("/api/select", HTTP_POST, handleSelect);
   server.on("/api/mode", HTTP_POST, handleMode);
   server.on("/api/move", HTTP_POST, handleMove);
@@ -1710,6 +1832,7 @@ void setup() {
   server.on("/api/servo/id", HTTP_POST, handleServoId);
   server.on("/api/switch/zero", HTTP_POST, handleSwitchZero);
   server.begin();
+  appLogPrintf("HTTP: server ready on port 80");
 }
 
 void loop() {

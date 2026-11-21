@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 body { font-family: sans-serif; margin: 0; background: #1b1d21; color: #e6e6e6; }
 .layout { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
-          grid-template-columns: 1fr; grid-template-areas: "title" "amp" "table" "tune" "extra"; }
+          grid-template-columns: 1fr; grid-template-areas: "title" "tabs" "amp" "table" "tune" "extra"; }
 .layout > * { min-width: 0; }
 h1 { grid-area: title; font-size: 20px; margin: 0; }
 .area-amp { grid-area: amp; }
@@ -11,9 +11,38 @@ h1 { grid-area: title; font-size: 20px; margin: 0; }
 /* компьютер: слева состояние и настройка, справа таблица частот */
 @media (min-width: 900px) {
   .layout { grid-template-columns: minmax(360px, 440px) 1fr; align-items: start;
-            grid-template-areas: "title title" "amp table" "tune extra"; }
+            grid-template-areas: "title title" "tabs tabs" "amp table" "tune extra"; }
 }
+#page-tabs { grid-area: tabs; display: flex; gap: 8px; }
+#page-tabs button.active { border-color: #ffb347; color: #ffb347; }
+.layout.show-logs { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "tabs" "logs"; }
+.layout.show-logs .area-amp, .layout.show-logs .area-tune,
+.layout.show-logs .area-table, .layout.show-logs .area-extra { display: none; }
+#log-panel { grid-area: logs; min-width: 0; }
+#log-panel[hidden] { display: none; }
+#log-panel .mode { margin: 0; }
+#log-panel .hint { margin-top: 12px; }
+#log-output { height: 55vh; min-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+              padding: 12px; border: 1px solid #4a4e57; border-radius: 6px; background: #111318;
+              color: #d9e2d9; font: 13px/1.5 monospace; }
+#log-message { color: #ffb347; }
+.download-button { display: inline-block; padding: 8px 12px; min-height: 40px; border: 1px solid #4a4e57;
+                   border-radius: 6px; background: #2d3038; color: inherit; text-decoration: none; font-size: 15px; }
 #state { margin-top: 12px; font-size: 16px; line-height: 1.5; }
+#transceiver { margin-top: 12px; border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; }
+#transceiver .title, #tci-settings .title { font-weight: bold; margin-bottom: 10px; }
+.radio-values { margin-top: 10px; line-height: 1.6; }
+#tci-settings { border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+#tci-settings[hidden] { display: none; }
+#tci-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.tci-enable { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.tci-address { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.tci-address label { display: flex; flex-direction: column; gap: 6px; }
+.tci-address input { width: 180px; min-height: 40px; padding: 6px; background: #2d3038; color: inherit;
+                     border: 1px solid #4a4e57; border-radius: 6px; font-size: 15px; }
+#tci-port { width: 110px; }
+#tci-message { margin-top: 8px; color: #ffb347; }
+#tci-message:empty { display: none; }
 b { color: #ffb347; }
 button { min-height: 40px; padding: 8px 12px; border: 1px solid #4a4e57; border-radius: 6px;
          background: #2d3038; color: inherit; font-size: 15px; cursor: pointer; touch-action: manipulation; }

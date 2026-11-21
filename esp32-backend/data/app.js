@@ -1,4 +1,4 @@
-const API_VERSION = 5;  // должна совпадать с WWW_API_VERSION в прошивке
+const API_VERSION = 7;  // должна совпадать с WWW_API_VERSION в прошивке
 const TUNE_MAX = 2162;  // КПЕ и вариометр: 190° = 180° + 10° запас на проворот
 const MAX_FOR = {cap: TUNE_MAX, vario: TUNE_MAX};
 const STEPS = [-100, -10, -1, 1, 10, 100];
@@ -20,8 +20,83 @@ let sending = false;
 let remainUntil = 0;    // момент окончания текущего этапа включения
 let cooldownUntil = 0;  // момент окончания охлаждения после передачи
 let txTimer = null;      // подтверждение передачи с веб-страницы
+let tciFormDirty = false;
+let tciSaving = false;
+let logTabOpen = false;
+let logsLoading = false;
+let loggingSaving = false;
 
 const $ = id => document.getElementById(id);
+
+function showLogging(s) {
+  const supported = typeof s.logsEnabled === 'boolean';
+  $('logging').disabled = !supported || loggingSaving;
+  if (!loggingSaving && supported) $('logging').checked = s.logsEnabled;
+  if (!supported) $('log-message').textContent = 'Для журнала обновите прошивку и файлы страницы.';
+}
+
+function selectLogTab(open) {
+  logTabOpen = open;
+  $('layout').classList.toggle('show-logs', open);
+  $('log-panel').hidden = !open;
+  $('tab-logs').classList.toggle('active', open);
+  $('tab-control').classList.toggle('active', !open);
+  $('tab-logs').setAttribute('aria-pressed', String(open));
+  $('tab-control').setAttribute('aria-pressed', String(!open));
+  if (open) refreshLogs();
+}
+
+async function refreshLogs() {
+  if (!logTabOpen || logsLoading) return;
+  logsLoading = true;
+  try {
+    const response = await fetch('/api/logs', {cache: 'no-store'});
+    if (!response.ok) throw new Error('Не удалось получить журнал: ' + response.status);
+    const text = await response.text();
+    if (logTabOpen) {
+      const output = $('log-output');
+      const atBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 30;
+      if (output.textContent !== text) {
+        output.textContent = text;
+        if (atBottom) output.scrollTop = output.scrollHeight;
+      }
+      if (!loggingSaving) $('log-message').textContent = text ? '' : 'Журнал пуст. Включите запись логов.';
+    }
+  } catch (error) {
+    if (logTabOpen && !loggingSaving)
+      $('log-message').textContent = error instanceof TypeError ? 'Нет связи с контроллером.' : error.message;
+  } finally {
+    logsLoading = false;
+  }
+}
+
+async function saveLogging() {
+  if (loggingSaving) return;
+  const enabled = $('logging').checked;
+  loggingSaving = true;
+  $('logging').disabled = true;
+  $('log-message').textContent = 'Сохранение...';
+  try {
+    const result = await post('/api/logs?enabled=' + (enabled ? 1 : 0));
+    loggingSaving = false;
+    showState(result);
+    $('log-message').textContent = enabled ? 'Запись включена. Галка сохранена.' : 'Запись выключена. Галка сохранена.';
+    refreshLogs();
+  } catch (error) {
+    if (state && typeof state.logsEnabled === 'boolean') $('logging').checked = state.logsEnabled;
+    $('log-message').textContent = error instanceof TypeError ? 'Нет связи с контроллером.' : error.message;
+  } finally {
+    loggingSaving = false;
+    $('logging').disabled = !state || typeof state.logsEnabled !== 'boolean';
+  }
+}
+
+function openLogs() { selectLogTab(true); }
+function openControls() { selectLogTab(false); }
+$('tab-logs').addEventListener('click', openLogs);
+$('tab-control').addEventListener('click', openControls);
+$('logging').addEventListener('change', saveLogging);
+setInterval(refreshLogs, 1000);
 
 function pos(v) {
   return v < 0 ? '-' : v;
@@ -40,7 +115,84 @@ function post(url) {
 
 function showError(e) {
   $('error').textContent = e instanceof TypeError ? 'нет связи с контроллером' : e.message;
+  if (e instanceof TypeError) {
+    chip('tci-link', 'bad', 'TCI: нет данных от контроллера');
+    chip('tci-running', '', 'Трансивер: состояние неизвестно');
+    $('tci-frequency').textContent = '—';
+    $('tci-modulation').textContent = '—';
+  }
 }
+
+const TCI_LINK_NAMES = {
+  disabled: 'подключение отключено',
+  connecting: 'подключение...',
+  connected: 'соединение установлено',
+  disconnected: 'нет связи, повторное подключение',
+  error: 'ошибка подключения'
+};
+
+function showTci(s) {
+  const tci = s.tci;
+  $('tci-settings').hidden = !s.tuning || !tci;
+  if (!tci) {
+    chip('tci-link', '', 'TCI: обновите прошивку');
+    chip('tci-running', '', 'Трансивер: состояние неизвестно');
+    $('tci-frequency').textContent = '—';
+    $('tci-modulation').textContent = '—';
+    return;
+  }
+  const connected = tci.link === 'connected';
+  const linkClass = connected ? 'on' : tci.link === 'connecting' ? 'wait' : tci.enabled ? 'bad' : '';
+  chip('tci-link', linkClass, 'TCI: ' + (TCI_LINK_NAMES[tci.link] || 'состояние неизвестно'));
+  const running = connected ? tci.running : null;
+  chip('tci-running', running === true ? 'on' : '', 'Трансивер: ' +
+    (running === true ? 'включён' : running === false ? 'выключен' : 'состояние неизвестно'));
+  const valid = connected && running !== false;
+  $('tci-frequency').textContent = valid && tci.frequency !== null ? (tci.frequency / 1000000).toFixed(6) : '—';
+  $('tci-modulation').textContent = valid && tci.modulation ? tci.modulation : '—';
+  // Опрос состояния не должен затирать введённый, но ещё не сохранённый адрес.
+  if (!tciFormDirty && !tciSaving) {
+    $('tci-host').value = tci.host;
+    $('tci-port').value = tci.port;
+    $('tci-enabled').checked = tci.enabled;
+    $('tci-host').required = tci.enabled;
+  }
+}
+
+function tciFormChanged() {
+  tciFormDirty = true;
+  $('tci-host').required = $('tci-enabled').checked;
+  $('tci-message').textContent = 'Изменения ещё не сохранены.';
+}
+
+async function saveTciSettings(event) {
+  event.preventDefault();
+  if (tciSaving) return;
+  const body = new URLSearchParams();
+  body.set('host', $('tci-host').value.trim());
+  body.set('port', $('tci-port').value);
+  body.set('enabled', $('tci-enabled').checked ? '1' : '0');
+  tciSaving = true;
+  $('tci-fields').disabled = true;
+  $('tci-message').textContent = 'Сохранение...';
+  try {
+    const response = await fetch('/api/tci', {method: 'POST', body: body});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || ('ошибка ' + response.status));
+    tciFormDirty = false;
+    tciSaving = false;
+    showState(result);
+    $('tci-message').textContent = 'Настройки подключения сохранены.';
+  } catch (error) {
+    $('tci-message').textContent = error instanceof TypeError ? 'Нет связи с контроллером.' : error.message;
+  } finally {
+    tciSaving = false;
+    $('tci-fields').disabled = false;
+  }
+}
+
+$('tci-settings').addEventListener('input', tciFormChanged);
+$('tci-settings').addEventListener('submit', saveTciSettings);
 
 function showTarget() {
   for (const [name] of SERVOS) {
@@ -168,6 +320,8 @@ function showState(s) {
   const freqChanged = !state || state.freq !== s.freq;
   state = s;
   showAmp(s);
+  showTci(s);
+  showLogging(s);
   showBand(freqChanged && s.freq in bandOf ? bandOf[s.freq] : shownBand);
   $('freq').textContent = s.freq || '-';
   $('cap').textContent = pos(s.cap);

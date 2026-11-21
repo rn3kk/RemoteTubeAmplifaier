@@ -93,9 +93,13 @@ ESP32 GND ───────── GND ┘                │
 ## Build and flash
 
 You need [arduino-cli](https://arduino.github.io/arduino-cli/) (or the Arduino IDE) and the ESP32
-core 3.x (`esp32:esp32`). No third-party libraries are required.
+core 3.x (`esp32:esp32`). TCI requires WebSockets by Links2004, version 2.7.2:
 
-1. Create `esp32-backend/secrets.h` (it is in `.gitignore`):
+```bash
+arduino-cli lib install "WebSockets@2.7.2"
+```
+
+1. For Wi-Fi only (`USE_ETHERNET 0`), create `esp32-backend/secrets.h` (it is in `.gitignore`). Ethernet builds do not need this file:
 
    ```cpp
    #pragma once
@@ -133,6 +137,20 @@ and cool-down durations are `WARMUP_MS` and `COOLDOWN_MS`.
 3. **Frequency tuning.** Turn on "Tuning mode", select a frequency, adjust the capacitor, the variometer and the band switch position, press "Save". Tuned frequencies are marked with a green bar.
 4. **Backup.** In tuning mode, "Download" saves the table to `tubeamp-points.csv` (`frequency;capacitor;variometer;switch`), "Upload" restores it.
 
+## SunSDR2 DX over TCI
+
+Enable the TCI server in ExpertSDR on your computer. In the amplifier page, enable Tuning mode and enter the **computer's IPv4 address** and the configured TCI port (initial form value: 50001) in the SunSDR2 DX / TCI section. Enable the connection and save. Settings persist in ESP32 flash; they can be edited while the amplifier is off. Allow access to the TCI port through the computer's firewall if needed.
+
+The main page shows TCI connection status, radio on/off/unknown, frequency in MHz to 1 Hz and modulation for **RX1 / VFO A**. The radio frequency and the amplifier's selected memory frequency are displayed separately. The ESP32 connects even when no browser is open, retries every 5 seconds after failures and uses a WebSocket heartbeat. A successful connection does not imply that the radio is on: its state is unknown until START/STOP is received. Frequency and modulation are hidden when disconnected or stopped.
+
+This stage displays data only; automatic amplifier memory selection is a later stage. Connection settings are separate from the servo settings CSV. Update all three page files together with the firmware (API 7).
+
+## Web journal
+
+Open **Журнал** (Journal), then check **Записывать логи** (Record logs). This setting persists in flash and is restored before network and TCI startup. The journal records startup, network, amplifier and servo events, TCI connection/frequency/modulation changes and API errors. Timestamps show uptime since ESP32 startup.
+
+The journal refreshes every second while its tab is open. **Скачать логи** downloads `tubeamp-log.txt`. Disabling recording keeps existing messages available. RAM holds the latest 64 lines, up to 255 bytes per line, replacing old lines when full. Messages start fresh after reboot; only the checkbox is saved in flash. Update the firmware and all three page files together (API 7).
+
 ## HTTP API
 
 Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190° = 180° travel + 10° margin).
@@ -140,6 +158,9 @@ Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190
 | Method | Purpose |
 |---|---|
 | `GET /api/state` | full current state: frequency, positions, mode, power-up stage, relays, inputs, PTT, servo links |
+| `POST /api/tci` | save form-urlencoded `host`, `port`, `enabled=0\|1` in tuning mode; returns current state |
+| `GET /api/logs`, `GET /api/logs/download` | current UTF-8 journal; the second address downloads a text file |
+| `POST /api/logs?enabled=0\|1` | persist recording setting; returns state with `logsEnabled` |
 | `GET /api/table` | bands and points `[frequency, capacitor, variometer, saved, switch]` |
 | `POST /api/select?freq=<kHz>` | select a frequency |
 | `POST /api/mode?tuning=0\|1` | tuning mode |
@@ -152,6 +173,8 @@ Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190
 | `POST /api/www` | upload web page files (multipart) |
 | `POST /api/servo/scan`, `POST /api/servo/id?from=&to=` | servo scan and ID change |
 | `POST /api/switch/zero` | bring the band switch servo to zero (position 1) |
+
+The `tci` object in `/api/state` contains `host`, `port`, `enabled`, `link` (`disabled`, `connecting`, `connected`, `disconnected`, `error`), `running` (boolean or null), `frequency` (Hz or null) and `modulation` (string or null). Frequency and modulation are null when disconnected or stopped. Until START/STOP arrives, `running` is null while live frequency and modulation may be available.
 
 ## Project status
 

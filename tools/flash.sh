@@ -60,9 +60,23 @@ check_port() {
 }
 
 build() {
-    check_secrets
+    if grep -Eq '^#define[[:space:]]+USE_ETHERNET[[:space:]]+0([[:space:]]|$)' "$SKETCH/esp32-backend.ino"; then
+        check_secrets
+    fi
     echo "=== Сборка прошивки"
-    "$ARDUINO_CLI" compile --fqbn "$FQBN" "$SKETCH"
+    local cpp_flags websocket_flags=""
+    cpp_flags="$("$ARDUINO_CLI" compile --fqbn "$FQBN" --show-properties "$SKETCH" | sed -n 's/^compiler.cpp.flags=//p')"
+    if [ -z "$cpp_flags" ]; then
+        echo "Не удалось определить флаги компилятора C++ для $FQBN" >&2
+        exit 1
+    fi
+    if grep -Eq '^#define[[:space:]]+USE_ETHERNET[[:space:]]+1([[:space:]]|$)' "$SKETCH/esp32-backend.ino"; then
+        # TCI использует ws://. Ethernet-вариант библиотеки не включает Wi-Fi и TLS.
+        # WebSockets 2.7.2 использует старые имена клиентов; в ядре 3.x это NetworkClient/Server.
+        websocket_flags='-DWEBSOCKETS_NETWORK_TYPE=NETWORK_ESP32_ETH -DWiFiClient=NetworkClient -DWiFiServer=NetworkServer'
+    fi
+    # Стандарт идёт после флагов ядра ESP32, иначе ядро может переопределить его.
+    "$ARDUINO_CLI" compile --fqbn "$FQBN" --build-property "compiler.cpp.flags=$cpp_flags -std=gnu++17 $websocket_flags" "$SKETCH"
 }
 
 upload_firmware() {
