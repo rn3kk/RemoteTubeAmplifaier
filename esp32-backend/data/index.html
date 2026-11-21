@@ -60,6 +60,15 @@
     <span id="error"></span></div>
 </div>
 <div class="area-tune">
+  <div id="control-mode">
+    <div class="title">Управление положениями приводов</div>
+    <div class="actions">
+      <button type="button" id="control-manual" aria-pressed="true">Вручную</button>
+      <button type="button" id="control-auto" aria-pressed="false">Авто по TCI</button>
+    </div>
+    <div class="hint" id="control-note"></div>
+    <div id="control-message" role="status"></div>
+  </div>
   <label class="mode"><input type="checkbox" id="tuning"> Режим настройки</label>
   <form id="tci-settings" hidden>
     <div class="title">Трансивер SunSDR2 DX / TCI</div>

@@ -23,6 +23,15 @@ int main() {
   assert(protocol.state().frequencyHz == 7100123);
   assert(strcmp(protocol.state().modulation, "LSB") == 0);
   assert(protocol.state().running);  // TRX is PTT, not power.
+  feed(protocol, "trx:0,true;");
+  assert(protocol.state().transmitting && protocol.state().running);
+  feed(protocol, "trx:1,false;trx:0,invalid;");
+  assert(protocol.state().transmitting);
+  feed(protocol, "trx:0,false;");
+  assert(!protocol.state().transmitting);
+  const uint32_t updates = protocol.state().frequencyUpdates;
+  feed(protocol, "vfo:0,0,7100123;");
+  assert(protocol.state().frequencyUpdates == updates + 1); // A fresh response counts even at the same frequency.
 
   feed(protocol, "\n vFo : 0, 0, 1407");
   assert(protocol.state().frequencyHz == 7100123);

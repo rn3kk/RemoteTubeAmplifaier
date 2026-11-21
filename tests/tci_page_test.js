@@ -159,4 +159,43 @@ async function testLogs() {
   assert(html.includes('href="/api/logs/download"'));
   console.log('Log page tests passed');
 }
-testSave().then(testLogs).catch(function (error) { console.error(error); process.exitCode = 1; });
+async function testControl() {
+  context.controlState = {tci: {...tci, link: 'connected', running: true}, control: 'auto',
+    tuning: false, amp: 'ready', freq: 7100, swmax: 5, sw: 1, api: 8,
+    canSelect: false, canEdit: false, pttAllowed: false, autoTarget: 7125};
+  vm.runInContext('showState(controlState)', context);
+  assert.equal(vm.runInContext('canSelectCell()', context), false);
+  assert.equal(vm.runInContext('canEditCell()', context), false);
+  assert.equal(element('txbtn').disabled, true);
+  assert.equal(element('control-auto')['aria-pressed'], 'true');
+  assert(element('control-note').textContent.includes('7125'));
+  context.controlState.tuning = true;
+  context.controlState.canSelect = true;
+  context.controlState.canEdit = true;
+  vm.runInContext('showState(controlState)', context);
+  assert.equal(vm.runInContext('canSelectCell()', context), true);
+  assert.equal(vm.runInContext('canEditCell()', context), true);
+  assert(element('control-note').textContent.includes('Нажатие на ячейку'));
+  context.controlState.radioPending = 7125;
+  context.controlState.canEdit = false;
+  vm.runInContext('showState(controlState)', context);
+  assert.equal(vm.runInContext('canEditCell()', context), false);
+  assert(element('control-note').textContent.includes('подтверждение 7125'));
+
+  context.fetch = async function (url) {
+    assert.equal(url, '/api/control?mode=manual');
+    return {ok: true, async json() { return {...context.controlState, control: 'manual', radioPending: 0, canSelect: true}; }};
+  };
+  await vm.runInContext('setControlMode("manual")', context);
+  assert.equal(element('control-manual')['aria-pressed'], 'true');
+  assert.equal(element('control-auto').disabled, false);
+  context.fetch = async function () { throw new TypeError('offline'); };
+  await vm.runInContext('setControlMode("auto")', context);
+  assert.equal(element('control-manual')['aria-pressed'], 'true');
+  assert.equal(element('control-message').textContent, 'Нет связи с контроллером.');
+  assert.equal(element('control-auto').disabled, false);
+  assert(html.includes('id="control-auto"'));
+  assert(html.includes('id="control-manual"'));
+  console.log('Control page tests passed');
+}
+testSave().then(testLogs).then(testControl).catch(function (error) { console.error(error); process.exitCode = 1; });

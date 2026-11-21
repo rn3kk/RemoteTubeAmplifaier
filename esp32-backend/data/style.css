@@ -29,6 +29,13 @@ h1 { grid-area: title; font-size: 20px; margin: 0; }
 .download-button { display: inline-block; padding: 8px 12px; min-height: 40px; border: 1px solid #4a4e57;
                    border-radius: 6px; background: #2d3038; color: inherit; text-decoration: none; font-size: 15px; }
 #state { margin-top: 12px; font-size: 16px; line-height: 1.5; }
+#control-mode { border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+#control-mode .title { margin-bottom: 10px; font-weight: bold; }
+#control-mode .hint { margin: 10px 0 0; line-height: 1.5; }
+#control-mode button.active { background: #ffb347; color: #1b1d21; border-color: #ffb347; }
+#control-message { color: #ffb347; margin-top: 8px; }
+#control-message:empty { display: none; }
+.band button.requested { outline: 2px dashed #ffb347; outline-offset: -4px; }
 #transceiver { margin-top: 12px; border: 1px solid #3a3d44; border-radius: 8px; padding: 12px; }
 #transceiver .title, #tci-settings .title { font-weight: bold; margin-bottom: 10px; }
 .radio-values { margin-top: 10px; line-height: 1.6; }

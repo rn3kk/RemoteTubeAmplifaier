@@ -1,4 +1,4 @@
-const API_VERSION = 7;  // должна совпадать с WWW_API_VERSION в прошивке
+const API_VERSION = 8;  // должна совпадать с WWW_API_VERSION в прошивке
 const TUNE_MAX = 2162;  // КПЕ и вариометр: 190° = 180° + 10° запас на проворот
 const MAX_FOR = {cap: TUNE_MAX, vario: TUNE_MAX};
 const STEPS = [-100, -10, -1, 1, 10, 100];
@@ -25,8 +25,64 @@ let tciSaving = false;
 let logTabOpen = false;
 let logsLoading = false;
 let loggingSaving = false;
+let controlSaving = false;
+let targetFrequency = 0;
 
 const $ = id => document.getElementById(id);
+
+function showControl(s) {
+  const supported = s.control === 'auto' || s.control === 'manual';
+  const automatic = s.control === 'auto';
+  $('control-auto').disabled = !supported || controlSaving;
+  $('control-manual').disabled = !supported || controlSaving;
+  $('control-auto').classList.toggle('active', automatic);
+  $('control-manual').classList.toggle('active', !automatic);
+  $('control-auto').setAttribute('aria-pressed', String(automatic));
+  $('control-manual').setAttribute('aria-pressed', String(!automatic));
+  let note = 'Ячейку усилителя выбираете кнопками. Режим настройки открывает управление приводами.';
+  if (!supported) note = 'Для выбора режима обновите прошивку и файлы страницы.';
+  else if (automatic) {
+    note = 'Усилитель следует за RX1 / VFO A. Ячейка охватывает ±12,5 кГц.';
+    if (s.autoTarget) note += ' Ячейка по TCI: ' + s.autoTarget + ' кГц.';
+    if (s.tuning) note += ' Нажатие на ячейку задаёт её частоту трансиверу.';
+    if (s.radioPending) note += ' Ожидается подтверждение ' + s.radioPending + ' кГц.';
+    if (s.radioFailed) note += ' Частота не подтверждена. Повторите выбор ячейки в режиме настройки.';
+  }
+  $('control-note').textContent = note;
+}
+
+async function setControlMode(mode) {
+  if (controlSaving) return;
+  controlSaving = true;
+  $('control-auto').disabled = true;
+  $('control-manual').disabled = true;
+  $('control-message').textContent = 'Сохранение режима...';
+  try {
+    const result = await post('/api/control?mode=' + mode);
+    dirty = false;
+    controlSaving = false;
+    showState(result);
+    $('control-message').textContent = '';
+  } catch (error) {
+    $('control-message').textContent = error instanceof TypeError ? 'Нет связи с контроллером.' : error.message;
+  } finally {
+    controlSaving = false;
+    if (state) showControl(state);
+  }
+}
+
+function chooseManualControl() { setControlMode('manual'); }
+function chooseAutomaticControl() { setControlMode('auto'); }
+$('control-manual').addEventListener('click', chooseManualControl);
+$('control-auto').addEventListener('click', chooseAutomaticControl);
+
+function canSelectCell() {
+  return state && (typeof state.canSelect === 'boolean' ? state.canSelect : canTune());
+}
+
+function canEditCell() {
+  return state && (typeof state.canEdit === 'boolean' ? state.canEdit : canTune());
+}
 
 function showLogging(s) {
   const supported = typeof s.logsEnabled === 'boolean';
@@ -299,7 +355,7 @@ function showAmp(s) {
   $('resetprot').hidden = !s.protectLatched;
   $('version').hidden = s.api === API_VERSION;
   $('txbtn').classList.toggle('on', s.webTx);
-  $('txbtn').disabled = s.amp !== 'ready' && !s.webTx;
+  $('txbtn').disabled = !s.webTx && (s.amp !== 'ready' || (s.control === 'auto' && !s.pttAllowed));
   $('txbtn').textContent = s.webTx ? 'Передача ' + Math.floor(s.webTxLeft / 60) + ':' + String(s.webTxLeft % 60).padStart(2, '0') : 'Передача';
   if (!s.webTx && txTimer) {
     clearInterval(txTimer);
@@ -318,10 +374,15 @@ function freeze(box, off) {
 function showState(s) {
   // при смене частоты переходим на её диапазон
   const freqChanged = !state || state.freq !== s.freq;
+  if (freqChanged) {
+    dirty = false;
+    lastInput = 0;
+  }
   state = s;
   showAmp(s);
   showTci(s);
   showLogging(s);
+  showControl(s);
   showBand(freqChanged && s.freq in bandOf ? bandOf[s.freq] : shownBand);
   $('freq').textContent = s.freq || '-';
   $('cap').textContent = pos(s.cap);
@@ -332,7 +393,7 @@ function showState(s) {
     for (let n = 1; n <= s.swmax; n++) {
       const b = document.createElement('button');
       b.textContent = n;
-      b.onclick = () => command('/api/move?sw=' + n);
+      b.onclick = () => command('/api/move?freq=' + state.freq + '&sw=' + n);
       $('switch').appendChild(b);
       switchButtons.push(b);
     }
@@ -340,7 +401,9 @@ function showState(s) {
   switchButtons.forEach((b, i) => b.classList.toggle('active', i + 1 === s.sw));
   for (const f in buttons) {
     buttons[f].classList.toggle('active', Number(f) === s.freq);
-    buttons[f].disabled = !canTune();
+    buttons[f].disabled = !canSelectCell();
+    buttons[f].classList.toggle('requested', s.control === 'auto' &&
+      Number(f) === (s.radioPending || s.autoTarget) && Number(f) !== s.freq);
   }
   if (s.freq && buttons[s.freq]) buttons[s.freq].classList.toggle('saved', s.saved);
   $('error').textContent = '';
@@ -350,14 +413,15 @@ function showState(s) {
   $('files').hidden = !s.tuning;
   const ready = s.freq > 0;
   $('hint').textContent = ready ? 'Настройка для частоты ' + s.freq + ' кГц' : 'Выберите частоту в таблице';
-  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || !canTune();
+  for (const el of $('panel').querySelectorAll('button, input')) el.disabled = !ready || !canEditCell();
   // без связи с приводом его ручки неактивны
   freeze(servoBoxes.cap, s.servoCap < 0);
   freeze(servoBoxes.vario, s.servoVario < 0);
   freeze($('switch'), s.servoSwitch < 0);
-  for (const el of $('swcalib').querySelectorAll('button, input')) el.disabled = s.servoSwitch < 0;
-  $('save').disabled = !ready || !canTune() || (!s.sw && s.servoSwitch >= 0);
-  $('reset').disabled = !ready || !canTune() || !s.saved;
+  for (const el of $('swcalib').querySelectorAll('button, input'))
+    el.disabled = s.servoSwitch < 0 || (s.control === 'auto' && (!canEditCell() || s.txReq || s.webTx));
+  $('save').disabled = !ready || !canEditCell() || (!s.sw && s.servoSwitch >= 0);
+  $('reset').disabled = !ready || !canEditCell() || !s.saved;
   const changed = ready && (s.cap !== s.pcap || s.vario !== s.pvario || s.sw !== s.psw);
   $('unsaved').textContent = !ready ? '' : !s.saved ? 'точка не настроена' : changed ? 'положение не сохранено' : 'сохранено';
 
@@ -373,7 +437,7 @@ function flush() {
   if (sending || !dirty) return;
   sending = true;
   dirty = false;
-  post('/api/move?cap=' + target.cap + '&vario=' + target.vario).then(s => {
+  post('/api/move?freq=' + targetFrequency + '&cap=' + target.cap + '&vario=' + target.vario).then(s => {
     sending = false;
     if (dirty) flush(); else showState(s);
   }).catch(e => {
@@ -383,6 +447,8 @@ function flush() {
 }
 
 function setTarget(name, value) {
+  if (!state || !canEditCell()) return;
+  targetFrequency = state.freq;
   target[name] = Math.max(0, Math.min(MAX_FOR[name], Math.round(value)));
   lastInput = Date.now();
   dirty = true;
@@ -476,9 +542,9 @@ $('resetprot').onclick = () => command('/api/protection/reset');
 setInterval(showAmpState, 1000);
 
 $('tuning').onchange = () => command('/api/mode?tuning=' + ($('tuning').checked ? 1 : 0));
-$('save').onclick = () => command('/api/save');
+$('save').onclick = () => command('/api/save?freq=' + state.freq);
 $('reset').onclick = () => {
-  if (confirm('Сбросить сохранённую настройку для ' + state.freq + ' кГц?')) command('/api/reset');
+  if (confirm('Сбросить сохранённую настройку для ' + state.freq + ' кГц?')) command('/api/reset?freq=' + state.freq);
 };
 
 const SERVO_NAMES = {1: 'КПЕ', 2: 'вариометр', 3: 'переключатель БМЗ'};

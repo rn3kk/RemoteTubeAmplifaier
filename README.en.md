@@ -143,13 +143,25 @@ Enable the TCI server in ExpertSDR on your computer. In the amplifier page, enab
 
 The main page shows TCI connection status, radio on/off/unknown, frequency in MHz to 1 Hz and modulation for **RX1 / VFO A**. The radio frequency and the amplifier's selected memory frequency are displayed separately. The ESP32 connects even when no browser is open, retries every 5 seconds after failures and uses a WebSocket heartbeat. A successful connection does not imply that the radio is on: its state is unknown until START/STOP is received. Frequency and modulation are hidden when disconnected or stopped.
 
-This stage displays data only; automatic amplifier memory selection is a later stage. Connection settings are separate from the servo settings CSV. Update all three page files together with the firmware (API 7).
+Connection settings are separate from the servo settings CSV. Update all three page files together with the firmware (API 8).
+
+## Position control modes
+
+**Вручную** (Manual) and **Авто по TCI** (Auto via TCI) are independent of the **Режим настройки** (Tuning mode) checkbox. The control mode persists in flash; the initial default is Manual.
+
+Manual mode selects amplifier memories with page buttons. Tuning mode additionally enables servo controls and saving. Auto follows RX1 / VFO A: each memory covers ±12.5 kHz around its frequency, with the higher memory winning a shared boundary. An unconfigured memory is never replaced with an adjacent configured one.
+
+Auto blocks amplifier PTT and the page TX button when the radio is unavailable, off or unknown, frequency is missing, the matching memory is not fully saved (capacitor, variometer and switch), a frequency request is pending, or retuning has not finished. Existing warmup, protection and servo fault interlocks remain active, including in Tuning mode. Use Manual for initial tuning of an unsaved memory under a carrier.
+
+If the memory changes during transmission, amplifier PTT drops and movement waits for the radio PTT to be released. Auto applies the current memory after warmup; it does not follow frequency with the amplifier off. Changes within the same memory do not resend motor targets.
+
+In Auto + Tuning mode, clicking a memory sends its center frequency to the radio. Motors apply the memory after a fresh TCI frequency confirmation. Turning the radio dial never snaps its frequency to a memory center. Failed requests keep PTT blocked; retry the selection. Leaving Tuning mode, changing control mode or connection settings cancels pending requests; queued commands do not carry into a new connection.
 
 ## Web journal
 
 Open **Журнал** (Journal), then check **Записывать логи** (Record logs). This setting persists in flash and is restored before network and TCI startup. The journal records startup, network, amplifier and servo events, TCI connection/frequency/modulation changes and API errors. Timestamps show uptime since ESP32 startup.
 
-The journal refreshes every second while its tab is open. **Скачать логи** downloads `tubeamp-log.txt`. Disabling recording keeps existing messages available. RAM holds the latest 64 lines, up to 255 bytes per line, replacing old lines when full. Messages start fresh after reboot; only the checkbox is saved in flash. Update the firmware and all three page files together (API 7).
+The journal refreshes every second while its tab is open. **Скачать логи** downloads `tubeamp-log.txt`. Disabling recording keeps existing messages available. RAM holds the latest 64 lines, up to 255 bytes per line, replacing old lines when full. Messages start fresh after reboot; only the checkbox is saved in flash. Update the firmware and all three page files together (API 8).
 
 ## HTTP API
 
@@ -164,6 +176,7 @@ Responses are JSON. Capacitor and variometer positions are in steps 0..2162 (190
 | `GET /api/table` | bands and points `[frequency, capacitor, variometer, saved, switch]` |
 | `POST /api/select?freq=<kHz>` | select a frequency |
 | `POST /api/mode?tuning=0\|1` | tuning mode |
+| `POST /api/control?mode=manual\|auto` | persist the position control mode |
 | `POST /api/move?cap=&vario=&sw=` | manual control (tuning mode only) |
 | `POST /api/save`, `POST /api/reset` | save or reset the setting for the current frequency |
 | `GET /api/points.csv`, `POST /api/points.csv` | table download and upload |

@@ -69,7 +69,7 @@ const uint32_t WEB_TX_KEEPALIVE_MS = 2000;
 const uint32_t WEB_TX_MAX_MS = 60000;
 
 // Версия API для файлов веб-страницы: страница сверяет её со своей и предупреждает о расхождении
-const int WWW_API_VERSION = 7;
+const int WWW_API_VERSION = 8;
 
 TciSettings tciSettings;
 bool tciAvailable = false;
@@ -197,6 +197,8 @@ uint32_t pendingRadioSince = 0;
 uint32_t pendingRadioConnection = 0;
 uint32_t pendingRadioGeneration = 0;
 bool radioFrequencyFailed = false;
+bool autoSwitchRecoveryPending = false;
+uint32_t pttOffSince = 0;
 
 enum AmpState { AMP_OFF, AMP_SOFTSTART, AMP_WARMUP, AMP_READY, AMP_COOLING };
 AmpState ampState = AMP_OFF;
@@ -601,6 +603,8 @@ const char *automaticBlockReason() {
   const AutoSelection selection = automaticSelection();
   if (selection.block != AutoBlock::None)
     return autoBlockText(selection.block);
+  if (autoSwitchRecoveryPending)
+    return "восстановление положения БМЗ";
   if (autoAppliedFreqKhz != points[selection.index].freqKhz || currentFreqKhz != autoAppliedFreqKhz)
     return transceiverTransmitting() ? "ожидание отпускания PTT трансивера" : "ожидание перестройки по частоте трансивера";
   return nullptr;
@@ -651,6 +655,8 @@ void updatePtt() {
   if (key == relayPtt)
     return;
   relayPtt = key;
+  if (!key)
+    pttOffSince = millis();
   setRelay(RELAY_PTT_PIN, key);
   appLogPrintf("PTT %s\n", key ? "on" : "off");
 }
@@ -718,8 +724,13 @@ void updateRadioFrequency() {
 
 void updateAutomaticControl() {
   updateRadioFrequency();
-  if (controlMode != ControlMode::Automatic)
+  if (controlMode != ControlMode::Automatic) {
+    if (autoSwitchRecoveryPending && !transceiverTransmitting()) {
+      recoverSwitchAfterPower();
+      autoSwitchRecoveryPending = false;
+    }
     return;
+  }
   if (pendingRadioRequest != 0 || radioFrequencyFailed)
     return;
   if (ampState != AMP_READY) {
@@ -732,12 +743,17 @@ void updateAutomaticControl() {
     return;
   }
   const Point &point = points[selection.index];
-  if (autoAppliedFreqKhz == point.freqKhz)
+  if (autoAppliedFreqKhz == point.freqKhz && !autoSwitchRecoveryPending)
     return;
   setWebTx(false);
   updatePtt();
-  if (transceiverTransmitting())
+  if (transceiverTransmitting() || millis() - pttOffSince < PTT_RELEASE_MS)
     return;
+  if (autoSwitchRecoveryPending) {
+    recoverSwitchAfterPower();
+    autoSwitchRecoveryPending = false;
+    return;
+  }
   currentFreqKhz = point.freqKhz;
   retuneServos(point.cap, point.vario);
   setSwitch(point.sw);
@@ -749,7 +765,7 @@ bool automaticEditingAllowed() {
   const AutoSelection selection = automaticSelection();
   return pendingRadioRequest == 0 && !radioFrequencyFailed && selection.index >= 0 &&
          currentFreqKhz == points[selection.index].freqKhz && autoAppliedFreqKhz == currentFreqKhz &&
-         !capRetune.moving && !varioRetune.moving && !switchMoving;
+         !autoSwitchRecoveryPending && !capRetune.moving && !varioRetune.moving && !switchMoving;
 }
 
 // Ручное движение в режиме настройки: перестройку по частоте больше не отслеживаем
@@ -1292,7 +1308,11 @@ void pollServos() {
 
   // Привод снова на связи (например, вернулось питание 12 В): удержание у него выключено,
   // вал мог сдвинуться - ставим его в положение текущей частоты, PTT снят до окончания
-  bool restore = ampState != AMP_OFF && findPoint(currentFreqKhz) != nullptr;
+  if (controlMode == ControlMode::Automatic &&
+      ((capBefore < 0 && servoCapPos >= 0) || (varioBefore < 0 && servoVarioPos >= 0) ||
+       (switchBefore < 0 && servoSwitchPos >= 0)))
+    autoAppliedFreqKhz = 0;
+  bool restore = controlMode == ControlMode::Manual && ampState != AMP_OFF && findPoint(currentFreqKhz) != nullptr;
   if (restore && capBefore < 0 && servoCapPos >= 0 && currentCap >= 0) {
     appLogPrintf("cap servo: link restored");
     startRetune(capRetune, currentCap);
@@ -1305,7 +1325,10 @@ void pollServos() {
   // восстановить привязку нуля и довезти прерванный поворот
   if (switchBefore < 0 && servoSwitchPos >= 0) {
     appLogPrintf("switch servo: link up, angle=%d\n", servoSwitchPos);
-    recoverSwitchAfterPower();
+    if (controlMode == ControlMode::Automatic)
+      autoSwitchRecoveryPending = true;
+    else
+      recoverSwitchAfterPower();
   }
   updatePtt();  // связь с приводами влияет на разрешение PTT
 }
@@ -1341,6 +1364,15 @@ void sendState() {
           ",\"api\":" + String(WWW_API_VERSION) + ",\"logsEnabled\":" + jsonBool(appLogEnabled()) +
           ",\"control\":\"" + (controlMode == ControlMode::Automatic ? "auto" : "manual") + "\"";
   json += ",\"radioPending\":" + String(pendingRadioFreqKhz) + ",\"radioFailed\":" + jsonBool(radioFrequencyFailed);
+  const AutoSelection selection = automaticSelection();
+  const TciStatus selectionTci = tciReadStatus();
+  const bool canSelect = ampState == AMP_READY && (controlMode == ControlMode::Manual ||
+      (tuningMode && pendingRadioRequest == 0 && selectionTci.link == TciLink::Connected &&
+       selectionTci.radio.runningKnown && selectionTci.radio.running && !transceiverTransmitting() && !webTx));
+  const bool canEdit = ampState == AMP_READY && tuningMode && currentFreqKhz > 0 &&
+      (controlMode == ControlMode::Manual || automaticEditingAllowed());
+  json += ",\"autoTarget\":" + String(selection.index >= 0 ? points[selection.index].freqKhz : 0) +
+          ",\"canSelect\":" + jsonBool(canSelect) + ",\"canEdit\":" + jsonBool(canEdit);
   const TciStatus tci = tciReadStatus();
   const bool connected = tci.link == TciLink::Connected;
   const bool dataValid = connected && (!tci.radio.runningKnown || tci.radio.running);
@@ -1667,6 +1699,10 @@ void handleMove() {
     sendError(409, "частота не выбрана");
     return;
   }
+  if (server.hasArg("freq") && server.arg("freq").toInt() != currentFreqKhz) {
+    sendError(409, "ячейка уже изменилась, повторите настройку");
+    return;
+  }
   if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
     sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
     return;
@@ -1694,6 +1730,10 @@ void handleMove() {
 
 // Запоминает текущие положения сервоприводов и БМЗ для выбранной частоты
 void handleSave() {
+  if (server.hasArg("freq") && server.arg("freq").toInt() != currentFreqKhz) {
+    sendError(409, "ячейка уже изменилась, повторите сохранение");
+    return;
+  }
   if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
     sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
     return;
@@ -1728,6 +1768,10 @@ void handleSave() {
 
 // Удаляет сохранённую настройку выбранной частоты, сервоприводы не двигает
 void handleReset() {
+  if (server.hasArg("freq") && server.arg("freq").toInt() != currentFreqKhz) {
+    sendError(409, "ячейка уже изменилась, повторите сброс");
+    return;
+  }
   if (controlMode == ControlMode::Automatic && !automaticEditingAllowed()) {
     sendError(409, "дождитесь выбора ячейки по TCI и окончания перестройки");
     return;
@@ -1818,6 +1862,11 @@ void handleProtectionReset() {
 // при наладке переключатель механически выставляется в положение 1 при вале привода в нуле.
 // Работает и при выключенном усилителе
 void handleSwitchZero() {
+  if (controlMode == ControlMode::Automatic &&
+      (!tuningMode || !automaticEditingAllowed() || transceiverTransmitting() || webTx)) {
+    sendError(409, "для калибровки в авто включите настройку и отпустите PTT");
+    return;
+  }
   if (controlsLocked()) {
     sendError(409, "идёт включение усилителя, управление заблокировано");
     return;
@@ -1971,6 +2020,7 @@ void setup() {
   loadSwitchStateFromNvs();
   loadTciSettings();
   controlMode = prefs.getBool("auto", false) ? ControlMode::Automatic : ControlMode::Manual;
+  appLogPrintf("control: %s", controlMode == ControlMode::Automatic ? "auto" : "manual");
 
   appLogPrintf("network: starting %s", USE_ETHERNET ? "Ethernet" : "Wi-Fi");
   setupNetwork();
