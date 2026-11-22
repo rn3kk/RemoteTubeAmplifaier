@@ -70,6 +70,12 @@ GPIO33–37 on this board are used by the PSRAM (OPI) and are unavailable.
 | IO13 / IO12 / IO11 | built-in W5500 SPI: SCK / MISO / MOSI |
 | IO14 / IO10 / IO9 | built-in W5500: CS / IRQ / RST |
 
+![Waveshare ESP32-S3-ETH connections](img/board-pins.svg)
+
+The board is shown from above with the Ethernet jack facing the reader (the way the assembler sees it).
+Numbers 1–40 are the header contact numbers, IOxx are the GPIO used by the firmware.
+Official board pinout: <https://docs.waveshare.com/ESP32-S3-ETH>.
+
 IO labels are ESP32 GPIO numbers, not connector contact numbers. The W5500 signals are already wired inside the board and reserved for Ethernet.
 
 Relays 5–7 of the single 8-relay module are free. Relay 4 uses GPIO18; GPIO41 is no longer assigned to relay 4.
