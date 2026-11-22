@@ -26,7 +26,7 @@ controller itself.
 - **SunSDR2 DX / TCI**: the controller receives frequency, modulation and radio state from ExpertSDR on a computer. Auto selects a memory covering ±12.5 kHz; in Auto + Tuning mode a memory click sets its center frequency on the radio.
 - **Tuning mode**: the capacitor and the variometer are turned with sliders and ±1/±10/±100 step buttons, the band switch with buttons 1–5; the best setting is saved for the frequency.
 - **Power-up sequence**: "On" → 220 V relay → 10 s soft start (short-circuit the start-up resistor) → 4-minute tube warm-up (controls locked) → anode voltage → PTT enable.
-- **Hardware PTT permission**: the transceiver drives the amplifier PTT through the NO contacts of relay 8. The ESP32 energizes this permission relay when transmission is allowed, independently of the current PTT request; GPIO44 observes the request. Warmup, protection, memory and servo interlocks determine permission.
+- **Hardware PTT permission**: the transceiver drives the amplifier PTT through the NO contacts of relay 5. The ESP32 energizes this permission relay when transmission is allowed, independently of the current PTT request; GPIO44 observes the request. Warmup, protection, memory and servo interlocks determine permission.
 - **Amplifier PTT test**: the page's "Тест PTT усилителя" button activates relay 3, which supplies a test request through the same permission relay. It does not key the transceiver. A page confirmation is required every 0.5 s; the test releases after 2 s without confirmation and has a 60 s limit. All PTT interlocks apply to the test.
 - **Cool-down**: if less than 5 minutes have passed since the last transmission, "Switch off" does not switch the amplifier off; a "Switch off without cool-down" button appears instead.
 - **Protection**: a trip drops the anode voltage and blocks PTT (latched until reset from the web page).
@@ -56,29 +56,34 @@ IP address and TCI port in the controller settings.
 Pins for the Waveshare ESP32-S3-ETH. All relays are switched on by a **low** level at the module input.
 GPIO33–37 on this board are used by the PSRAM (OPI) and are unavailable.
 
-| ESP32 pin | Function |
-|---|---|
-| IO38 | relay 1 (8-relay module): 220 V mains |
-| IO39 | relay 2: soft start (short-circuit the start-up resistor) |
-| IO40 | relay 3: amplifier test PTT request |
-| IO17 | relay 8: PTT permission; NO contacts in series with the amplifier PTT request |
-| IO18 | relay 4: anode voltage |
-| IO44 | input: transceiver PTT (active when pulled to GND) |
-| IO43 | input "protection tripped" (active when pulled to GND) |
-| IO47 | servo bus, transmit (to adapter `TXD`) |
-| IO48 | servo bus, receive (to adapter `RXD`) |
-| IO13 / IO12 / IO11 | built-in W5500 SPI: SCK / MISO / MOSI |
-| IO14 / IO10 / IO9 | built-in W5500: CS / IRQ / RST |
+| Connection | GPIO | Contact | Contact | GPIO | Connection |
+|---|---|---|---|---|---|
+| — | IO20 | 1 | 21 | IO43 | input: amplifier protection |
+| — | IO19 | 2 | 22 | IO44 | input: transceiver PTT |
+| servo bus: ground | GND | 3 | 23 | GND | — |
+| servo bus: receive, to RXD | IO48 | 4 | 24 | IO0 | — |
+| servo bus: transmit, to TXD | IO47 | 5 | 25 | IO1 | — |
+| — | IO46 | 6 | 26 | IO2 | — |
+| — | IO45 | 7 | 27 | IO3 | — |
+| — | GND | 8 | 28 | GND | — |
+| relay 5 — PTT permission | IO42 | 9 | 29 | IO15 | — |
+| relay 4 — anode voltage | IO41 | 10 | 30 | CHIP_PU | board reset, do not use |
+| relay 3 — test PTT | IO40 | 11 | 31 | IO18 | — |
+| relay 2 — soft start | IO39 | 12 | 32 | IO16 | — |
+| — | GND | 13 | 33 | GND | — |
+| relay 1 — 220 V mains | IO38 | 14 | 34 | IO17 | — |
+| PSRAM (do not use) | IO37 | 15 | 35 | IO21 | board RGB LED |
+| PSRAM (do not use) | IO36 | 16 | 36 | 3V3 | 3.3 V supply |
+| PSRAM (do not use) | IO35 | 17 | 37 | 3V3_EN | do not use |
+| — | GND | 18 | 38 | GND | — |
+| PSRAM (do not use) | IO34 | 19 | 39 | VSYS | board power input |
+| PSRAM (do not use) | IO33 | 20 | 40 | VBUS | 5 V from USB |
 
-![Waveshare ESP32-S3-ETH connections](img/board-pins.svg)
+IOxx are ESP32 GPIO numbers as used by the firmware; "contact" is the number printed on the board next to the header.
+Seen from above with the Ethernet jack facing you, contacts 1–20 are on the left and 21–40 on the right. The W5500 signals are already wired inside the board and reserved for Ethernet.
 
-The board is shown from above with the Ethernet jack facing the reader (the way the assembler sees it).
-Numbers 1–40 are the header contact numbers, IOxx are the GPIO used by the firmware.
-Official board pinout: <https://docs.waveshare.com/ESP32-S3-ETH>.
-
-IO labels are ESP32 GPIO numbers, not connector contact numbers. The W5500 signals are already wired inside the board and reserved for Ethernet.
-
-Relays 5–7 of the single 8-relay module are free. Relay 4 uses GPIO18; GPIO41 is no longer assigned to relay 4.
+Relays 6–8 of the single 8-relay module are free. Relays 1–5 use IO38, IO39, IO40, IO41, IO42.
+The free pins IO0–IO3, IO15–IO18, IO19, IO20, IO45, IO46 can be used for relays 6–8 and other needs.
 Pins are set by constants at the top of the sketch.
 
 ### Servo bus
@@ -103,7 +108,7 @@ ESP32 GND ───────── GND ┘                │
 
 ### Relays and inputs
 
-The normal signal path is **transceiver PTT → relay 8 COM/NO contacts → amplifier PTT**. The ESP32 controls permission, while the request passes in hardware. Relay 3 contacts provide a separate test request before the permission relay. GPIO44 observes PTT. The transmission indicator and cool-down timer use the presence of a request with permission granted; there is no sensor confirming the amplifier relay's physical state.
+The normal signal path is **transceiver PTT → relay 5 COM/NO contacts → amplifier PTT**. The ESP32 controls permission, while the request passes in hardware. Relay 3 contacts provide a separate test request before the permission relay. GPIO44 observes PTT. The transmission indicator and cool-down timer use the presence of a request with permission granted; there is no sensor confirming the amplifier relay's physical state.
 
 - "Arduino" relay modules are designed for 5 V. If the relays do not switch reliably from 3.3 V, power the optocoupler side (VCC) from 3.3 V and the coils (JD-VCC) from 5 V with the jumper removed.
 - Never apply more than 3.3 V to IO44/IO43: bring the transceiver PTT and the amplifier signals in through a dry contact or an optocoupler to GND.
